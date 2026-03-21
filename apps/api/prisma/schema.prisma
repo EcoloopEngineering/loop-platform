@@ -1,0 +1,600 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuidOssp(map: "uuid-ossp")]
+}
+
+// ==================== IDENTITY CONTEXT ====================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  SALES_REP
+  REFERRAL
+}
+
+model User {
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  firebaseUid          String   @unique @map("firebase_uid")
+  email                String   @unique
+  firstName            String   @map("first_name")
+  lastName             String   @map("last_name")
+  phone                String?
+  role                 UserRole @default(SALES_REP)
+  profileImage         String?  @map("profile_image")
+  socialSecurityNumber String?  @map("social_security_number")
+  invitationCode       String   @unique @default(dbgenerated("uuid_generate_v4()")) @map("invitation_code") @db.Uuid
+  nickname             String?
+  closedDealEmoji      String?  @default("🎉") @map("closed_deal_emoji")
+  language             String   @default("en") @db.VarChar(5)
+  isActive             Boolean  @default(true) @map("is_active")
+  teamId               String?  @map("team_id") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  team              Team?            @relation(fields: [teamId], references: [id])
+  finance           UserFinance?
+  device            UserDevice?
+  onboarding        UserOnboarding?
+  goals             UserGoal?
+  leadAssignments   LeadAssignment[]
+  commissions       Commission[]
+  referralsMade     Referral[]       @relation("ReferralInviter")
+  referralsReceived Referral[]       @relation("ReferralInvitee")
+  notifications     Notification[]
+  forms             Form[]
+  activities        LeadActivity[]
+  documents         Document[]
+
+  @@index([email])
+  @@index([invitationCode])
+  @@index([teamId])
+  @@map("users")
+}
+
+model UserFinance {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  bankName      String?  @map("bank_name")
+  routingNumber String?  @map("routing_number")
+  accountNumber String?  @map("account_number")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_finances")
+}
+
+model UserDevice {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  token     String
+  platform  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_devices")
+}
+
+model UserOnboarding {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  completed Json     @default("{}")
+  showTour  Boolean  @default(true) @map("show_tour")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_onboardings")
+}
+
+model UserGoal {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String   @unique @map("user_id") @db.Uuid
+  annualGoal Decimal  @default(0) @map("annual_goal") @db.Decimal(10, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_goals")
+}
+
+model Team {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name      String
+  image     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members User[]
+
+  @@map("teams")
+}
+
+model Referral {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  inviterId       String   @map("inviter_id") @db.Uuid
+  inviteeId       String?  @map("invitee_id") @db.Uuid
+  tempId          String?  @map("temp_id")
+  hierarchyPath   String   @map("hierarchy_path")
+  hierarchyLevel  Int      @map("hierarchy_level")
+  commissionSplit Json?    @map("commission_split")
+  status          String   @default("pending")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  inviter User  @relation("ReferralInviter", fields: [inviterId], references: [id])
+  invitee User? @relation("ReferralInvitee", fields: [inviteeId], references: [id])
+
+  @@unique([inviterId, inviteeId])
+  @@index([inviterId])
+  @@index([inviteeId])
+  @@index([hierarchyPath])
+  @@map("referrals")
+}
+
+// ==================== CRM CONTEXT ====================
+
+model Customer {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  firstName        String   @map("first_name")
+  lastName         String   @map("last_name")
+  email            String?
+  phone            String?
+  source           String?
+  hubspotContactId String?  @unique @map("hubspot_contact_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  properties Property[]
+  leads      Lead[]
+
+  @@index([email])
+  @@index([phone])
+  @@map("customers")
+}
+
+enum RoofCondition {
+  GOOD
+  FAIR
+  POOR
+  UNKNOWN
+}
+
+enum PropertyType {
+  RESIDENTIAL
+  COMMERCIAL
+}
+
+model Property {
+  id                  String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customerId          String        @map("customer_id") @db.Uuid
+  propertyType        PropertyType  @default(RESIDENTIAL) @map("property_type")
+  streetAddress       String        @map("street_address")
+  city                String
+  state               String
+  zip                 String
+  latitude            Float?
+  longitude           Float?
+  roofCondition       RoofCondition @default(UNKNOWN) @map("roof_condition")
+  roofAgeYears        Int?          @map("roof_age_years")
+  electricalService   String?       @map("electrical_service")
+  hasPool             Boolean       @default(false) @map("has_pool")
+  hasEV               Boolean       @default(false) @map("has_ev")
+  monthlyBill         Decimal?      @map("monthly_bill") @db.Decimal(10, 2)
+  annualKwhUsage      Decimal?      @map("annual_kwh_usage") @db.Decimal(12, 2)
+  utilityProvider     String?       @map("utility_provider")
+  isInsideServiceArea Boolean?      @map("is_inside_service_area")
+  notes               String?
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  customer  Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leads     Lead[]
+  documents Document[]
+
+  @@index([customerId])
+  @@index([latitude, longitude])
+  @@map("properties")
+}
+
+enum LeadStage {
+  NEW_LEAD
+  REQUEST_DESIGN
+  DESIGN_IN_PROGRESS
+  DESIGN_READY
+  PENDING_SIGNATURE
+  SIT
+  WON
+  LOST
+  SITE_AUDIT_PENDING
+  ENGINEERING_DESIGN
+  PROPOSAL_REVIEW
+  INSTALL_READY
+  INSTALL_SCHEDULED
+  INSTALL_COMPLETE
+  CANCELLED
+}
+
+enum LeadSource {
+  DOOR_KNOCK
+  COLD_CALL
+  REFERRAL
+  EVENT
+  PUBLIC_FORM
+  WEBSITE
+  OTHER
+}
+
+model Pipeline {
+  id        String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name      String
+  isDefault Boolean         @default(false) @map("is_default")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  stages PipelineStage[]
+  leads  Lead[]
+
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  pipelineId   String    @map("pipeline_id") @db.Uuid
+  stage        LeadStage
+  label        String
+  displayOrder Int       @map("display_order")
+  color        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@unique([pipelineId, stage])
+  @@index([pipelineId, displayOrder])
+  @@map("pipeline_stages")
+}
+
+model Lead {
+  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customerId    String     @map("customer_id") @db.Uuid
+  propertyId    String     @map("property_id") @db.Uuid
+  pipelineId    String     @map("pipeline_id") @db.Uuid
+  currentStage  LeadStage  @default(NEW_LEAD) @map("current_stage")
+  source        LeadSource @default(OTHER)
+  kw            Decimal?   @db.Decimal(10, 3)
+  epc           Decimal?   @db.Decimal(10, 4)
+  financier     String?
+  systemSize    Decimal?   @map("system_size") @db.Decimal(10, 3)
+  baseline      Decimal?   @db.Decimal(10, 2)
+  isActive      Boolean    @default(true) @map("is_active")
+  wonAt         DateTime?  @map("won_at")
+  lostAt        DateTime?  @map("lost_at")
+  lostReason    String?    @map("lost_reason")
+  hubspotDealId String?    @unique @map("hubspot_deal_id")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  customer       Customer         @relation(fields: [customerId], references: [id])
+  property       Property         @relation(fields: [propertyId], references: [id])
+  pipeline       Pipeline         @relation(fields: [pipelineId], references: [id])
+  score          LeadScore?
+  assignments    LeadAssignment[]
+  activities     LeadActivity[]
+  commissions    Commission[]
+  designRequests DesignRequest[]
+  appointments   Appointment[]
+  documents      Document[]
+  quotes         LeadQuote[]
+
+  @@index([customerId])
+  @@index([propertyId])
+  @@index([pipelineId, currentStage])
+  @@index([currentStage])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+model LeadAssignment {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId    String   @map("lead_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  splitPct  Decimal  @default(100) @map("split_pct") @db.Decimal(5, 2)
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([leadId, userId])
+  @@index([leadId])
+  @@index([userId])
+  @@map("lead_assignments")
+}
+
+model LeadScore {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId        String   @unique @map("lead_id") @db.Uuid
+  totalScore    Decimal  @map("total_score") @db.Decimal(5, 2)
+  roofScore     Decimal  @map("roof_score") @db.Decimal(5, 2)
+  energyScore   Decimal  @map("energy_score") @db.Decimal(5, 2)
+  contactScore  Decimal  @map("contact_score") @db.Decimal(5, 2)
+  propertyScore Decimal  @map("property_score") @db.Decimal(5, 2)
+  calculatedAt  DateTime @default(now()) @map("calculated_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("lead_scores")
+}
+
+enum ActivityType {
+  STAGE_CHANGE
+  NOTE_ADDED
+  DOCUMENT_UPLOADED
+  ASSIGNMENT_CHANGED
+  SCORE_UPDATED
+  DESIGN_REQUESTED
+  DESIGN_COMPLETED
+  APPOINTMENT_BOOKED
+  APPOINTMENT_COMPLETED
+  COMMISSION_CALCULATED
+  EMAIL_SENT
+  CALL_LOGGED
+  HUBSPOT_SYNCED
+}
+
+model LeadActivity {
+  id          String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId      String       @map("lead_id") @db.Uuid
+  userId      String?      @map("user_id") @db.Uuid
+  type        ActivityType
+  description String
+  metadata    Json?
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  lead Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([leadId, createdAt])
+  @@map("lead_activities")
+}
+
+model LeadQuote {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId        String   @map("lead_id") @db.Uuid
+  quoteType     String   @map("quote_type")
+  amount        Decimal? @db.Decimal(10, 2)
+  description   String?
+  repApproved   String?  @map("rep_approved")
+  isChangeOrder Boolean  @default(false) @map("is_change_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_quotes")
+}
+
+// ==================== DESIGN CONTEXT ====================
+
+enum DesignType {
+  AI_DESIGN
+  MANUAL_DESIGN
+}
+
+enum DesignStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model DesignRequest {
+  id               String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId           String       @map("lead_id") @db.Uuid
+  designType       DesignType   @map("design_type")
+  status           DesignStatus @default(PENDING)
+  auroraProjectId  String?      @map("aurora_project_id")
+  auroraProjectUrl String?      @map("aurora_project_url")
+  designSoldId     String?      @map("design_sold_id")
+  treeRemoval      Boolean      @default(false) @map("tree_removal")
+  notes            String?
+  completedAt      DateTime?    @map("completed_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("design_requests")
+}
+
+// ==================== SCHEDULING CONTEXT ====================
+
+enum AppointmentType {
+  SITE_AUDIT
+  INSTALLATION
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+model Appointment {
+  id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId          String            @map("lead_id") @db.Uuid
+  type            AppointmentType
+  status          AppointmentStatus @default(PENDING)
+  scheduledAt     DateTime          @map("scheduled_at")
+  duration        Int               @default(60)
+  jobberBookingId String?           @map("jobber_booking_id")
+  jobberVisitId   String?           @map("jobber_visit_id")
+  notes           String?
+  completedAt     DateTime?         @map("completed_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([scheduledAt])
+  @@map("appointments")
+}
+
+// ==================== COMMISSION CONTEXT ====================
+
+enum CommissionType {
+  M1
+  M2
+  M3
+}
+
+enum CommissionStatus {
+  PENDING
+  ACTIVE
+  PAID
+  VOIDED
+}
+
+model Commission {
+  id              String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId          String           @map("lead_id") @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  type            CommissionType
+  amount          Decimal          @db.Decimal(10, 2)
+  status          CommissionStatus @default(PENDING)
+  isPaid          Boolean          @default(false) @map("is_paid")
+  isAdvance       Boolean          @default(false) @map("is_advance")
+  splitPct        Decimal          @map("split_pct") @db.Decimal(5, 2)
+  breakdown       Json?
+  paidAt          DateTime?        @map("paid_at")
+  stripePaymentId String?          @map("stripe_payment_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  lead Lead @relation(fields: [leadId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([type, status])
+  @@map("commissions")
+}
+
+// ==================== DOCUMENT CONTEXT ====================
+
+enum DocumentType {
+  UTILITY_BILL
+  ROOF_IMAGE
+  DESIGN_RENDER
+  CONTRACT
+  ID_DOCUMENT
+  OTHER
+}
+
+model Document {
+  id           String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId       String?      @map("lead_id") @db.Uuid
+  propertyId   String?      @map("property_id") @db.Uuid
+  uploadedById String       @map("uploaded_by_id") @db.Uuid
+  type         DocumentType
+  fileName     String       @map("file_name")
+  fileKey      String       @map("file_key")
+  mimeType     String       @map("mime_type")
+  fileSize     Int          @map("file_size")
+  metadata     Json?
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  uploadedBy User      @relation(fields: [uploadedById], references: [id])
+
+  @@index([leadId])
+  @@index([propertyId])
+  @@map("documents")
+}
+
+// ==================== NOTIFICATION CONTEXT ====================
+
+model Notification {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  event     String
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ==================== FORM CONTEXT ====================
+
+model Form {
+  id        String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String?          @map("user_id") @db.Uuid
+  name      String
+  slug      String           @unique
+  config    Json?
+  isActive  Boolean          @default(true) @map("is_active")
+  views     Int              @default(0)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  user        User?            @relation(fields: [userId], references: [id])
+  submissions FormSubmission[]
+
+  @@index([userId])
+  @@index([slug])
+  @@map("forms")
+}
+
+model FormSubmission {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  formId    String   @map("form_id") @db.Uuid
+  data      Json
+  leadId    String?  @map("lead_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@map("form_submissions")
+}
+
+// ==================== ANALYTICS ====================
+
+model CompanyMetrics {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  periodStart    DateTime @map("period_start")
+  periodEnd      DateTime @map("period_end")
+  totalLeads     Int      @map("total_leads")
+  totalProjects  Int      @map("total_projects")
+  conversionRate Float    @map("conversion_rate")
+  avgCommission  Decimal  @map("avg_commission") @db.Decimal(10, 2)
+  totalKw        Decimal  @map("total_kw") @db.Decimal(12, 3)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([periodStart, periodEnd])
+  @@map("company_metrics")
+}

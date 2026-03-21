@@ -1,0 +1,130 @@
+// Loop Platform - Global Styles
+// Primary palette: teal/dark-teal matching existing mobile app
+
+// Brand colors
+$primary: #00897B;
+$secondary: #00695C;
+$accent: #4DB6AC;
+
+// Typography
+body {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Utility classes
+.full-width {
+  width: 100%;
+}
+
+.rounded-lg {
+  border-radius: 16px;
+}
+
+.rounded-md {
+  border-radius: 12px;
+}
+
+.rounded-sm {
+  border-radius: 8px;
+}
+
+.shadow-soft {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+// Card overrides
+.q-card {
+  border-radius: 12px;
+}
+
+// Button overrides
+.q-btn {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+// Input overrides
+.q-field--outlined .q-field__control {
+  border-radius: 12px;
+}
+
+// Header gradient
+.header-gradient {
+  background: linear-gradient(135deg, $secondary 0%, $primary 100%);
+}
+
+// Status colors
+.status-new {
+  color: #2196F3;
+}
+
+.status-contacted {
+  color: #FF9800;
+}
+
+.status-qualified {
+  color: #9C27B0;
+}
+
+.status-proposal {
+  color: #00BCD4;
+}
+
+.status-won {
+  color: #4CAF50;
+}
+
+.status-lost {
+  color: #F44336;
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.25);
+  }
+}
+
+// Transitions
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from {
+  transform: translateY(20px);
+  opacity: 0;
+}
+
+.slide-up-leave-to {
+  transform: translateY(-20px);
+  opacity: 0;
+}
