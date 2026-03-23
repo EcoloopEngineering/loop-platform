@@ -8,6 +8,26 @@ import {
 import { getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import routes from './routes';
+import { useUserStore } from '@/stores/user.store';
+
+// Role-based route access map
+const ROLE_ROUTES: Record<string, string[]> = {
+  ADMIN: ['*'],
+  MANAGER: [
+    '/home', '/leads', '/referrals', '/support', '/profile', '/notifications', '/dashboard',
+    '/crm', '/admin/scoreboard', '/admin/settings',
+  ],
+  SALES_REP: ['/home', '/leads', '/referrals', '/support', '/profile', '/notifications'],
+  REFERRAL: ['/home', '/leads', '/referrals', '/support', '/profile', '/notifications'],
+};
+
+function canAccessRoute(role: string, path: string): boolean {
+  const allowed = ROLE_ROUTES[role] ?? ROLE_ROUTES.SALES_REP;
+  if (allowed.includes('*')) return true;
+  // Auth routes always allowed
+  if (path.startsWith('/auth')) return true;
+  return allowed.some((r) => path === r || path.startsWith(r + '/') || path.startsWith(r));
+}
 
 export default route(function () {
   const createHistory = process.env.SERVER
@@ -24,10 +44,21 @@ export default route(function () {
 
   Router.beforeEach((to, _from, next) => {
     const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
-    const requiredRoles = to.matched
-      .flatMap((r) => (r.meta.roles as string[]) ?? []);
+
+    // Auth pages are always accessible
+    if (to.path.startsWith('/auth')) return next();
 
     if (!requiresAuth) {
+      // Check role-based access even for non-auth routes
+      const userStore = useUserStore();
+      const role = userStore.user?.role ?? 'SALES_REP';
+
+      if (!canAccessRoute(role, to.path)) {
+        // Redirect to appropriate home
+        const homeRoute = ['ADMIN', 'MANAGER'].includes(role) ? '/crm' : '/home';
+        return next(homeRoute);
+      }
+
       return next();
     }
 
@@ -35,13 +66,11 @@ export default route(function () {
     try { getApp(); firebaseReady = true; } catch { /* not initialized */ }
 
     if (!firebaseReady) {
-      // No Firebase — skip auth, go to login
       return next({ name: 'login', query: { redirect: to.fullPath } });
     }
 
     const auth = getAuth();
 
-    // Wait for auth state to be determined
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       unsubscribe();
 
@@ -49,10 +78,12 @@ export default route(function () {
         return next({ name: 'login', query: { redirect: to.fullPath } });
       }
 
-      // Role check will be handled via user store once profile is loaded
-      if (requiredRoles.length > 0) {
-        // For now, allow access - role enforcement will come from the user store
-        return next();
+      // Role check
+      const userStore = useUserStore();
+      const role = userStore.user?.role ?? 'SALES_REP';
+      if (!canAccessRoute(role, to.path)) {
+        const homeRoute = ['ADMIN', 'MANAGER'].includes(role) ? '/crm' : '/home';
+        return next(homeRoute);
       }
 
       return next();

@@ -172,19 +172,35 @@ function timeAgo(date: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+// Role-based navigation
+const userRole = computed(() => {
+  try {
+    const stored = localStorage.getItem('user');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed?.user?.role ?? parsed?.role ?? 'SALES_REP';
+    }
+  } catch { /* ignore */ }
+  return 'SALES_REP';
+});
+
 const navItems = [
   { label: 'Dashboard', icon: 'dashboard', route: '/crm' },
   { label: 'Pipeline', icon: 'view_kanban', route: '/crm/pipeline' },
   { label: 'Customers', icon: 'people', route: '/crm/customers' },
 ];
 
-const adminItems = [
-  { label: 'Scoreboard', icon: 'leaderboard', route: '/admin/scoreboard' },
-  { label: 'Users', icon: 'manage_accounts', route: '/admin/users' },
-  { label: 'Live Chat', icon: 'forum', route: '/admin/live-chat' },
-  { label: 'Notifications', icon: 'notifications', route: '/admin/notifications' },
-  { label: 'Settings', icon: 'settings', route: '/admin/settings' },
+const allAdminItems = [
+  { label: 'Scoreboard', icon: 'leaderboard', route: '/admin/scoreboard', roles: ['ADMIN', 'MANAGER'] },
+  { label: 'Users', icon: 'manage_accounts', route: '/admin/users', roles: ['ADMIN'] },
+  { label: 'Live Chat', icon: 'forum', route: '/admin/live-chat', roles: ['ADMIN'] },
+  { label: 'Notifications', icon: 'notifications', route: '/admin/notifications', roles: ['ADMIN', 'MANAGER'] },
+  { label: 'Settings', icon: 'settings', route: '/admin/settings', roles: ['ADMIN', 'MANAGER'] },
 ];
+
+const adminItems = computed(() =>
+  allAdminItems.filter((item) => item.roles.includes(userRole.value)),
+);
 </script>
 
 <style lang="scss" scoped>
