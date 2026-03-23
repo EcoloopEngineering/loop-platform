@@ -41,7 +41,7 @@
       </q-toolbar>
     </q-header>
 
-    <q-drawer v-model="drawerOpen" show-if-above bordered class="admin-drawer">
+    <q-drawer v-model="drawerOpen" show-if-above bordered class="admin-drawer" :width="220" :mini-width="60">
       <q-list padding>
         <q-item-label header class="text-grey-5 text-weight-bold text-uppercase" style="font-size: 11px; letter-spacing: 0.06em">
           CRM

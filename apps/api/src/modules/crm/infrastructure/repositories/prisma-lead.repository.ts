@@ -44,6 +44,9 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
           take: 20,
         },
         designRequests: true,
+        appointments: {
+          orderBy: { scheduledAt: 'desc' },
+        },
       },
     });
   }

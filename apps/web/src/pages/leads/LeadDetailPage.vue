@@ -618,6 +618,39 @@
           </div>
         </div>
 
+        <!-- Appointments card -->
+        <div v-if="appointments.length > 0" class="sidebar-card q-mb-md">
+          <div class="sidebar-card-title">Appointments</div>
+          <div v-for="appt in appointments" :key="appt.id" class="sidebar-field">
+            <div class="row items-center no-wrap q-mb-xs" style="gap: 8px">
+              <q-icon
+                :name="appt.type === 'SITE_AUDIT' ? 'home_work' : 'solar_power'"
+                :color="apptStatusColor(appt.status)"
+                size="20px"
+              />
+              <div class="col">
+                <div class="text-weight-medium" style="font-size: 13px">
+                  {{ appt.type === 'SITE_AUDIT' ? 'Site Audit' : 'Installation' }}
+                </div>
+                <div class="text-caption text-grey-6">
+                  {{ formatDateTime(appt.scheduledAt) }}
+                </div>
+              </div>
+              <q-badge
+                :color="apptStatusColor(appt.status)"
+                text-color="white"
+                style="border-radius: 6px; padding: 2px 8px; font-size: 10px"
+              >
+                {{ appt.status }}
+              </q-badge>
+            </div>
+            <div class="text-caption text-grey-5" style="margin-left: 28px">
+              Duration: {{ appt.duration }}min
+              <span v-if="appt.notes"> · {{ appt.notes }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Score Breakdown card -->
         <div v-if="lead.leadScore" class="sidebar-card">
           <div class="sidebar-card-title">Score Breakdown</div>
@@ -773,6 +806,17 @@ const isExternalCreator = computed(() => {
   const email = lead.value?.createdBy?.email ?? '';
   return email && !email.endsWith('@ecoloop.us');
 });
+
+const appointments = computed(() => {
+  return ((lead.value as any)?.appointments ?? []).sort(
+    (a: any, b: any) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime(),
+  );
+});
+
+function apptStatusColor(status: string) {
+  const map: Record<string, string> = { PENDING: 'orange', CONFIRMED: 'blue', COMPLETED: 'positive', CANCELLED: 'grey-5', RESCHEDULED: 'purple' };
+  return map[status] ?? 'grey';
+}
 
 const designRequests = computed(() => {
   return (lead.value as any)?.designRequests ?? [];
