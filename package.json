@@ -11,7 +11,8 @@
     "lint": "turbo run lint",
     "db:generate": "turbo run db:generate --filter=@loop/api",
     "db:migrate": "turbo run db:migrate --filter=@loop/api",
-    "db:seed": "turbo run db:seed --filter=@loop/api"
+    "db:seed": "turbo run db:seed --filter=@loop/api",
+    "prepare": "husky"
   },
   "engines": {
     "node": ">=20",
@@ -29,6 +30,7 @@
     ]
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "turbo": "^2.8.20"
   }
 }

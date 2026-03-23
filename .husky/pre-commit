@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# Ensure Node 20+ is available
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" --no-use
+nvm use v20 --silent 2>/dev/null || true
+export PATH="$HOME/.nvm/versions/node/v20.20.1/bin:$PATH"
+
+echo "🧪 Running tests before commit..."
+
+# Build shared package (tests depend on it)
+pnpm --filter @loop/shared build 2>/dev/null || true
+
+# Run API tests
+cd apps/api && npx jest --forceExit --passWithNoTests 2>&1
+TEST_EXIT=$?
+
+if [ $TEST_EXIT -ne 0 ]; then
+  echo ""
+  echo "❌ Tests failed! Commit blocked."
+  echo "   Fix the failing tests before committing."
+  echo ""
+  exit 1
+fi
+
+echo "✅ All tests passed!"

@@ -45,6 +45,17 @@ cd apps/web && pnpm dev
 - API: http://localhost:3000 | Swagger: http://localhost:3000/api/docs
 - Frontend: http://localhost:9000
 
+## Mandatory Rules
+
+### ALWAYS test your code
+- **Every new feature, service, handler, or listener MUST have a co-located `.spec.ts` test file**
+- **Every change to existing code MUST update or add relevant tests**
+- **ALWAYS run `cd apps/api && npx jest --forceExit` before committing** — do NOT commit if tests fail
+- Tests are co-located: `foo.service.ts` → `foo.service.spec.ts` in the same directory
+- Use `src/test/prisma-mock.helper.ts` for PrismaService mocks
+- Minimum 80% coverage (enforced by Jest config and CI)
+- Pre-commit hook runs tests automatically — commits are blocked if tests fail
+
 ## Key Conventions
 
 ### Backend
