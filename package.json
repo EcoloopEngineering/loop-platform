@@ -2,6 +2,7 @@
   "name": "loop-platform",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.32.1",
   "description": "Loop Solar Energy Lead Management Platform",
   "scripts": {
     "dev": "turbo run dev",
@@ -15,5 +16,19 @@
   "engines": {
     "node": ">=20",
     "pnpm": ">=9"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "protobufjs",
+      "@nestjs/core",
+      "vue-demi"
+    ]
+  },
+  "devDependencies": {
+    "turbo": "^2.8.20"
   }
 }

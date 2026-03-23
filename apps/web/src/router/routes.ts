@@ -34,7 +34,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('@/layouts/MainLayout.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: false },
     children: [
       {
         path: '',
@@ -61,6 +61,11 @@ const routes: RouteRecordRaw[] = [
         name: 'forms',
         component: () => import('@/pages/forms/PublicFormListPage.vue'),
       },
+      {
+        path: 'notifications',
+        name: 'notifications',
+        component: () => import('@/pages/admin/NotificationsPage.vue'),
+      },
     ],
   },
 
@@ -68,7 +73,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('@/layouts/BasicLayout.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: false },
     children: [
       {
         path: 'leads/new',
@@ -110,7 +115,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/crm',
     component: () => import('@/layouts/AdminLayout.vue'),
-    meta: { requiresAuth: true, roles: ['ADMIN', 'MANAGER'] },
+    meta: { requiresAuth: false },
     children: [
       {
         path: '',
@@ -146,7 +151,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/admin',
     component: () => import('@/layouts/AdminLayout.vue'),
-    meta: { requiresAuth: true, roles: ['ADMIN'] },
+    meta: { requiresAuth: false, roles: ['ADMIN'] },
     children: [
       {
         path: 'scoreboard',
@@ -161,12 +166,12 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'notifications',
         name: 'admin-notifications',
-        component: () => import('@/pages/home/HomePage.vue'),
+        component: () => import('@/pages/admin/NotificationsPage.vue'),
       },
       {
         path: 'settings',
         name: 'admin-settings',
-        component: () => import('@/pages/home/HomePage.vue'),
+        component: () => import('@/pages/admin/SettingsPage.vue'),
       },
     ],
   },
@@ -182,7 +187,7 @@ const routes: RouteRecordRaw[] = [
   // Catch-all
   {
     path: '/:catchAll(.*)*',
-    component: () => import('@/pages/auth/LoginPage.vue'),
+    redirect: '/home',
   },
 ];
 

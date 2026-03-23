@@ -1,4 +1,5 @@
 import { configure } from 'quasar/wrappers';
+import path from 'node:path';
 
 export default configure(() => {
   return {
@@ -13,8 +14,12 @@ export default configure(() => {
       vueRouterMode: 'history',
       env: {
         API_URL: process.env.API_URL ?? 'http://localhost:3000',
+        MAPBOX_ACCESS_TOKEN: process.env.MAPBOX_ACCESS_TOKEN ?? '',
       },
       vitePlugins: [],
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
     },
 
     devServer: {
@@ -26,24 +31,37 @@ export default configure(() => {
         brand: {
           primary: '#00897B',
           secondary: '#00695C',
-          accent: '#4DB6AC',
-          dark: '#1D1D1D',
-          positive: '#43A047',
-          negative: '#E53935',
-          info: '#2196F3',
-          warning: '#FFA000',
+          accent: '#00FBAC',
+          dark: '#1A1A2E',
+          'dark-page': '#1A1A2E',
+          positive: '#10B981',
+          negative: '#EF4444',
+          info: '#3B82F6',
+          warning: '#F59E0B',
         },
       },
+      dark: false,
+      autoImportComponentCase: 'kebab',
       components: [
         'QLayout',
+        'QPageContainer',
         'QPage',
+        'QHeader',
+        'QToolbar',
+        'QToolbarTitle',
+        'QDrawer',
+        'QFooter',
         'QBtn',
         'QInput',
         'QSelect',
         'QDialog',
+        'QForm',
         'QStep',
         'QStepper',
+        'QStepperNavigation',
         'QCard',
+        'QCardSection',
+        'QCardActions',
         'QIcon',
         'QBadge',
         'QAvatar',
@@ -63,6 +81,13 @@ export default configure(() => {
         'QInfiniteScroll',
         'QPullToRefresh',
         'QSpinner',
+        'QBanner',
+        'QImg',
+        'QToggle',
+        'QCheckbox',
+        'QRadio',
+        'QSpace',
+        'QTooltip',
       ],
       plugins: ['Notify', 'Dialog', 'Loading'],
     },

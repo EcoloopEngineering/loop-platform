@@ -77,7 +77,7 @@ export class ReferralsController {
     ]);
 
     return new PaginatedResponse(
-      referrals.map((r) => new ReferralEntity(r)),
+      referrals.map((r) => new ReferralEntity(r as any)),
       total,
       pagination.page,
       pagination.limit,
@@ -113,7 +113,7 @@ export class ReferralsController {
       },
     });
 
-    return new ReferralEntity(referral);
+    return new ReferralEntity(referral as any);
   }
 
   @Put(':id/commission-split')
@@ -127,6 +127,6 @@ export class ReferralsController {
       data: { commissionSplit: dto.commissionSplit },
     });
 
-    return new ReferralEntity(referral);
+    return new ReferralEntity(referral as any);
   }
 }

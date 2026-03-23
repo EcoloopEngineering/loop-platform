@@ -28,33 +28,35 @@ export class GetScoreboardHandler implements IQueryHandler<GetScoreboardQuery> {
       lte: new Date(query.endDate),
     };
 
-    // Get won deals count per user
-    const wonDealsPerUser = await this.prisma.lead.groupBy({
-      by: ['assignedTo'],
+    // Get won deals count per user via lead assignments
+    const wonAssignments = await this.prisma.leadAssignment.groupBy({
+      by: ['userId'],
       where: {
-        stage: 'WON',
-        createdAt: dateFilter,
+        lead: {
+          currentStage: 'WON',
+          createdAt: dateFilter,
+        },
       },
-      _count: { _all: true },
-      orderBy: { _count: { assignedTo: 'desc' } },
+      _count: true,
+      orderBy: { _count: { userId: 'desc' } },
       take: query.limit,
     });
 
-    const userIds = wonDealsPerUser.map((d) => d.assignedTo);
+    const userIds = wonAssignments.map((d) => d.userId);
 
     // Get total commission per user
     const commissionsPerUser = await this.prisma.commission.groupBy({
       by: ['userId'],
       where: {
         userId: { in: userIds },
-        status: 'FINALIZED',
+        status: 'ACTIVE',
         createdAt: dateFilter,
       },
-      _sum: { calculatedAmount: true },
+      _sum: { amount: true },
     });
 
     const commissionMap = new Map(
-      commissionsPerUser.map((c) => [c.userId, c._sum.calculatedAmount ?? 0]),
+      commissionsPerUser.map((c) => [c.userId, c._sum?.amount ?? 0]),
     );
 
     // Get user names
@@ -67,11 +69,11 @@ export class GetScoreboardHandler implements IQueryHandler<GetScoreboardQuery> {
       users.map((u) => [u.id, `${u.firstName} ${u.lastName}`]),
     );
 
-    return wonDealsPerUser.map((entry) => ({
-      userId: entry.assignedTo,
-      userName: userNameMap.get(entry.assignedTo) ?? 'Unknown',
-      wonDeals: entry._count._all,
-      totalCommission: commissionMap.get(entry.assignedTo) ?? 0,
+    return wonAssignments.map((entry) => ({
+      userId: entry.userId,
+      userName: userNameMap.get(entry.userId) ?? 'Unknown',
+      wonDeals: entry._count,
+      totalCommission: Number(commissionMap.get(entry.userId) ?? 0),
     }));
   }
 }

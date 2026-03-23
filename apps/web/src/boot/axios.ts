@@ -1,5 +1,6 @@
 import { boot } from 'quasar/wrappers';
 import axios, { type AxiosInstance } from 'axios';
+import { getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 
 declare module 'vue' {
@@ -10,15 +11,21 @@ declare module 'vue' {
 }
 
 const api = axios.create({
-  baseURL: process.env.API_URL ?? 'http://localhost:3000',
+  baseURL: (process.env.API_URL ?? 'http://localhost:3000') + '/api/v1',
 });
 
+function isFirebaseInitialized(): boolean {
+  try { getApp(); return true; } catch { return false; }
+}
+
 api.interceptors.request.use(async (config) => {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (user) {
-    const token = await user.getIdToken();
-    config.headers.Authorization = `Bearer ${token}`;
+  if (isFirebaseInitialized()) {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -26,7 +33,7 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && isFirebaseInitialized()) {
       const auth = getAuth();
       auth.signOut();
       window.location.href = '/auth/login';

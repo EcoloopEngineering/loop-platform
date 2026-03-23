@@ -76,7 +76,7 @@ export class TeamsController {
     ]);
 
     return new PaginatedResponse(
-      teams.map((t) => new TeamEntity(t)),
+      teams.map((t) => new TeamEntity(t as any)),
       total,
       pagination.page,
       pagination.limit,
@@ -133,7 +133,7 @@ export class TeamsController {
     ]);
 
     return new PaginatedResponse(
-      users.map((u) => new UserEntity(u)),
+      users.map((u) => new UserEntity(u as any)),
       total,
       pagination.page,
       pagination.limit,

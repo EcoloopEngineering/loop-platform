@@ -2,18 +2,73 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/boot/axios';
 
-export interface Lead {
+export interface LeadCustomer {
   id: string;
   firstName: string;
   lastName: string;
-  email?: string;
-  phone?: string;
-  stage: string;
-  source?: string;
-  notes?: string;
-  assignedTo?: string;
+  email: string;
+  phone: string;
+  source: string;
+}
+
+export interface LeadProperty {
+  id: string;
+  streetAddress: string;
+  city: string;
+  state: string;
+  zip: string;
+  lat?: number;
+  lng?: number;
+  roofCondition: string;
+  electricalService?: string;
+  hasPool: boolean;
+  hasEV: boolean;
+  propertyType: string;
+  monthlyBill?: number;
+  annualKwhUsage?: number;
+  utilityProvider?: string;
+}
+
+export interface LeadScore {
+  id: string;
+  total: number;
+  contactScore: number;
+  propertyScore: number;
+  energyScore: number;
+  roofScore: number;
+  tier: string;
+}
+
+export interface Lead {
+  id: string;
+  customerId: string;
+  propertyId: string;
+  pipelineId: string;
+  currentStage: string;
+  source: string;
+  kw?: number;
+  epc?: number;
+  financier?: string;
+  systemSize?: number;
+  baseline?: number;
+  isActive: boolean;
+  wonAt?: string;
+  lostAt?: string;
+  lostReason?: string;
+  hubspotDealId?: string;
   createdAt: string;
   updatedAt: string;
+  customer?: LeadCustomer;
+  property?: LeadProperty;
+  leadScore?: LeadScore;
+  assignedUser?: { id: string; firstName: string; lastName: string; email: string };
+  // Legacy flat fields
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  stage?: string;
+  notes?: string;
 }
 
 export const useLeadStore = defineStore('lead', () => {
@@ -43,7 +98,7 @@ export const useLeadStore = defineStore('lead', () => {
     }
   }
 
-  async function createLead(lead: Partial<Lead>) {
+  async function createLead(lead: Partial<Lead> | Record<string, unknown>) {
     const { data } = await api.post<Lead>('/leads', lead);
     leads.value.unshift(data);
     return data;
@@ -58,7 +113,9 @@ export const useLeadStore = defineStore('lead', () => {
   }
 
   async function changeStage(id: string, stage: string) {
-    return updateLead(id, { stage });
+    const { data } = await api.patch<Lead>(`/leads/${id}/stage`, { stage });
+    if (currentLead.value?.id === id) currentLead.value = data;
+    return data;
   }
 
   return {

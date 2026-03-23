@@ -1,5 +1,6 @@
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { Inject, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateLeadDto } from '../dto/create-lead.dto';
 import { LeadCreatedEvent } from '../../domain/events/lead-created.event';
 import { LeadScoringDomainService } from '../../domain/services/lead-scoring.domain-service';
@@ -24,6 +25,7 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
     private readonly prisma: PrismaService,
     private readonly scoringService: LeadScoringDomainService,
     private readonly eventBus: EventBus,
+    private readonly emitter: EventEmitter2,
   ) {}
 
   async execute(command: CreateLeadCommand): Promise<any> {
@@ -74,13 +76,32 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
       throw new Error('No default pipeline found. Please create a pipeline first.');
     }
 
-    // 4. Create Lead
+    // 4. Resolve lead owner (creator or their referrer)
+    const creatorUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    let ownerId = userId;
+
+    if (creatorUser && !creatorUser.email.endsWith('@ecoloop.us')) {
+      // External user — find who invited them
+      const referral = await this.prisma.referral.findFirst({
+        where: { inviteeId: userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (referral) {
+        ownerId = referral.inviterId;
+        this.logger.log(`External creator ${creatorUser.email} — assigning to referrer ${ownerId}`);
+      }
+    }
+
+    // 5. Create Lead — AI_DESIGN goes directly to DESIGN_READY
+    const initialStage = design.designType === 'AI_DESIGN' ? 'DESIGN_READY' : 'NEW_LEAD';
+
     const lead = await this.leadRepo.create({
       customerId: customer.id,
       propertyId: property.id,
       pipelineId: pipeline.id,
       source: contact.source,
-      currentStage: 'NEW_LEAD',
+      currentStage: initialStage,
+      createdById: userId,
     });
 
     // 5. Calculate score
@@ -114,25 +135,58 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
       },
     });
 
-    // 6. Create LeadAssignment
+    // 7. Create LeadAssignment (owner = creator or referrer)
     await this.prisma.leadAssignment.create({
       data: {
         leadId: lead.id,
-        userId,
+        userId: ownerId,
         splitPct: 100,
         isPrimary: true,
       },
     });
 
+    // If external user created it, also record them as secondary assignment
+    if (ownerId !== userId) {
+      await this.prisma.leadAssignment.create({
+        data: {
+          leadId: lead.id,
+          userId,
+          splitPct: 0,
+          isPrimary: false,
+        },
+      });
+    }
+
     // 7. Create design request if applicable
     if (design.designType) {
-      await this.prisma.designRequest.create({
+      const isAiDesign = design.designType === 'AI_DESIGN';
+      const address = `${home.streetAddress}, ${home.city}, ${home.state} ${home.zip}`;
+
+      const designRequest = await this.prisma.designRequest.create({
         data: {
           leadId: lead.id,
           designType: design.designType,
           notes: design.designNotes,
+          status: isAiDesign ? 'COMPLETED' : 'PENDING',
+          completedAt: isAiDesign ? new Date() : null,
         },
       });
+
+      // If AI_DESIGN, trigger Aurora in the background to enrich with project data
+      if (isAiDesign) {
+        this.emitter.emit('design.requested.ai', {
+          designRequestId: designRequest.id,
+          leadId: lead.id,
+          propertyAddress: address,
+          customerName: `${contact.firstName} ${contact.lastName}`,
+          monthlyBill: energy.monthlyBill,
+          annualKwhUsage: energy.annualKwhUsage,
+          roofCondition: home.roofCondition,
+          propertyType: home.propertyType,
+          userId,
+        });
+        this.logger.log(`AI Design: lead ${lead.id} → DESIGN_READY, Aurora triggered in background`);
+      }
     }
 
     // 8. Log activity
@@ -141,13 +195,20 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
         leadId: lead.id,
         userId,
         type: 'STAGE_CHANGE',
-        description: 'Lead created via wizard',
-        metadata: { stage: 'NEW_LEAD', source: contact.source },
+        description: `Lead created via wizard${design.designType === 'AI_DESIGN' ? ' (AI Design → Design Ready)' : ''}`,
+        metadata: { stage: initialStage, source: contact.source, designType: design.designType },
       },
     });
 
     // 9. Publish domain event
     this.eventBus.publish(new LeadCreatedEvent(lead.id, customer.id, userId));
+
+    // 10. Emit notification event
+    this.emitter.emit('lead.created', {
+      leadId: lead.id,
+      assignedTo: ownerId,
+      customerName: `${contact.firstName} ${contact.lastName}`,
+    });
 
     this.logger.log(`Lead ${lead.id} created successfully`);
 

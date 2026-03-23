@@ -104,7 +104,7 @@ const {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f5f5f5;
+  background: #F8FAFB;
 }
 
 .step-content {
@@ -113,8 +113,8 @@ const {
 }
 
 .wizard-footer {
-  background: white;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: #FFFFFF;
+  border-top: 1px solid #E5E7EB;
   position: sticky;
   bottom: 0;
 }

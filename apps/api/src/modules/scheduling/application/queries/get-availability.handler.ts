@@ -26,8 +26,8 @@ export class GetAvailabilityHandler implements IQueryHandler<GetAvailabilityQuer
 
     const existingAppointments = await this.prisma.appointment.findMany({
       where: {
-        assignedTo: query.userId,
-        status: { in: ['SCHEDULED', 'CONFIRMED'] },
+        leadId: query.userId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
         scheduledAt: { gte: dayStart, lt: dayEnd },
       },
       orderBy: { scheduledAt: 'asc' },
@@ -40,7 +40,10 @@ export class GetAvailabilityHandler implements IQueryHandler<GetAvailabilityQuer
       const slotEnd = new Date(`${query.date}T${String(hour + 1).padStart(2, '0')}:00:00Z`);
 
       const isBooked = existingAppointments.some(
-        (appt) => appt.scheduledAt < slotEnd && appt.endAt > slotStart,
+        (appt) => {
+          const apptEnd = new Date(appt.scheduledAt.getTime() + appt.duration * 60000);
+          return appt.scheduledAt < slotEnd && apptEnd > slotStart;
+        },
       );
 
       slots.push({ start: slotStart, end: slotEnd, available: !isBooked });

@@ -12,3 +12,4 @@ import { LeadEventListener } from './application/listeners/lead-event.listener';
   exports: [NotificationService],
 })
 export class NotificationModule {}
+

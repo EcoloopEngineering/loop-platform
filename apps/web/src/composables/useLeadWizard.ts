@@ -213,17 +213,38 @@ export function useLeadWizard() {
     submitting.value = true;
     try {
       const payload = {
-        firstName: contactData.value.firstName.trim(),
-        lastName: contactData.value.lastName.trim(),
-        phone: contactData.value.phone,
-        email: contactData.value.email || undefined,
-        source: contactData.value.source ?? undefined,
-        notes: designData.value.notes || undefined,
-        // Additional data will be sent as nested objects
-        // depending on backend contract
+        contact: {
+          firstName: contactData.value.firstName.trim(),
+          lastName: contactData.value.lastName.trim(),
+          phone: contactData.value.phone,
+          email: contactData.value.email || 'noemail@placeholder.com',
+          source: contactData.value.source ?? LeadSource.OTHER,
+        },
+        home: {
+          streetAddress: homeData.value.streetAddress,
+          city: homeData.value.city,
+          state: homeData.value.state,
+          zip: homeData.value.zip,
+          latitude: homeData.value.lat ?? undefined,
+          longitude: homeData.value.lng ?? undefined,
+          roofCondition: homeData.value.roofCondition ?? RoofCondition.UNKNOWN,
+          propertyType: homeData.value.propertyType,
+          electricalService: homeData.value.electricalService || undefined,
+          hasPool: homeData.value.hasPool,
+          hasEV: homeData.value.hasEV,
+        },
+        energy: {
+          monthlyBill: energyData.value.monthlyBill ?? undefined,
+          annualKwhUsage: energyData.value.annualKwhUsage ?? undefined,
+          utilityProvider: energyData.value.utilityProvider || undefined,
+        },
+        design: {
+          designType: designData.value.designType ?? DesignType.MANUAL_DESIGN,
+          designNotes: designData.value.notes || undefined,
+        },
       };
       const lead = await leadStore.createLead(payload);
-      router.push({ name: 'lead-detail', params: { id: lead.id } });
+      router.push(`/crm/leads/${lead.id}`);
       return lead;
     } finally {
       submitting.value = false;

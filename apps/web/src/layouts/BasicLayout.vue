@@ -1,9 +1,9 @@
 <template>
   <q-layout view="hHh lpR fFf">
-    <q-header elevated class="bg-secondary">
+    <q-header bordered class="basic-header">
       <q-toolbar>
-        <q-btn flat round dense icon="arrow_back" @click="goBack" />
-        <q-toolbar-title class="text-weight-bold">{{ title }}</q-toolbar-title>
+        <q-btn flat round dense icon="arrow_back" color="dark" @click="goBack" />
+        <q-toolbar-title class="text-weight-bold" style="color: #1A1A2E">{{ title }}</q-toolbar-title>
         <slot name="header-right" />
       </q-toolbar>
     </q-header>
@@ -12,7 +12,7 @@
       <router-view />
     </q-page-container>
 
-    <q-footer v-if="$slots.footer" class="bg-white">
+    <q-footer v-if="$slots.footer" class="basic-footer">
       <slot name="footer" />
     </q-footer>
   </q-layout>
@@ -37,3 +37,15 @@ function goBack() {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+.basic-header {
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.basic-footer {
+  background: #FFFFFF;
+  border-top: 1px solid #E5E7EB;
+}
+</style>

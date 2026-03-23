@@ -9,19 +9,19 @@ export class PrismaUserRepository implements UserRepositoryPort {
 
   async findById(id: string): Promise<UserEntity | null> {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    return user ? new UserEntity(user) : null;
+    return user ? new UserEntity(user as any) : null;
   }
 
   async findByEmail(email: string): Promise<UserEntity | null> {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    return user ? new UserEntity(user) : null;
+    return user ? new UserEntity(user as any) : null;
   }
 
   async findByFirebaseUid(firebaseUid: string): Promise<UserEntity | null> {
     const user = await this.prisma.user.findUnique({
       where: { firebaseUid },
     });
-    return user ? new UserEntity(user) : null;
+    return user ? new UserEntity(user as any) : null;
   }
 
   async create(data: Partial<UserEntity>): Promise<UserEntity> {
@@ -32,10 +32,10 @@ export class PrismaUserRepository implements UserRepositoryPort {
         lastName: data.lastName!,
         firebaseUid: data.firebaseUid!,
         phone: data.phone ?? null,
-        role: data.role,
+        role: data.role as any,
       },
     });
-    return new UserEntity(user);
+    return new UserEntity(user as any);
   }
 
   async update(id: string, data: Partial<UserEntity>): Promise<UserEntity> {
@@ -53,12 +53,12 @@ export class PrismaUserRepository implements UserRepositoryPort {
           closedDealEmoji: data.closedDealEmoji,
         }),
         ...(data.language !== undefined && { language: data.language }),
-        ...(data.role !== undefined && { role: data.role }),
+        ...(data.role !== undefined && { role: data.role as any }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.teamId !== undefined && { teamId: data.teamId }),
       },
     });
-    return new UserEntity(user);
+    return new UserEntity(user as any);
   }
 
   async findAll(params: {
@@ -87,7 +87,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
     ]);
 
     return {
-      data: users.map((u) => new UserEntity(u)),
+      data: users.map((u) => new UserEntity(u as any)),
       total,
     };
   }

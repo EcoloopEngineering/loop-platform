@@ -46,10 +46,8 @@ export class FormController {
       data: {
         name: dto.name,
         slug: dto.slug,
-        description: dto.description ?? null,
-        fields: dto.fields as any,
-        status: 'DRAFT',
-        createdBy: user.id,
+        config: dto.fields as any,
+        userId: user.id,
       },
     });
   }
@@ -72,9 +70,8 @@ export class FormController {
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.slug !== undefined && { slug: dto.slug }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.fields !== undefined && { fields: dto.fields as any }),
-        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.fields !== undefined && { config: dto.fields as any }),
+        ...(dto.status !== undefined && { isActive: dto.status === 'PUBLISHED' }),
       },
     });
   }
@@ -84,7 +81,7 @@ export class FormController {
   @ApiOperation({ summary: 'Get a published form by slug (public, no auth)' })
   async getPublicForm(@Param('slug') slug: string) {
     const form = await this.prisma.form.findFirst({
-      where: { slug, status: 'PUBLISHED' },
+      where: { slug, isActive: true },
     });
     if (!form) {
       throw new NotFoundException(`Form with slug "${slug}" not found`);
@@ -100,7 +97,7 @@ export class FormController {
     @Body() data: Record<string, any>,
   ) {
     const form = await this.prisma.form.findFirst({
-      where: { slug, status: 'PUBLISHED' },
+      where: { slug, isActive: true },
     });
     if (!form) {
       throw new NotFoundException(`Form with slug "${slug}" not found`);

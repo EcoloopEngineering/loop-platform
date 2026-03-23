@@ -26,6 +26,21 @@ export class FirebaseAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const token = this.extractToken(request);
 
+    // Dev bypass: if no Firebase configured and no token, use first active user
+    if (!token && !this.firebaseService.isConfigured()) {
+      const devUser = await this.prisma.user.findFirst({
+        where: { isActive: true },
+        orderBy: { id: 'asc' },
+      });
+      if (devUser) {
+        request.user = devUser;
+        return true;
+      }
+      // No users in DB — allow with mock user
+      request.user = { id: 0, name: 'Dev User', email: 'dev@localhost', role: 'ADMIN' };
+      return true;
+    }
+
     if (!token) {
       throw new UnauthorizedException('No token provided');
     }

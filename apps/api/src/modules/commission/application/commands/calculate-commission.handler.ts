@@ -1,5 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { CommissionStatus } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { CommissionCalculatorDomainService } from '../../domain/services/commission-calculator.domain-service';
 
@@ -43,38 +44,38 @@ export class CalculateCommissionHandler
       splitPct: command.splitPct,
     });
 
-    const commission = await this.prisma.commission.upsert({
+    const existing = await this.prisma.commission.findFirst({
       where: {
-        leadId_userId: {
-          leadId: command.leadId,
-          userId: command.userId,
-        },
-      },
-      update: {
-        epc: command.epc,
-        buildCost: command.buildCost,
-        kw: command.kw,
-        quoteDeductions: command.quoteDeductions,
-        splitPct: command.splitPct,
-        calculatedAmount: result.calculatedAmount,
-        status: command.finalize ? 'FINALIZED' : 'CALCULATED',
-        finalizedAt: command.finalize ? new Date() : null,
-        finalizedBy: command.finalize ? command.userId : null,
-      },
-      create: {
         leadId: command.leadId,
         userId: command.userId,
-        epc: command.epc,
-        buildCost: command.buildCost,
-        kw: command.kw,
-        quoteDeductions: command.quoteDeductions,
-        splitPct: command.splitPct,
-        calculatedAmount: result.calculatedAmount,
-        status: command.finalize ? 'FINALIZED' : 'CALCULATED',
-        finalizedAt: command.finalize ? new Date() : null,
-        finalizedBy: command.finalize ? command.userId : null,
       },
     });
+
+    const status: CommissionStatus = command.finalize
+      ? CommissionStatus.ACTIVE
+      : CommissionStatus.PENDING;
+
+    const commission = existing
+      ? await this.prisma.commission.update({
+          where: { id: existing.id },
+          data: {
+            splitPct: command.splitPct,
+            amount: result.calculatedAmount,
+            breakdown: result as any,
+            status,
+          },
+        })
+      : await this.prisma.commission.create({
+          data: {
+            lead: { connect: { id: command.leadId } },
+            user: { connect: { id: command.userId } },
+            type: 'M1',
+            splitPct: command.splitPct,
+            amount: result.calculatedAmount,
+            breakdown: result as any,
+            status,
+          },
+        });
 
     return { ...commission, breakdown: result };
   }

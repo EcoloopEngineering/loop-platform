@@ -6,6 +6,5 @@ export class AppointmentBookedEvent implements IEvent {
     public readonly leadId: string,
     public readonly type: string,
     public readonly scheduledAt: Date,
-    public readonly assignedTo: string,
   ) {}
 }

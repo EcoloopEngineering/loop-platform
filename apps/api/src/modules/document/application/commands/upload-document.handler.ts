@@ -33,13 +33,12 @@ export class UploadDocumentHandler implements ICommandHandler<UploadDocumentComm
     return this.prisma.document.create({
       data: {
         leadId: command.leadId,
-        type: command.type,
+        type: command.type as any,
         fileName: command.fileName,
         mimeType: command.mimeType,
         fileSize: command.fileSize,
-        storagePath: command.storagePath,
-        downloadUrl: command.downloadUrl,
-        uploadedBy: command.uploadedBy,
+        fileKey: command.storagePath,
+        uploadedById: command.uploadedBy,
       },
     });
   }

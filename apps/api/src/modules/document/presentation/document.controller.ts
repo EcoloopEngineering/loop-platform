@@ -71,7 +71,7 @@ export class DocumentController {
     if (!doc) {
       throw new NotFoundException(`Document with ID ${id} not found`);
     }
-    return { downloadUrl: doc.downloadUrl, storagePath: doc.storagePath };
+    return { fileKey: doc.fileKey, fileName: doc.fileName };
   }
 
   @Delete('documents/:id')

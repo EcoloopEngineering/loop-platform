@@ -2,16 +2,23 @@
   <q-layout view="hHh lpR fFf">
     <q-page-container>
       <q-page class="auth-layout flex flex-center">
-        <div class="auth-container full-width" style="max-width: 420px">
+        <div class="auth-container">
+          <!-- Logo -->
           <div class="text-center q-mb-xl">
-            <q-icon name="eco" color="primary" size="64px" />
-            <h4 class="q-mt-md q-mb-none text-weight-bold text-secondary">Loop</h4>
-            <p class="text-grey-6 q-mt-sm">Grow your network, close more deals</p>
+            <img src="/logo_short_dark.svg" alt="ecoLoop" class="auth-logo" />
           </div>
 
-          <q-card flat bordered class="q-pa-lg auth-card">
-            <router-view />
+          <!-- Auth Card -->
+          <q-card flat class="auth-card">
+            <q-card-section class="q-pa-lg">
+              <router-view />
+            </q-card-section>
           </q-card>
+
+          <!-- Footer -->
+          <div class="text-center q-mt-lg text-hint" style="font-size: 13px">
+            &copy; {{ new Date().getFullYear() }} ecoLoop. All rights reserved.
+          </div>
         </div>
       </q-page>
     </q-page-container>
@@ -19,16 +26,33 @@
 </template>
 
 <script setup lang="ts">
-// Clean auth layout with centered card and logo
 </script>
 
 <style lang="scss" scoped>
 .auth-layout {
-  background: linear-gradient(135deg, #e0f2f1 0%, #ffffff 100%);
+  background: #F8FAFB;
   min-height: 100vh;
 }
 
+.auth-container {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px 16px;
+}
+
+.auth-logo {
+  height: 44px;
+  width: auto;
+}
+
 .auth-card {
-  border-radius: 16px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.text-hint {
+  color: #9CA3AF;
 }
 </style>

@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { PrismaModule } from '../../infrastructure/database/prisma.module';
+import { IntegrationsModule } from '../../integrations/integrations.module';
 import { DesignController } from './presentation/design.controller';
 import { RequestDesignHandler } from './application/commands/request-design.handler';
+import { AuroraDesignListener } from './application/listeners/aurora-design.listener';
 
 const CommandHandlers = [RequestDesignHandler];
 
 @Module({
-  imports: [CqrsModule, PrismaModule],
+  imports: [CqrsModule, PrismaModule, IntegrationsModule],
   controllers: [DesignController],
-  providers: [...CommandHandlers],
+  providers: [...CommandHandlers, AuroraDesignListener],
 })
 export class DesignModule {}

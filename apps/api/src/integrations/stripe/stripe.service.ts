@@ -13,16 +13,20 @@ export interface PaymentResult {
 @Injectable()
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
-  private readonly stripe: Stripe;
+  private readonly stripe: Stripe | null;
 
   constructor(private readonly config: ConfigService) {
-    this.stripe = new Stripe(
-      this.config.getOrThrow<string>('STRIPE_SECRET_KEY'),
-      { apiVersion: '2024-12-18.acacia' },
-    );
+    const key = this.config.get<string>('STRIPE_SECRET_KEY');
+    if (key) {
+      this.stripe = new Stripe(key);
+    } else {
+      this.logger.warn('STRIPE_SECRET_KEY not configured — Stripe disabled');
+      this.stripe = null;
+    }
   }
 
   async createPayment(amount: number, userId: string): Promise<PaymentResult> {
+    if (!this.stripe) throw new Error('Stripe not configured');
     try {
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount,
@@ -44,6 +48,7 @@ export class StripeService {
   }
 
   async getPayment(paymentId: string): Promise<PaymentResult> {
+    if (!this.stripe) throw new Error('Stripe not configured');
     try {
       const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentId);
 
@@ -64,7 +69,8 @@ export class StripeService {
    * Construct and verify a Stripe webhook event from the raw body + signature.
    */
   constructEvent(rawBody: Buffer, signature: string): Stripe.Event {
-    const webhookSecret = this.config.getOrThrow<string>('STRIPE_WEBHOOK_SECRET');
+    if (!this.stripe) throw new Error('Stripe not configured');
+    const webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET') ?? '';
     return this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   }
 }

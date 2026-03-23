@@ -1,211 +1,721 @@
 <template>
-  <q-page class="q-pa-md">
+  <q-page class="lead-detail-page">
+    <!-- Loading state -->
     <div v-if="leadStore.loading && !lead" class="row justify-center q-pa-xl">
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
-    <template v-else-if="lead">
-      <!-- Stage selector -->
-      <div class="row items-center q-mb-md q-gutter-x-sm">
-        <q-select
-          v-model="currentStage"
-          :options="stageOptions"
-          emit-value
-          map-options
-          dense
-          outlined
-          class="stage-select"
-          @update:model-value="onStageChange"
-        />
-        <q-space />
-        <div class="text-caption text-grey-6">
-          Created {{ formatDate(lead.createdAt) }}
-        </div>
+    <!-- Not found -->
+    <div v-else-if="!lead" class="text-grey-6 text-center q-pa-xl">
+      Lead not found.
+    </div>
+
+    <!-- Main layout -->
+    <div v-else class="row q-col-gutter-md">
+      <!-- ============ LEFT SIDEBAR ============ -->
+      <div class="col-12 col-md-3">
+        <!-- Back link -->
+        <router-link to="/crm/pipeline" class="back-link q-mb-sm inline-block">
+          <q-icon name="chevron_left" size="18px" />
+          <span>Deals</span>
+        </router-link>
+
+        <!-- Lead Header Card -->
+        <q-card flat class="sidebar-card q-mb-md">
+          <q-card-section>
+            <h1 class="customer-name q-mt-none q-mb-xs">
+              {{ lead.customer?.firstName }} {{ lead.customer?.lastName }}
+            </h1>
+
+            <div class="row items-center q-gutter-x-sm q-mb-md">
+              <q-badge
+                :style="{ backgroundColor: stageColor(lead.currentStage) }"
+                class="stage-badge"
+                text-color="white"
+              >
+                {{ formatStage(lead.currentStage) }}
+              </q-badge>
+              <q-badge v-if="lead.source" outline color="grey-6" class="source-badge">
+                {{ formatSource(lead.source) }}
+              </q-badge>
+            </div>
+
+            <div class="row justify-around">
+              <div class="quick-action text-center" @click="onQuickAction('note')">
+                <q-btn round unelevated size="sm" icon="sticky_note_2" color="primary" />
+                <div class="quick-action-label">Note</div>
+              </div>
+              <div class="quick-action text-center" @click="onQuickAction('email')">
+                <q-btn round unelevated size="sm" icon="email" color="primary" />
+                <div class="quick-action-label">Email</div>
+              </div>
+              <div class="quick-action text-center" @click="onQuickAction('call')">
+                <q-btn round unelevated size="sm" icon="phone" color="primary" />
+                <div class="quick-action-label">Call</div>
+              </div>
+            </div>
+          </q-card-section>
+        </q-card>
+
+        <!-- About this deal Card -->
+        <q-card flat class="sidebar-card">
+          <q-expansion-item
+            default-opened
+            header-class="about-header"
+            expand-icon-class="text-grey-6"
+          >
+            <template #header>
+              <q-item-section>
+                <span class="section-title">About this deal</span>
+              </q-item-section>
+            </template>
+
+            <q-card-section class="q-pt-none">
+              <div class="about-fields">
+                <div class="field-row">
+                  <div class="field-label">Deal Stage</div>
+                  <q-select
+                    v-model="currentStage"
+                    :options="stageOptions"
+                    emit-value
+                    map-options
+                    dense
+                    borderless
+                    class="field-select"
+                    @update:model-value="onStageChange"
+                  />
+                </div>
+
+                <div class="field-row">
+                  <div class="field-label">Source</div>
+                  <div class="field-value">{{ formatSource(lead.source) || '--' }}</div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-label">Monthly Bill</div>
+                  <div class="field-value">
+                    {{ lead.property?.monthlyBill ? '$' + lead.property.monthlyBill : '--' }}
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-label">System Size</div>
+                  <div class="field-value">{{ lead.kw ? lead.kw + ' kW' : '--' }}</div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-label">EPC</div>
+                  <div class="field-value">{{ lead.epc ? '$' + lead.epc : '--' }}</div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-label">Financier</div>
+                  <div class="field-value">{{ lead.financier || '--' }}</div>
+                </div>
+
+                <q-separator class="q-my-sm" />
+
+                <!-- Owner -->
+                <div class="field-row">
+                  <div class="field-label">Lead Owner</div>
+                  <q-select
+                    v-model="selectedOwner"
+                    :options="filteredUsers('owner')"
+                    option-value="id"
+                    option-label="label"
+                    emit-value
+                    map-options
+                    dense
+                    borderless
+                    use-input
+                    input-debounce="200"
+                    class="field-select"
+                    :loading="loadingUsers"
+                    @filter="(val, update) => filterUsers(val, update, 'owner')"
+                    @update:model-value="onOwnerChange"
+                  >
+                    <template #no-option>
+                      <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
+                    </template>
+                    <template #selected-item="scope">
+                      <div class="row items-center no-wrap" style="gap: 6px">
+                        <q-avatar size="18px" color="primary" text-color="white" style="font-size: 9px">
+                          {{ scope.opt?.label?.charAt(0) || '?' }}
+                        </q-avatar>
+                        <span class="text-caption">{{ scope.opt?.label || 'Unassigned' }}</span>
+                      </div>
+                    </template>
+                  </q-select>
+                </div>
+
+                <!-- Project Manager -->
+                <div class="field-row">
+                  <div class="field-label">Project Manager</div>
+                  <q-select
+                    v-model="selectedPM"
+                    :options="filteredUsers('pm')"
+                    option-value="id"
+                    option-label="label"
+                    emit-value
+                    map-options
+                    dense
+                    borderless
+                    use-input
+                    clearable
+                    input-debounce="200"
+                    class="field-select"
+                    :loading="loadingUsers"
+                    @filter="(val, update) => filterUsers(val, update, 'pm')"
+                    @update:model-value="onPMChange"
+                  >
+                    <template #no-option>
+                      <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
+                    </template>
+                    <template #selected-item="scope">
+                      <div v-if="scope.opt" class="row items-center no-wrap" style="gap: 6px">
+                        <q-avatar size="18px" color="orange-8" text-color="white" style="font-size: 9px">
+                          {{ scope.opt?.label?.charAt(0) || '?' }}
+                        </q-avatar>
+                        <span class="text-caption">{{ scope.opt?.label }}</span>
+                      </div>
+                      <span v-else class="text-caption text-grey-5">Not assigned</span>
+                    </template>
+                  </q-select>
+                </div>
+
+                <q-separator class="q-my-sm" />
+
+                <div class="field-row">
+                  <div class="field-label">Score</div>
+                  <div class="field-value row items-center q-gutter-x-xs no-wrap">
+                    <span>{{ lead.leadScore?.total ?? '--' }}</span>
+                    <q-badge
+                      v-if="lead.leadScore?.tier"
+                      :style="{ backgroundColor: tierColor(lead.leadScore.tier) }"
+                      text-color="white"
+                      class="tier-badge"
+                    >
+                      {{ lead.leadScore.tier }}
+                    </q-badge>
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-label">Created</div>
+                  <div class="field-value">{{ formatDate(lead.createdAt) }}</div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-label">Last updated</div>
+                  <div class="field-value">{{ formatDate(lead.updatedAt) }}</div>
+                </div>
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
       </div>
 
-      <!-- Tabs -->
-      <q-tabs
-        v-model="activeTab"
-        dense
-        align="left"
-        active-color="primary"
-        indicator-color="primary"
-        class="q-mb-md"
-        no-caps
-      >
-        <q-tab name="about" label="About" />
-        <q-tab name="project" label="Project" />
-        <q-tab name="files" label="Files" />
-        <q-tab name="commission" label="Commission" />
-        <q-tab name="timeline" label="Timeline" />
-      </q-tabs>
+      <!-- ============ CENTER COLUMN ============ -->
+      <div class="col-12 col-md-6">
+        <div class="center-card">
+          <q-tabs
+            v-model="activeTab"
+            dense
+            align="left"
+            active-color="primary"
+            indicator-color="primary"
+            no-caps
+            class="center-tabs"
+          >
+            <q-tab name="activity" label="Activity" />
+            <q-tab name="notes" label="Notes" />
+            <q-tab name="files" label="Files" />
+            <q-tab name="commission" label="Commission" />
+          </q-tabs>
 
-      <q-tab-panels v-model="activeTab" animated>
-        <!-- About Tab -->
-        <q-tab-panel name="about" class="q-px-none">
-          <q-card flat bordered class="rounded-card q-mb-md">
-            <q-card-section>
-              <div class="text-subtitle2 text-weight-bold q-mb-sm">Customer</div>
-              <div class="row q-col-gutter-md">
-                <div class="col-12 col-sm-6">
-                  <div class="text-caption text-grey-6">Name</div>
-                  <div>{{ lead.firstName }} {{ lead.lastName }}</div>
-                </div>
-                <div class="col-12 col-sm-6">
-                  <div class="text-caption text-grey-6">Email</div>
-                  <div>{{ lead.email || '--' }}</div>
-                </div>
-                <div class="col-12 col-sm-6">
-                  <div class="text-caption text-grey-6">Phone</div>
-                  <div>{{ lead.phone || '--' }}</div>
-                </div>
-                <div class="col-12 col-sm-6">
-                  <div class="text-caption text-grey-6">Source</div>
-                  <div>{{ lead.source || '--' }}</div>
+          <q-separator />
+
+          <q-tab-panels v-model="activeTab" animated class="center-panels">
+            <!-- Activity tab -->
+            <q-tab-panel name="activity">
+              <LeadTimeline :activities="activities" />
+            </q-tab-panel>
+
+            <!-- Notes tab -->
+            <q-tab-panel name="notes">
+              <div class="q-mb-md">
+                <q-input
+                  v-model="newNote"
+                  type="textarea"
+                  outlined
+                  placeholder="Add a note..."
+                  autogrow
+                  :input-style="{ minHeight: '80px' }"
+                  class="note-input"
+                />
+                <div class="row justify-end q-mt-sm">
+                  <q-btn
+                    unelevated
+                    no-caps
+                    color="primary"
+                    label="Save note"
+                    :loading="savingNote"
+                    :disable="!newNote.trim()"
+                    class="rounded-btn"
+                    @click="saveNote"
+                  />
                 </div>
               </div>
-            </q-card-section>
-          </q-card>
 
-          <q-card v-if="lead.notes" flat bordered class="rounded-card">
-            <q-card-section>
-              <div class="text-subtitle2 text-weight-bold q-mb-xs">Notes</div>
-              <div class="text-body2 text-grey-8">{{ lead.notes }}</div>
-            </q-card-section>
-          </q-card>
-        </q-tab-panel>
+              <q-separator class="q-mb-md" />
 
-        <!-- Project Tab -->
-        <q-tab-panel name="project" class="q-px-none">
-          <q-card flat bordered class="rounded-card">
-            <q-card-section>
-              <div class="text-subtitle2 text-weight-bold q-mb-sm">Design Status</div>
-              <div class="text-body2 text-grey-6 q-mb-md">
-                {{ projectData.designStatus || 'No design submitted yet.' }}
+              <div v-if="notes.length === 0" class="text-grey-6 text-center q-pa-lg">
+                No notes yet.
+              </div>
+              <div v-for="note in notes" :key="note.id" class="note-item q-mb-md">
+                <div class="row items-center q-mb-xs">
+                  <q-avatar size="24px" color="grey-3" text-color="grey-7" class="q-mr-sm">
+                    <span style="font-size: 10px">{{ initials(note.userName) }}</span>
+                  </q-avatar>
+                  <span class="text-weight-medium text-body2">{{ note.userName }}</span>
+                  <q-space />
+                  <span class="text-caption text-grey-5">{{ formatDateTime(note.createdAt) }}</span>
+                </div>
+                <div class="text-body2 text-grey-8 note-body">{{ note.body }}</div>
+              </div>
+            </q-tab-panel>
+
+            <!-- Files tab -->
+            <q-tab-panel name="files">
+              <div class="row items-center q-mb-md">
+                <span class="text-subtitle2 text-weight-bold col">Documents</span>
+                <q-btn
+                  unelevated
+                  no-caps
+                  color="primary"
+                  size="sm"
+                  icon="upload_file"
+                  label="Upload"
+                  class="rounded-btn"
+                  @click="uploadFile"
+                />
               </div>
 
-              <div class="text-subtitle2 text-weight-bold q-mb-xs">Aurora Link</div>
-              <div v-if="projectData.auroraLink">
-                <a
-                  :href="projectData.auroraLink"
-                  target="_blank"
-                  class="text-primary"
-                >
-                  Open in Aurora
-                </a>
-              </div>
-              <div v-else class="text-grey-6 text-body2">No Aurora project linked.</div>
-            </q-card-section>
-          </q-card>
-        </q-tab-panel>
-
-        <!-- Files Tab -->
-        <q-tab-panel name="files" class="q-px-none">
-          <div class="row items-center q-mb-md">
-            <span class="text-subtitle2 text-weight-bold col">Documents</span>
-            <q-btn
-              color="primary"
-              unelevated
-              no-caps
-              size="sm"
-              icon="upload_file"
-              label="Upload"
-              class="rounded-btn"
-              @click="uploadFile"
-            />
-          </div>
-
-          <q-list v-if="files.length" separator bordered class="rounded-borders">
-            <q-item v-for="file in files" :key="file.id">
-              <q-item-section avatar>
-                <q-icon name="insert_drive_file" color="grey-6" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>{{ file.name }}</q-item-label>
-                <q-item-label caption>{{ formatDate(file.uploadedAt) }}</q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-btn flat dense round icon="download" @click="downloadFile(file)" />
-              </q-item-section>
-            </q-item>
-          </q-list>
-
-          <div v-else class="text-grey-6 text-center q-pa-lg">
-            No documents uploaded yet.
-          </div>
-        </q-tab-panel>
-
-        <!-- Commission Tab -->
-        <q-tab-panel name="commission" class="q-px-none">
-          <q-card flat bordered class="rounded-card">
-            <q-card-section>
-              <div class="text-subtitle2 text-weight-bold q-mb-md">Commission Breakdown</div>
-
-              <q-list dense separator>
-                <q-item v-for="line in commissionLines" :key="line.label">
+              <q-list v-if="files.length" separator class="file-list">
+                <q-item v-for="file in files" :key="file.id" class="file-item">
+                  <q-item-section avatar>
+                    <q-icon name="insert_drive_file" color="grey-5" />
+                  </q-item-section>
                   <q-item-section>
-                    <q-item-label>{{ line.label }}</q-item-label>
+                    <q-item-label>{{ file.name }}</q-item-label>
+                    <q-item-label caption>{{ formatDate(file.uploadedAt) }}</q-item-label>
                   </q-item-section>
                   <q-item-section side>
-                    <q-item-label class="text-weight-bold">{{ line.value }}</q-item-label>
+                    <q-btn flat dense round icon="download" color="grey-7" @click="downloadFile(file)" />
                   </q-item-section>
                 </q-item>
               </q-list>
 
-              <q-separator class="q-my-sm" />
-
-              <div class="row items-center">
-                <span class="col text-subtitle2 text-weight-bold">Total</span>
-                <span class="text-h6 text-weight-bold text-primary">
-                  {{ commissionTotal }}
-                </span>
+              <div v-else class="text-grey-6 text-center q-pa-lg">
+                No documents uploaded yet.
               </div>
-            </q-card-section>
-          </q-card>
-        </q-tab-panel>
+            </q-tab-panel>
 
-        <!-- Timeline Tab -->
-        <q-tab-panel name="timeline" class="q-px-none">
-          <LeadTimeline :activities="activities" />
-        </q-tab-panel>
-      </q-tab-panels>
-    </template>
+            <!-- Commission tab -->
+            <q-tab-panel name="commission">
+              <div v-if="commissionLines.length" class="commission-table">
+                <q-markup-table flat bordered separator="horizontal" class="rounded-card">
+                  <thead>
+                    <tr>
+                      <th class="text-left">Description</th>
+                      <th class="text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="line in commissionLines" :key="line.label">
+                      <td>{{ line.label }}</td>
+                      <td class="text-right text-weight-medium">{{ line.value }}</td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr class="commission-total-row">
+                      <td class="text-weight-bold">Total</td>
+                      <td class="text-right text-weight-bold text-primary text-h6">
+                        {{ commissionTotal }}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </q-markup-table>
+              </div>
+              <div v-else class="text-grey-6 text-center q-pa-lg">
+                No commission data available.
+              </div>
+            </q-tab-panel>
+          </q-tab-panels>
+        </div>
+      </div>
 
-    <div v-else class="text-grey-6 text-center q-pa-xl">
-      Lead not found.
+      <!-- ============ RIGHT SIDEBAR ============ -->
+      <div class="col-12 col-md-3">
+        <!-- Created By / Referred By card -->
+        <div v-if="lead.createdBy || referredBy" class="sidebar-card q-mb-md">
+          <div class="sidebar-card-title">Attribution</div>
+          <div v-if="lead.createdBy" class="sidebar-field">
+            <div class="sidebar-field-label">Created by</div>
+            <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
+              <q-avatar size="20px" :color="isExternalCreator ? 'orange-6' : 'primary'" text-color="white" style="font-size: 9px">
+                {{ lead.createdBy.firstName?.charAt(0) }}
+              </q-avatar>
+              <span>{{ lead.createdBy.firstName }} {{ lead.createdBy.lastName }}</span>
+              <q-badge v-if="isExternalCreator" color="orange-2" text-color="orange-9" dense style="font-size: 10px">
+                Partner
+              </q-badge>
+              <q-badge v-else color="blue-1" text-color="blue-8" dense style="font-size: 10px">
+                Employee
+              </q-badge>
+            </div>
+            <div class="text-caption text-grey-5" style="margin-left: 26px">{{ lead.createdBy.email }}</div>
+          </div>
+          <div v-if="referredBy" class="sidebar-field">
+            <div class="sidebar-field-label">Referred by</div>
+            <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
+              <q-avatar size="20px" color="primary" text-color="white" style="font-size: 9px">
+                {{ referredBy.firstName?.charAt(0) }}
+              </q-avatar>
+              <span>{{ referredBy.firstName }} {{ referredBy.lastName }}</span>
+              <q-badge color="green-1" text-color="green-8" dense style="font-size: 10px">
+                Rep
+              </q-badge>
+            </div>
+            <div class="text-caption text-grey-5" style="margin-left: 26px">{{ referredBy.email }}</div>
+          </div>
+        </div>
+
+        <!-- Contact card -->
+        <div class="sidebar-card q-mb-md">
+          <div class="sidebar-card-title">Contact</div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Name</div>
+            <div class="sidebar-field-value">
+              {{ lead.customer?.firstName }} {{ lead.customer?.lastName }}
+            </div>
+          </div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Email</div>
+            <div class="sidebar-field-value">
+              <a
+                v-if="lead.customer?.email"
+                :href="'mailto:' + lead.customer.email"
+                class="field-link"
+              >{{ lead.customer.email }}</a>
+              <span v-else>--</span>
+            </div>
+          </div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Phone</div>
+            <div class="sidebar-field-value">
+              <a
+                v-if="lead.customer?.phone"
+                :href="'tel:' + lead.customer.phone"
+                class="field-link"
+              >{{ lead.customer.phone }}</a>
+              <span v-else>--</span>
+            </div>
+          </div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Source</div>
+            <div class="sidebar-field-value">{{ formatSource(lead.customer?.source) || '--' }}</div>
+          </div>
+        </div>
+
+        <!-- Property card -->
+        <div class="sidebar-card q-mb-md">
+          <div class="sidebar-card-title">Property</div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Address</div>
+            <div class="sidebar-field-value">
+              {{ fullAddress }}
+            </div>
+          </div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Type</div>
+            <div class="sidebar-field-value">{{ lead.property?.propertyType || '--' }}</div>
+          </div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Roof Condition</div>
+            <div class="sidebar-field-value">{{ lead.property?.roofCondition || '--' }}</div>
+          </div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Electrical Service</div>
+            <div class="sidebar-field-value">{{ lead.property?.electricalService || '--' }}</div>
+          </div>
+          <div v-if="lead.property?.hasPool || lead.property?.hasEV" class="sidebar-field">
+            <div class="sidebar-field-label">Features</div>
+            <div class="sidebar-field-value row q-gutter-xs">
+              <q-badge v-if="lead.property?.hasPool" outline color="blue" label="Pool" />
+              <q-badge v-if="lead.property?.hasEV" outline color="green" label="EV" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Energy card -->
+        <div class="sidebar-card q-mb-md">
+          <div class="sidebar-card-title">Energy</div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Monthly Bill</div>
+            <div class="sidebar-field-value">
+              {{ lead.property?.monthlyBill ? '$' + lead.property.monthlyBill : '--' }}
+            </div>
+          </div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Annual kWh</div>
+            <div class="sidebar-field-value">
+              {{ lead.property?.annualKwhUsage ? lead.property.annualKwhUsage.toLocaleString() + ' kWh' : '--' }}
+            </div>
+          </div>
+          <div class="sidebar-field">
+            <div class="sidebar-field-label">Utility Provider</div>
+            <div class="sidebar-field-value">{{ lead.property?.utilityProvider || '--' }}</div>
+          </div>
+        </div>
+
+        <!-- Design Status card -->
+        <div v-if="designRequests.length > 0" class="sidebar-card q-mb-md">
+          <div class="sidebar-card-title">Design</div>
+          <div v-for="dr in designRequests" :key="dr.id" class="sidebar-field">
+            <div class="row items-center justify-between q-mb-xs">
+              <q-chip
+                dense
+                :color="designTypeColor(dr.designType)"
+                text-color="white"
+                size="sm"
+              >
+                {{ dr.designType === 'AI_DESIGN' ? 'AI Design (Aurora)' : 'Manual Design' }}
+              </q-chip>
+              <q-badge
+                :color="designStatusColor(dr.status)"
+                text-color="white"
+                style="border-radius: 6px; padding: 2px 8px; font-size: 10px"
+              >
+                {{ formatDesignStatus(dr.status) }}
+              </q-badge>
+            </div>
+            <div v-if="dr.auroraProjectUrl" class="q-mt-xs">
+              <a :href="dr.auroraProjectUrl" target="_blank" class="field-link text-caption row items-center no-wrap" style="gap: 4px">
+                <q-icon name="open_in_new" size="14px" />
+                Open in Aurora Solar
+              </a>
+            </div>
+            <div v-else-if="dr.auroraProjectId" class="text-caption text-grey-5 q-mt-xs">
+              Aurora ID: {{ dr.auroraProjectId.slice(0, 12) }}...
+            </div>
+            <div v-if="dr.notes" class="text-caption text-grey-6 q-mt-xs">
+              {{ dr.notes }}
+            </div>
+            <div class="text-caption text-grey-4 q-mt-xs">
+              {{ dr.completedAt ? `Completed ${formatDate(dr.completedAt)}` : `Requested ${formatDate(dr.createdAt)}` }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Breakdown card -->
+        <div v-if="lead.leadScore" class="sidebar-card">
+          <div class="sidebar-card-title">Score Breakdown</div>
+
+          <!-- Total score -->
+          <div class="score-total-row q-mb-md">
+            <div class="row items-center justify-between q-mb-xs">
+              <span class="text-weight-bold">Total</span>
+              <span class="text-weight-bold">{{ lead.leadScore.total }}/100</span>
+            </div>
+            <q-linear-progress
+              :value="(lead.leadScore.total ?? 0) / 100"
+              :color="tierQColor(lead.leadScore.tier)"
+              rounded
+              size="8px"
+              class="q-mb-xs"
+            />
+          </div>
+
+          <!-- Individual scores -->
+          <div class="score-row">
+            <div class="row items-center justify-between q-mb-xs">
+              <span class="text-caption text-grey-7">Contact</span>
+              <span class="text-caption text-grey-7">{{ lead.leadScore.contactScore }}</span>
+            </div>
+            <q-linear-progress
+              :value="(lead.leadScore.contactScore ?? 0) / 25"
+              color="blue"
+              rounded
+              size="4px"
+            />
+          </div>
+
+          <div class="score-row">
+            <div class="row items-center justify-between q-mb-xs">
+              <span class="text-caption text-grey-7">Property</span>
+              <span class="text-caption text-grey-7">{{ lead.leadScore.propertyScore }}</span>
+            </div>
+            <q-linear-progress
+              :value="(lead.leadScore.propertyScore ?? 0) / 25"
+              color="purple"
+              rounded
+              size="4px"
+            />
+          </div>
+
+          <div class="score-row">
+            <div class="row items-center justify-between q-mb-xs">
+              <span class="text-caption text-grey-7">Energy</span>
+              <span class="text-caption text-grey-7">{{ lead.leadScore.energyScore }}</span>
+            </div>
+            <q-linear-progress
+              :value="(lead.leadScore.energyScore ?? 0) / 25"
+              color="orange"
+              rounded
+              size="4px"
+            />
+          </div>
+
+          <div class="score-row">
+            <div class="row items-center justify-between q-mb-xs">
+              <span class="text-caption text-grey-7">Roof</span>
+              <span class="text-caption text-grey-7">{{ lead.leadScore.roofScore }}</span>
+            </div>
+            <q-linear-progress
+              :value="(lead.leadScore.roofScore ?? 0) / 25"
+              color="teal"
+              rounded
+              size="4px"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useQuasar } from 'quasar';
 import { useLeadStore } from '@/stores/lead.store';
 import { api } from '@/boot/axios';
 import LeadTimeline from '@/components/lead/LeadTimeline.vue';
 
 const props = defineProps<{ id: string }>();
+const $q = useQuasar();
 const leadStore = useLeadStore();
 
-const lead = computed(() => leadStore.currentLead);
-const activeTab = ref('about');
+const lead = computed(() => leadStore.currentLead as Record<string, any> | null);
+const activeTab = ref('activity');
 const currentStage = ref('');
 
+// ---- Stage options & colors ----
 const stageOptions = [
-  { label: 'New', value: 'new' },
-  { label: 'Contacted', value: 'contacted' },
-  { label: 'Qualified', value: 'qualified' },
-  { label: 'Proposal', value: 'proposal' },
-  { label: 'Won', value: 'won' },
-  { label: 'Lost', value: 'lost' },
+  { label: 'New Lead', value: 'NEW_LEAD' },
+  { label: 'Request Design', value: 'REQUEST_DESIGN' },
+  { label: 'Design In Progress', value: 'DESIGN_IN_PROGRESS' },
+  { label: 'Design Ready', value: 'DESIGN_READY' },
+  { label: 'Pending Signature', value: 'PENDING_SIGNATURE' },
+  { label: 'Won', value: 'WON' },
+  { label: 'Lost', value: 'LOST' },
 ];
 
-interface FileItem {
-  id: string;
-  name: string;
-  url: string;
-  uploadedAt: string;
+const STAGE_COLORS: Record<string, string> = {
+  NEW_LEAD: '#4CAF50',
+  REQUEST_DESIGN: '#2196F3',
+  DESIGN_IN_PROGRESS: '#FF9800',
+  DESIGN_READY: '#9C27B0',
+  PENDING_SIGNATURE: '#F44336',
+  WON: '#00897B',
+  LOST: '#EF4444',
+};
+
+const TIER_COLORS: Record<string, string> = {
+  A: '#10B981',
+  B: '#3B82F6',
+  C: '#F59E0B',
+  D: '#EF4444',
+};
+
+function stageColor(stage: string) {
+  return STAGE_COLORS[stage] ?? '#9E9E9E';
 }
 
+function tierColor(tier: string) {
+  return TIER_COLORS[tier] ?? '#9E9E9E';
+}
+
+function tierQColor(tier: string) {
+  const map: Record<string, string> = { A: 'positive', B: 'primary', C: 'warning', D: 'negative' };
+  return map[tier] ?? 'grey';
+}
+
+function formatStage(stage: string) {
+  return (stage ?? '').replace(/_/g, ' ');
+}
+
+function formatSource(source: string | undefined | null) {
+  if (!source) return '';
+  return source.replace(/_/g, ' ');
+}
+
+// ---- Computed helpers ----
+const fullAddress = computed(() => {
+  const p = lead.value?.property;
+  if (!p) return '--';
+  const parts = [p.streetAddress, p.city, p.state, p.zip].filter(Boolean);
+  return parts.length ? parts.join(', ') : '--';
+});
+
+// ---- Attribution ----
+const isExternalCreator = computed(() => {
+  const email = lead.value?.createdBy?.email ?? '';
+  return email && !email.endsWith('@ecoloop.us');
+});
+
+const designRequests = computed(() => {
+  return (lead.value as any)?.designRequests ?? [];
+});
+
+function designTypeColor(type: string) {
+  return type === 'AI_DESIGN' ? 'purple' : 'blue-grey';
+}
+
+function designStatusColor(status: string) {
+  const map: Record<string, string> = {
+    PENDING: 'orange',
+    IN_PROGRESS: 'blue',
+    COMPLETED: 'positive',
+    FAILED: 'negative',
+  };
+  return map[status] ?? 'grey';
+}
+
+function formatDesignStatus(status: string) {
+  const map: Record<string, string> = {
+    PENDING: 'Pending',
+    IN_PROGRESS: 'In Progress',
+    COMPLETED: 'Completed',
+    FAILED: 'Failed',
+  };
+  return map[status] ?? status;
+}
+
+const referredBy = computed(() => {
+  if (!lead.value) return null;
+  // If creator is external, the primary assignment owner is the referrer
+  if (isExternalCreator.value) {
+    const assignments = (lead.value as any).assignments ?? [];
+    const primary = assignments.find((a: any) => a.isPrimary);
+    if (primary?.user && primary.userId !== lead.value.createdById) {
+      return primary.user;
+    }
+  }
+  return null;
+});
+
+// ---- Extra data refs ----
 interface Activity {
   id: string;
   type: string;
@@ -214,44 +724,217 @@ interface Activity {
   userName?: string;
 }
 
-const projectData = ref({ designStatus: '', auroraLink: '' });
-const files = ref<FileItem[]>([]);
+interface NoteItem {
+  id: string;
+  body: string;
+  userName: string;
+  createdAt: string;
+}
+
+interface FileItem {
+  id: string;
+  name: string;
+  url: string;
+  uploadedAt: string;
+}
+
 const activities = ref<Activity[]>([]);
+const notes = ref<NoteItem[]>([]);
+const files = ref<FileItem[]>([]);
 const commissionLines = ref<{ label: string; value: string }[]>([]);
 const commissionTotal = ref('$0');
+const newNote = ref('');
+const savingNote = ref(false);
 
+// ---- Lifecycle ----
 onMounted(async () => {
   await leadStore.fetchLead(props.id);
   if (lead.value) {
-    currentStage.value = lead.value.stage;
+    currentStage.value = lead.value.currentStage as string;
+    initAssignments();
   }
   loadExtras();
+  loadUsers();
 });
 
 async function loadExtras() {
+  const [timelineRes, docsRes, commRes] = await Promise.all([
+    api.get<Activity[]>(`/leads/${props.id}/timeline`).catch(() => ({ data: [] as Activity[] })),
+    api.get<FileItem[]>(`/leads/${props.id}/documents`).catch(() => ({ data: [] as FileItem[] })),
+    api.get(`/leads/${props.id}/commissions`).catch(() => ({ data: [] })),
+  ]);
+
+  activities.value = Array.isArray(timelineRes.data) ? timelineRes.data : [];
+  files.value = Array.isArray(docsRes.data) ? docsRes.data : [];
+
+  // Notes may come from timeline or a separate endpoint; extract note-type activities
+  notes.value = activities.value
+    .filter((a) => a.type === 'note')
+    .map((a) => ({
+      id: a.id,
+      body: a.description,
+      userName: a.userName ?? 'Unknown',
+      createdAt: a.createdAt,
+    }));
+
+  const commData = commRes.data as any;
+  commissionLines.value = commData?.lines ?? [];
+  commissionTotal.value = commData?.total ?? '$0';
+}
+
+// ---- Actions ----
+async function onStageChange(newStage: string) {
   try {
-    const [projRes, filesRes, actRes, commRes] = await Promise.all([
-      api.get(`/leads/${props.id}/project`).catch(() => ({ data: {} })),
-      api.get<FileItem[]>(`/leads/${props.id}/files`).catch(() => ({ data: [] })),
-      api.get<Activity[]>(`/leads/${props.id}/activities`).catch(() => ({ data: [] })),
-      api.get(`/leads/${props.id}/commission`).catch(() => ({ data: { lines: [], total: '$0' } })),
-    ]);
-    projectData.value = projRes.data;
-    files.value = filesRes.data;
-    activities.value = actRes.data;
-    commissionLines.value = commRes.data.lines ?? [];
-    commissionTotal.value = commRes.data.total ?? '$0';
+    await leadStore.changeStage(props.id, newStage);
+    $q.notify({ type: 'positive', message: 'Stage updated' });
   } catch {
-    // Non-critical data
+    $q.notify({ type: 'negative', message: 'Failed to update stage' });
+    if (lead.value) currentStage.value = lead.value.currentStage as string;
   }
 }
 
-async function onStageChange(newStage: string) {
-  await leadStore.changeStage(props.id, newStage);
+function onQuickAction(type: string) {
+  if (type === 'note') {
+    activeTab.value = 'notes';
+  } else if (type === 'email' && lead.value?.customer?.email) {
+    window.open('mailto:' + lead.value.customer.email);
+  } else if (type === 'call' && lead.value?.customer?.phone) {
+    window.open('tel:' + lead.value.customer.phone);
+  }
+}
+
+// ---- Owner & PM Assignment ----
+interface UserOption {
+  id: string;
+  label: string;
+  email: string;
+  role: string;
+}
+
+const allUsers = ref<UserOption[]>([]);
+const loadingUsers = ref(false);
+const selectedOwner = ref<string | null>(null);
+const selectedPM = ref<string | null>(null);
+const ownerFilteredUsers = ref<UserOption[]>([]);
+const pmFilteredUsers = ref<UserOption[]>([]);
+
+function filteredUsers(which: string) {
+  return which === 'owner' ? ownerFilteredUsers.value : pmFilteredUsers.value;
+}
+
+async function loadUsers() {
+  if (allUsers.value.length > 0) return;
+  loadingUsers.value = true;
+  try {
+    const { data } = await api.get('/users');
+    const list = Array.isArray(data) ? data : (data as any).data ?? [];
+    allUsers.value = list.map((u: any) => ({
+      id: u.id,
+      label: `${u.firstName} ${u.lastName}`,
+      email: u.email,
+      role: u.role,
+    }));
+  } catch { /* ignore */ }
+  finally { loadingUsers.value = false; }
+}
+
+function filterUsers(val: string, update: (fn: () => void) => void, which: string) {
+  loadUsers().then(() => {
+    update(() => {
+      const needle = (val || '').toLowerCase();
+      const filtered = allUsers.value.filter(
+        (u) => u.label.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle),
+      );
+      if (which === 'owner') ownerFilteredUsers.value = filtered;
+      else pmFilteredUsers.value = filtered;
+    });
+  });
+}
+
+async function onOwnerChange(userId: string | null) {
+  if (!userId) return;
+  try {
+    await api.post(`/leads/${props.id}/assign`, {
+      userId,
+      splitPct: 100,
+      isPrimary: true,
+    });
+    $q.notify({ type: 'positive', message: 'Lead owner updated' });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to update owner' });
+  }
+}
+
+async function onPMChange(pmId: string | null) {
+  try {
+    if (pmId) {
+      await api.post(`/leads/${props.id}/assign-pm`, { projectManagerId: pmId });
+      $q.notify({ type: 'positive', message: 'Project Manager assigned' });
+    } else {
+      await api.post(`/leads/${props.id}/assign-pm`, { projectManagerId: null });
+      $q.notify({ type: 'positive', message: 'Project Manager removed' });
+    }
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to update Project Manager' });
+  }
+}
+
+// Initialize owner/PM from lead data
+function initAssignments() {
+  if (!lead.value) return;
+  const assignments = (lead.value as any).assignments ?? [];
+  const primary = assignments.find((a: any) => a.isPrimary);
+  if (primary) {
+    selectedOwner.value = primary.userId;
+    // Pre-populate allUsers with known assignment users so selects show labels immediately
+    if (primary.user && !allUsers.value.find((u) => u.id === primary.userId)) {
+      allUsers.value.push({
+        id: primary.userId,
+        label: `${primary.user.firstName} ${primary.user.lastName}`,
+        email: primary.user.email,
+        role: '',
+      });
+    }
+  }
+  selectedPM.value = (lead.value as any).projectManagerId ?? null;
+  if (selectedPM.value && (lead.value as any).projectManager) {
+    const pm = (lead.value as any).projectManager;
+    if (!allUsers.value.find((u) => u.id === selectedPM.value)) {
+      allUsers.value.push({
+        id: pm.id,
+        label: `${pm.firstName} ${pm.lastName}`,
+        email: pm.email,
+        role: '',
+      });
+    }
+  }
+  // Seed filtered lists
+  ownerFilteredUsers.value = [...allUsers.value];
+  pmFilteredUsers.value = [...allUsers.value];
+}
+
+async function saveNote() {
+  if (!newNote.value.trim()) return;
+  savingNote.value = true;
+  try {
+    const { data } = await api.post(`/leads/${props.id}/notes`, { body: newNote.value.trim() });
+    const noteItem: NoteItem = {
+      id: data.id ?? crypto.randomUUID(),
+      body: newNote.value.trim(),
+      userName: data.userName ?? 'You',
+      createdAt: data.createdAt ?? new Date().toISOString(),
+    };
+    notes.value.unshift(noteItem);
+    newNote.value = '';
+    $q.notify({ type: 'positive', message: 'Note saved' });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to save note' });
+  } finally {
+    savingNote.value = false;
+  }
 }
 
 function uploadFile() {
-  // Trigger file input - placeholder for upload logic
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.pdf,.doc,.docx,.jpg,.png';
@@ -261,10 +944,11 @@ function uploadFile() {
     const form = new FormData();
     form.append('file', file);
     try {
-      const { data } = await api.post<FileItem>(`/leads/${props.id}/files`, form);
+      const { data } = await api.post<FileItem>(`/leads/${props.id}/documents`, form);
       files.value.unshift(data);
+      $q.notify({ type: 'positive', message: 'File uploaded' });
     } catch {
-      // Handle error
+      $q.notify({ type: 'negative', message: 'Upload failed' });
     }
   };
   input.click();
@@ -274,26 +958,299 @@ function downloadFile(file: FileItem) {
   window.open(file.url, '_blank');
 }
 
+// ---- Formatting ----
 function formatDate(iso: string) {
+  if (!iso) return '--';
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
 }
+
+function formatDateTime(iso: string) {
+  if (!iso) return '--';
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function initials(name: string) {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
 </script>
 
 <style lang="scss" scoped>
-.rounded-card {
+.lead-detail-page {
+  background: #F8FAFB;
+  padding: 24px;
+  min-height: 100vh;
+}
+
+// ---- Back link ----
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #6B7280;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.15s;
+
+  &:hover {
+    color: #1A1A2E;
+  }
+}
+
+// ---- Customer name ----
+.customer-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1A1A2E;
+  margin: 0;
+  line-height: 1.3;
+}
+
+// ---- Badges ----
+.stage-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.source-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.tier-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+// ---- Quick actions ----
+.quick-action {
+  cursor: pointer;
+
+  .quick-action-label {
+    font-size: 11px;
+    color: #6B7280;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+}
+
+// ---- About section ----
+.about-header {
+  padding: 8px 0;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1A1A2E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.about-fields {
+  padding: 0 0 8px;
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #F3F4F6;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.field-label {
+  font-size: 13px;
+  color: #6B7280;
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
+.field-value {
+  font-size: 13px;
+  color: #1A1A2E;
+  font-weight: 500;
+  text-align: right;
+}
+
+.field-select {
+  max-width: 160px;
+
+  :deep(.q-field__control) {
+    min-height: 28px;
+  }
+
+  :deep(.q-field__native) {
+    font-size: 13px;
+    color: #1A1A2E;
+    font-weight: 500;
+    padding: 0;
+  }
+}
+
+// ---- Center column ----
+.center-card {
+  background: #fff;
+  border: 1px solid #E5E7EB;
   border-radius: 12px;
+  overflow: hidden;
 }
-.rounded-btn {
-  border-radius: 10px;
+
+.center-tabs {
+  :deep(.q-tab) {
+    font-weight: 600;
+    font-size: 13px;
+  }
 }
-.stage-select {
-  min-width: 160px;
+
+.center-panels {
+  min-height: 400px;
+
+  :deep(.q-tab-panel) {
+    padding: 20px;
+  }
+}
+
+// ---- Notes ----
+.note-input {
   :deep(.q-field__control) {
     border-radius: 10px;
   }
+}
+
+.note-item {
+  padding: 12px;
+  background: #F9FAFB;
+  border-radius: 10px;
+}
+
+.note-body {
+  padding-left: 34px;
+  white-space: pre-wrap;
+}
+
+// ---- Files ----
+.file-list {
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.file-item {
+  transition: background 0.15s;
+
+  &:hover {
+    background: #F9FAFB;
+  }
+}
+
+// ---- Commission ----
+.commission-total-row {
+  background: #F9FAFB;
+}
+
+// ---- Sidebar cards ----
+.sidebar-card {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 16px;
+
+  &.q-card {
+    padding: 0;
+    box-shadow: none;
+  }
+}
+
+.sidebar-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1A1A2E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.sidebar-field {
+  margin-bottom: 10px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.sidebar-field-label {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.sidebar-field-value {
+  font-size: 13px;
+  color: #1A1A2E;
+  font-weight: 500;
+}
+
+.field-link {
+  color: #4F46E5;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ---- Score bars ----
+.score-row {
+  margin-bottom: 10px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// ---- Utility ----
+.rounded-btn {
+  border-radius: 10px;
+}
+
+.rounded-card {
+  border-radius: 12px;
+}
+
+.inline-block {
+  display: inline-block;
 }
 </style>

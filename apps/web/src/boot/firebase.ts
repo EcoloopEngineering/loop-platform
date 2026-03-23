@@ -15,6 +15,10 @@ let firebaseApp: FirebaseApp;
 let auth: Auth;
 
 export default boot(() => {
+  if (!firebaseConfig.apiKey) {
+    console.warn('Firebase not configured — running without auth');
+    return;
+  }
   firebaseApp = initializeApp(firebaseConfig);
   auth = getAuth(firebaseApp);
 });

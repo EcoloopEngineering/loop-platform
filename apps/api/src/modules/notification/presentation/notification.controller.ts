@@ -5,6 +5,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
@@ -32,15 +33,21 @@ export class NotificationController {
     );
   }
 
-  @Put(':id/read')
-  @ApiOperation({ summary: 'Mark a notification as read' })
-  async markRead(@Param('id') id: string) {
-    return this.notificationService.markRead(id);
+  @Get('unread-count')
+  @ApiOperation({ summary: 'Get unread notification count' })
+  async getUnreadCount(@CurrentUser() user: any) {
+    return this.notificationService.getUnreadCount(user.id);
   }
 
   @Put('read-all')
   @ApiOperation({ summary: 'Mark all notifications as read' })
   async markAllRead(@CurrentUser() user: any) {
     return this.notificationService.markAllRead(user.id);
+  }
+
+  @Put(':id/read')
+  @ApiOperation({ summary: 'Mark a notification as read' })
+  async markRead(@Param('id', ParseUUIDPipe) id: string) {
+    return this.notificationService.markRead(id);
   }
 }

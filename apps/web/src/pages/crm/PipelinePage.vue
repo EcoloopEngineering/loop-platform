@@ -1,6 +1,22 @@
 <template>
-  <q-page class="q-pa-md">
-    <h5 class="q-my-none text-weight-bold q-mb-md">Pipeline</h5>
+  <q-page class="q-pa-md" style="background: #F8FAFB">
+    <div class="row items-center q-mb-md">
+      <h5 class="q-my-none text-weight-bold">Pipeline</h5>
+      <q-space />
+      <q-btn-toggle
+        v-model="viewMode"
+        flat
+        no-caps
+        rounded
+        toggle-color="primary"
+        :options="[
+          { label: 'List', value: 'list', icon: 'view_list' },
+          { label: 'Board', value: 'board', icon: 'view_kanban' },
+        ]"
+        class="q-mr-sm"
+      />
+      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" style="border-radius: 10px" />
+    </div>
 
     <PipelineFilters
       :source-options="sourceOptions"
@@ -8,35 +24,171 @@
       @change="onFilterChange"
     />
 
+    <!-- Board View -->
     <PipelineBoard
+      v-if="viewMode === 'board'"
       :stages="stages"
       :loading="pipelineStore.loading"
       @stage-change="onStageChange"
     />
+
+    <!-- List View -->
+    <div v-else>
+      <div v-if="pipelineStore.loading" class="text-center q-pa-xl">
+        <q-spinner-dots color="primary" size="40px" />
+      </div>
+
+      <div v-else-if="allLeads.length === 0" class="text-center q-pa-xl text-grey-5">
+        No leads found.
+      </div>
+
+      <q-card v-else flat class="list-card">
+        <q-table
+          :rows="allLeads"
+          :columns="columns"
+          row-key="id"
+          flat
+          :pagination="{ rowsPerPage: 25 }"
+          :rows-per-page-options="[10, 25, 50]"
+          class="lead-table"
+          @row-click="onRowClick"
+        >
+          <template #body-cell-name="props">
+            <q-td :props="props">
+              <span class="text-weight-bold text-primary cursor-pointer">{{ props.row.customerName }}</span>
+            </q-td>
+          </template>
+
+          <template #body-cell-stage="props">
+            <q-td :props="props">
+              <q-badge
+                :style="{ background: stageColor(props.row.stage) }"
+                text-color="white"
+                class="stage-badge"
+              >
+                {{ formatStage(props.row.stage) }}
+              </q-badge>
+            </q-td>
+          </template>
+
+          <template #body-cell-score="props">
+            <q-td :props="props">
+              <div class="row items-center no-wrap" style="gap: 6px">
+                <q-linear-progress
+                  :value="props.row.leadScore / 100"
+                  :color="scoreColor(props.row.leadScore)"
+                  track-color="grey-3"
+                  rounded
+                  style="width: 50px; height: 6px"
+                />
+                <span class="text-caption text-weight-medium">{{ props.row.leadScore }}</span>
+              </div>
+            </q-td>
+          </template>
+
+          <template #body-cell-source="props">
+            <q-td :props="props">
+              <q-chip dense size="sm" color="grey-2" text-color="grey-8">
+                {{ formatSource(props.row.leadSource) }}
+              </q-chip>
+            </q-td>
+          </template>
+
+          <template #body-cell-owner="props">
+            <q-td :props="props">
+              <div v-if="props.row.owner" class="row items-center no-wrap" style="gap: 6px">
+                <q-avatar size="22px" color="primary" text-color="white" style="font-size: 10px">
+                  {{ props.row.owner.charAt(0) }}
+                </q-avatar>
+                <span class="text-caption">{{ props.row.owner }}</span>
+              </div>
+              <span v-else class="text-grey-4">--</span>
+            </q-td>
+          </template>
+
+          <template #body-cell-pm="props">
+            <q-td :props="props">
+              <div v-if="props.row.projectManager" class="row items-center no-wrap" style="gap: 6px">
+                <q-avatar size="22px" color="orange-8" text-color="white" style="font-size: 10px">
+                  {{ props.row.projectManager.charAt(0) }}
+                </q-avatar>
+                <span class="text-caption">{{ props.row.projectManager }}</span>
+              </div>
+              <span v-else class="text-grey-4">--</span>
+            </q-td>
+          </template>
+
+          <template #body-cell-created="props">
+            <q-td :props="props">
+              <span class="text-caption text-grey-6">{{ formatDate(props.row.createdAt) }}</span>
+            </q-td>
+          </template>
+
+          <template #body-cell-actions="props">
+            <q-td :props="props" auto-width>
+              <q-btn flat dense round icon="more_vert" size="sm" color="grey-6">
+                <q-menu>
+                  <q-list dense style="min-width: 150px">
+                    <q-item clickable v-close-popup @click="$router.push(`/crm/leads/${props.row.id}`)">
+                      <q-item-section avatar><q-icon name="visibility" size="18px" /></q-item-section>
+                      <q-item-section>View</q-item-section>
+                    </q-item>
+                    <q-item clickable v-close-popup>
+                      <q-item-section avatar><q-icon name="edit" size="18px" /></q-item-section>
+                      <q-item-section>Edit</q-item-section>
+                    </q-item>
+                  </q-list>
+                </q-menu>
+              </q-btn>
+            </q-td>
+          </template>
+        </q-table>
+      </q-card>
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { usePipelineStore } from '@/stores/pipeline.store';
 import PipelineBoard from '@/components/pipeline/PipelineBoard.vue';
 import PipelineFilters from '@/components/pipeline/PipelineFilters.vue';
 import type { PipelineFilterValues } from '@/components/pipeline/PipelineFilters.vue';
 
+const router = useRouter();
 const pipelineStore = usePipelineStore();
+const viewMode = ref('list');
 
 const stages = computed(() => pipelineStore.pipelineData?.stages ?? []);
 
-const sourceOptions = [
-  { label: 'Referral', value: 'referral' },
-  { label: 'Website', value: 'website' },
-  { label: 'Form', value: 'form' },
-  { label: 'Manual', value: 'manual' },
+const allLeads = computed(() =>
+  stages.value.flatMap((s) =>
+    s.leads.map((l) => ({ ...l, stageName: s.name, stageColor: s.color })),
+  ),
+);
+
+const columns = [
+  { name: 'name', label: 'Lead Name', field: 'customerName', align: 'left' as const, sortable: true },
+  { name: 'stage', label: 'Deal Stage', field: 'stage', align: 'left' as const, sortable: true },
+  { name: 'score', label: 'Score', field: 'leadScore', align: 'left' as const, sortable: true },
+  { name: 'source', label: 'Source', field: 'leadSource', align: 'left' as const, sortable: true },
+  { name: 'owner', label: 'Owner', field: 'owner', align: 'left' as const, sortable: true },
+  { name: 'pm', label: 'Project Manager', field: 'projectManager', align: 'left' as const, sortable: true },
+  { name: 'created', label: 'Created', field: 'createdAt', align: 'left' as const, sortable: true },
+  { name: 'actions', label: '', field: 'id', align: 'right' as const },
 ];
 
-const userOptions = [
-  { label: 'Me', value: 'me' },
+const sourceOptions = [
+  { label: 'Door Knock', value: 'DOOR_KNOCK' },
+  { label: 'Cold Call', value: 'COLD_CALL' },
+  { label: 'Referral', value: 'REFERRAL' },
+  { label: 'Event', value: 'EVENT' },
+  { label: 'Website', value: 'WEBSITE' },
+  { label: 'Public Form', value: 'PUBLIC_FORM' },
 ];
+
+const userOptions = [{ label: 'Me', value: 'me' }];
 
 onMounted(() => {
   pipelineStore.fetchPipelineView();
@@ -53,12 +205,89 @@ function onFilterChange(filters: PipelineFilterValues) {
 }
 
 async function onStageChange(payload: { leadId: string; toStage: string }) {
-  const lead = stages.value
-    .flatMap((s) => s.leads)
-    .find((l) => l.id === payload.leadId);
+  const lead = stages.value.flatMap((s) => s.leads).find((l) => l.id === payload.leadId);
   const fromStage = lead?.stage;
   if (fromStage) {
     await pipelineStore.moveLeadStage(payload.leadId, fromStage, payload.toStage);
   }
 }
+
+function onRowClick(_evt: Event, row: any) {
+  router.push(`/crm/leads/${row.id}`);
+}
+
+const STAGE_COLORS: Record<string, string> = {
+  NEW_LEAD: '#4CAF50',
+  REQUEST_DESIGN: '#2196F3',
+  DESIGN_IN_PROGRESS: '#FF9800',
+  DESIGN_READY: '#9C27B0',
+  PENDING_SIGNATURE: '#F44336',
+  SIT: '#607D8B',
+  WON: '#00897B',
+  LOST: '#EF4444',
+};
+
+function stageColor(stage: string) {
+  return STAGE_COLORS[stage] || '#6B7280';
+}
+
+function formatStage(stage: string) {
+  return (stage || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatSource(s: string) {
+  return (s || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function scoreColor(score: number) {
+  if (score >= 70) return 'positive';
+  if (score >= 40) return 'warning';
+  return 'grey-5';
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 </script>
+
+<style lang="scss" scoped>
+.list-card {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.lead-table {
+  :deep(thead th) {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #6B7280;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid #E5E7EB;
+  }
+
+  :deep(tbody tr) {
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover {
+      background: #F9FAFB;
+    }
+
+    td {
+      font-size: 13px;
+      border-bottom: 1px solid #F3F4F6;
+      padding: 10px 16px;
+    }
+  }
+}
+
+.stage-badge {
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+</style>

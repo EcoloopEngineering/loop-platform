@@ -16,9 +16,9 @@
           text-color="white"
           class="text-caption"
         >
-          {{ lead.leadScore }}%
+          {{ lead.leadScore }}pts
         </q-badge>
-        <span class="text-caption text-grey-6">{{ lead.leadSource }}</span>
+        <span class="text-caption text-grey-6">{{ formatSource(lead.leadSource) }}</span>
       </div>
 
       <div class="text-caption text-grey-5 q-mt-xs">
@@ -41,6 +41,10 @@ const scoreColor = computed(() => {
   if (props.lead.leadScore >= 40) return 'warning';
   return 'grey-6';
 });
+
+function formatSource(s: string) {
+  return (s || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
 
 const timeAgo = computed(() => {
   const diff = Date.now() - new Date(props.lead.createdAt).getTime();

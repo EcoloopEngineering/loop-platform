@@ -1,22 +1,41 @@
 <template>
   <q-layout view="hHh lpR fFf">
-    <q-header elevated class="bg-secondary">
-      <q-toolbar>
-        <q-avatar size="32px" class="q-mr-sm">
-          <q-icon name="eco" color="white" size="24px" />
-        </q-avatar>
-        <q-toolbar-title class="text-weight-bold">Loop</q-toolbar-title>
+    <q-header class="main-header" bordered>
+      <q-toolbar class="q-px-md">
+        <img src="/logo_short_dark.svg" alt="ecoLoop" style="height: 26px" />
         <q-space />
-        <q-btn flat round dense icon="notifications" @click="$router.push('/admin/notifications')">
-          <q-badge v-if="notificationCount > 0" color="negative" floating>
-            {{ notificationCount }}
-          </q-badge>
+        <q-btn flat round dense icon="notifications_none" color="grey-7" class="q-mr-xs">
+          <q-badge v-if="unreadCount > 0" floating color="negative" :label="unreadCount" />
+          <q-menu anchor="bottom right" self="top right" style="min-width: 320px; border-radius: 12px">
+            <q-list>
+              <q-item-label header class="text-weight-bold">Notifications</q-item-label>
+              <template v-if="notifications.length > 0">
+                <q-item v-for="n in notifications.slice(0, 5)" :key="n.id" clickable v-ripple v-close-popup :class="{ 'bg-blue-1': !n.isRead }" @click="openNotification(n)">
+                  <q-item-section avatar>
+                    <q-icon :name="iconFor(n.event)" :color="!n.isRead ? 'primary' : 'grey-5'" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ n.title }}</q-item-label>
+                    <q-item-label caption>{{ n.message }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-item-label caption>{{ timeAgo(n.createdAt) }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+              <q-item v-else>
+                <q-item-section class="text-center text-grey-5" style="font-size: 13px">No new notifications</q-item-section>
+              </q-item>
+              <q-separator />
+              <q-item clickable v-ripple v-close-popup @click="$router.push('/notifications')">
+                <q-item-section class="text-center text-primary text-weight-medium" style="font-size: 13px">View all</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
         </q-btn>
-        <q-btn flat round dense class="q-ml-sm" @click="$router.push('/profile')">
-          <q-avatar size="28px" color="white" text-color="secondary">
-            <span class="text-caption text-weight-bold">{{ userInitials }}</span>
-          </q-avatar>
-        </q-btn>
+        <q-avatar size="34px" color="primary" text-color="white" class="cursor-pointer" @click="$router.push('/profile')">
+          <span style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
+        </q-avatar>
       </q-toolbar>
     </q-header>
 
@@ -24,17 +43,18 @@
       <router-view />
     </q-page-container>
 
-    <q-footer elevated class="bg-white text-grey-8">
+    <q-footer class="main-footer" bordered>
       <q-tabs
         v-model="activeTab"
-        dense
         active-color="primary"
         indicator-color="primary"
-        class="bottom-tabs"
+        class="footer-tabs"
+        dense
+        no-caps
       >
         <q-tab name="home" icon="home" label="Home" @click="$router.push('/home')" />
-        <q-tab name="leads" icon="people" label="Leads" @click="$router.push('/leads/new')" />
-        <q-tab name="referrals" icon="share" label="Referrals" @click="$router.push('/referrals')" />
+        <q-tab name="leads" icon="add_circle" label="New Lead" @click="$router.push('/leads/new')" />
+        <q-tab name="referrals" icon="group_add" label="Referrals" @click="$router.push('/referrals')" />
         <q-tab name="forms" icon="description" label="Forms" @click="$router.push('/forms')" />
       </q-tabs>
     </q-footer>
@@ -42,37 +62,121 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { useUserStore } from '@/stores/user.store';
+import { useQuasar } from 'quasar';
+import { api } from '@/boot/axios';
+
+const $q = useQuasar();
+
+interface AppNotification {
+  id: string;
+  event: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
 
 const route = useRoute();
-const userStore = useUserStore();
+const activeTab = ref('home');
+const notifications = ref<AppNotification[]>([]);
+const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).length);
+const userInitials = computed(() => 'U');
 
-const notificationCount = ref(0);
+let pollInterval: ReturnType<typeof setInterval> | null = null;
 
-const activeTab = computed(() => {
-  const path = route.path;
-  if (path.startsWith('/home') || path === '/dashboard') return 'home';
-  if (path.startsWith('/leads')) return 'leads';
-  if (path.startsWith('/referrals')) return 'referrals';
-  if (path.startsWith('/forms')) return 'forms';
-  return 'home';
+async function fetchNotifications() {
+  try {
+    const { data } = await api.get('/notifications');
+    const items = Array.isArray(data) ? data : (data as any).data ?? [];
+    notifications.value = items;
+  } catch {
+    // No notifications
+  }
+}
+
+onMounted(() => {
+  fetchNotifications();
+  pollInterval = setInterval(fetchNotifications, 30000);
 });
 
-const userInitials = computed(() => {
-  const name = userStore.user?.name ?? '';
-  return name
-    .split(' ')
-    .map((p: string) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || 'U';
+onUnmounted(() => {
+  if (pollInterval) clearInterval(pollInterval);
 });
+
+async function openNotification(n: AppNotification) {
+  if (!n.isRead) {
+    try { await api.put(`/notifications/${n.id}/read`); n.isRead = true; } catch { /* ignore */ }
+  }
+  $q.dialog({
+    title: n.title,
+    message: n.message,
+    ok: 'Close',
+  });
+}
+
+function iconFor(type: string) {
+  const map: Record<string, string> = {
+    LEAD_CREATED: 'person_add',
+    LEAD_ASSIGNED: 'person_add',
+    LEAD_UNASSIGNED: 'person_remove',
+    LEAD_STAGE_CHANGED: 'swap_horiz',
+    LEAD_PM_ASSIGNED: 'manage_accounts',
+    LEAD_PM_REMOVED: 'person_off',
+    LEAD_UPDATED: 'edit',
+    LEAD_NOTE_ADDED: 'comment',
+    DESIGN_COMPLETED: 'check_circle',
+    APPOINTMENT_BOOKED: 'event',
+    COMMISSION_FINALIZED: 'payments',
+    SYSTEM: 'info',
+  };
+  return map[type] ?? 'notifications';
+}
+
+function timeAgo(date: string) {
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path.includes('/home')) activeTab.value = 'home';
+    else if (path.includes('/leads')) activeTab.value = 'leads';
+    else if (path.includes('/referrals')) activeTab.value = 'referrals';
+    else if (path.includes('/forms')) activeTab.value = 'forms';
+  },
+  { immediate: true },
+);
 </script>
 
 <style lang="scss" scoped>
-.bottom-tabs {
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+.main-header {
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.main-footer {
+  background: #FFFFFF;
+  border-top: 1px solid #E5E7EB;
+}
+
+.footer-tabs {
+  :deep(.q-tab) {
+    font-size: 11px;
+    min-height: 56px;
+    color: #9CA3AF;
+
+    &.q-tab--active {
+      color: #00897B;
+    }
+  }
 }
 </style>

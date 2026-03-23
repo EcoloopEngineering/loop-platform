@@ -24,8 +24,8 @@ export class JobberService {
     private readonly http: HttpService,
     private readonly config: ConfigService,
   ) {
-    this.baseUrl = this.config.getOrThrow<string>('JOBBER_SERVICE_URL');
-    this.token = this.config.getOrThrow<string>('JOBBER_SERVICE_TOKEN');
+    this.baseUrl = this.config.get<string>('JOBBER_SERVICE_URL', '');
+    this.token = this.config.get<string>('JOBBER_SERVICE_TOKEN', '');
   }
 
   async getAvailabilitySlots(

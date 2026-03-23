@@ -33,40 +33,45 @@ export class GetDashboardHandler implements IQueryHandler<GetDashboardQuery> {
       },
     };
 
+    const userLeadFilter = {
+      assignments: { some: { userId: query.userId } },
+      ...dateFilter,
+    };
+
     const [totalLeads, wonLeads, lostLeads, commissions, leadsByStage] =
       await Promise.all([
         this.prisma.lead.count({
-          where: { assignedTo: query.userId, ...dateFilter },
+          where: userLeadFilter,
         }),
         this.prisma.lead.count({
-          where: { assignedTo: query.userId, stage: 'WON', ...dateFilter },
+          where: { ...userLeadFilter, currentStage: 'WON' },
         }),
         this.prisma.lead.count({
-          where: { assignedTo: query.userId, stage: 'LOST', ...dateFilter },
+          where: { ...userLeadFilter, currentStage: 'LOST' },
         }),
         this.prisma.commission.aggregate({
           where: { userId: query.userId, ...dateFilter },
-          _sum: { calculatedAmount: true },
+          _sum: { amount: true },
         }),
         this.prisma.lead.groupBy({
-          by: ['stage'],
-          where: { assignedTo: query.userId, ...dateFilter },
-          _count: { _all: true },
+          by: ['currentStage'],
+          where: userLeadFilter,
+          _count: true,
         }),
       ]);
 
     const pendingCommissions = await this.prisma.commission.aggregate({
       where: {
         userId: query.userId,
-        status: { in: ['PENDING', 'CALCULATED'] },
+        status: { in: ['PENDING'] },
         ...dateFilter,
       },
-      _sum: { calculatedAmount: true },
+      _sum: { amount: true },
     });
 
     const leadsbyStage: Record<string, number> = {};
     for (const group of leadsByStage) {
-      leadsbyStage[group.stage] = group._count._all;
+      leadsbyStage[group.currentStage] = group._count;
     }
 
     return {
@@ -74,8 +79,8 @@ export class GetDashboardHandler implements IQueryHandler<GetDashboardQuery> {
       wonLeads,
       lostLeads,
       conversionRate: totalLeads > 0 ? (wonLeads / totalLeads) * 100 : 0,
-      totalCommission: commissions._sum.calculatedAmount ?? 0,
-      pendingCommission: pendingCommissions._sum.calculatedAmount ?? 0,
+      totalCommission: Number(commissions._sum?.amount ?? 0),
+      pendingCommission: Number(pendingCommissions._sum?.amount ?? 0),
       leadsbyStage,
     };
   }

@@ -1,7 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { NotificationType } from '../../domain/entities/notification.entity';
-
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
@@ -10,24 +8,24 @@ export class NotificationService {
 
   async create(params: {
     userId: string;
-    type: NotificationType;
+    event: string;
     title: string;
-    body: string;
+    message: string;
     data?: Record<string, any>;
   }) {
     const notification = await this.prisma.notification.create({
       data: {
         userId: params.userId,
-        type: params.type,
+        event: params.event,
         title: params.title,
-        body: params.body,
+        message: params.message,
         data: params.data ?? undefined,
         isRead: false,
       },
     });
 
     // Attempt push notification via Firebase (fire and forget)
-    this.sendPush(params.userId, params.title, params.body, params.data).catch(
+    this.sendPush(params.userId, params.title, params.message, params.data).catch(
       (err) => this.logger.warn(`Failed to send push notification: ${err.message}`),
     );
 
@@ -49,7 +47,7 @@ export class NotificationService {
   }
 
   async getByUser(userId: string, skip = 0, take = 20) {
-    const [data, total] = await Promise.all([
+    const [data, total, unread] = await Promise.all([
       this.prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
@@ -57,8 +55,16 @@ export class NotificationService {
         take,
       }),
       this.prisma.notification.count({ where: { userId } }),
+      this.prisma.notification.count({ where: { userId, isRead: false } }),
     ]);
-    return { data, total };
+    return { data, total, unread };
+  }
+
+  async getUnreadCount(userId: string) {
+    const count = await this.prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+    return { count };
   }
 
   private async sendPush(
@@ -68,18 +74,18 @@ export class NotificationService {
     data?: Record<string, any>,
   ): Promise<void> {
     // Look up the user's FCM token
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { fcmToken: true },
+    const device = await this.prisma.userDevice.findUnique({
+      where: { userId },
+      select: { token: true },
     });
 
-    if (!user?.fcmToken) {
-      this.logger.debug(`No FCM token for user ${userId}, skipping push`);
+    if (!device?.token) {
+      this.logger.debug(`No device token for user ${userId}, skipping push`);
       return;
     }
 
     // Firebase Admin SDK messaging would be called here
-    // e.g., await this.firebaseService.sendPushNotification(user.fcmToken, title, body, data);
+    // e.g., await this.firebaseService.sendPushNotification(device.token, title, body, data);
     this.logger.debug(`Push notification sent to user ${userId}: ${title}`);
   }
 }

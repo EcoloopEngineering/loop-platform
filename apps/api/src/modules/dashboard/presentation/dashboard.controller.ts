@@ -57,10 +57,10 @@ export class DashboardController {
     const [totalLeads, wonLeads, totalCommission, activeUsers] =
       await Promise.all([
         this.prisma.lead.count({ where: dateFilter }),
-        this.prisma.lead.count({ where: { stage: 'WON', ...dateFilter } }),
+        this.prisma.lead.count({ where: { currentStage: 'WON', ...dateFilter } }),
         this.prisma.commission.aggregate({
-          where: { status: 'FINALIZED', ...dateFilter },
-          _sum: { calculatedAmount: true },
+          where: { status: 'ACTIVE', ...dateFilter },
+          _sum: { amount: true },
         }),
         this.prisma.user.count({ where: { isActive: true } }),
       ]);
@@ -69,7 +69,7 @@ export class DashboardController {
       totalLeads,
       wonLeads,
       conversionRate: totalLeads > 0 ? (wonLeads / totalLeads) * 100 : 0,
-      totalCommission: totalCommission._sum.calculatedAmount ?? 0,
+      totalCommission: Number(totalCommission._sum?.amount ?? 0),
       activeUsers,
     };
   }

@@ -5,6 +5,7 @@ import {
   createWebHashHistory,
   createWebHistory,
 } from 'vue-router';
+import { getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import routes from './routes';
 
@@ -28,6 +29,14 @@ export default route(function () {
 
     if (!requiresAuth) {
       return next();
+    }
+
+    let firebaseReady = false;
+    try { getApp(); firebaseReady = true; } catch { /* not initialized */ }
+
+    if (!firebaseReady) {
+      // No Firebase — skip auth, go to login
+      return next({ name: 'login', query: { redirect: to.fullPath } });
     }
 
     const auth = getAuth();

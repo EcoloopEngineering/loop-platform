@@ -26,11 +26,10 @@ export class RequestDesignHandler implements ICommandHandler<RequestDesignComman
     const designRequest = await this.prisma.designRequest.create({
       data: {
         leadId: command.leadId,
-        designType: command.designType,
+        designType: command.designType as any,
         treeRemoval: command.treeRemoval,
         notes: command.notes,
         status: 'PENDING',
-        createdBy: command.createdBy,
       },
     });
 

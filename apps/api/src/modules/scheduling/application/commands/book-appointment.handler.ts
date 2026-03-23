@@ -9,11 +9,8 @@ export class BookAppointmentCommand {
     public readonly leadId: string,
     public readonly type: AppointmentType,
     public readonly scheduledAt: Date,
-    public readonly endAt: Date,
-    public readonly assignedTo: string,
-    public readonly location: string | null,
+    public readonly duration: number,
     public readonly notes: string | null,
-    public readonly createdBy: string,
   ) {}
 }
 
@@ -26,13 +23,14 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
   ) {}
 
   async execute(command: BookAppointmentCommand) {
+    const endAt = new Date(command.scheduledAt.getTime() + command.duration * 60000);
+
     // Check for scheduling conflicts
     const conflict = await this.prisma.appointment.findFirst({
       where: {
-        assignedTo: command.assignedTo,
-        status: { in: ['SCHEDULED', 'CONFIRMED'] },
-        scheduledAt: { lt: command.endAt },
-        endAt: { gt: command.scheduledAt },
+        leadId: command.leadId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        scheduledAt: { lt: endAt },
       },
     });
 
@@ -43,14 +41,11 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
     const appointment = await this.prisma.appointment.create({
       data: {
         leadId: command.leadId,
-        type: command.type,
-        status: 'SCHEDULED',
+        type: command.type as any,
+        status: 'PENDING',
         scheduledAt: command.scheduledAt,
-        endAt: command.endAt,
-        assignedTo: command.assignedTo,
-        location: command.location,
+        duration: command.duration,
         notes: command.notes,
-        createdBy: command.createdBy,
       },
     });
 
@@ -60,7 +55,6 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
         appointment.leadId,
         appointment.type,
         appointment.scheduledAt,
-        appointment.assignedTo,
       ),
     );
 

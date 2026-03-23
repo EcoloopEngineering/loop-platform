@@ -28,6 +28,7 @@ import { LEAD_REPOSITORY, LeadRepositoryPort } from '../application/ports/lead.r
 import { LeadScoringDomainService } from '../domain/services/lead-scoring.domain-service';
 import { LeadStageChangedEvent } from '../domain/events/lead-stage-changed.event';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @ApiTags('Leads')
 @ApiBearerAuth()
@@ -41,6 +42,7 @@ export class LeadsController {
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
     private readonly scoringService: LeadScoringDomainService,
     private readonly prisma: PrismaService,
+    private readonly emitter: EventEmitter2,
   ) {}
 
   @Post()
@@ -77,10 +79,34 @@ export class LeadsController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() data: any,
+    @CurrentUser('id') userId: string,
   ): Promise<any> {
     const existing = await this.leadRepo.findById(id);
     if (!existing) throw new NotFoundException('Lead not found');
-    return this.leadRepo.update(id, data);
+
+    const updated = await this.leadRepo.update(id, data);
+
+    // Emit notification event
+    const lead = await this.prisma.lead.findUnique({
+      where: { id },
+      include: { customer: { select: { firstName: true, lastName: true } } },
+    });
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+
+    if (lead && currentUser) {
+      const changedFields = Object.keys(data).join(', ');
+      this.emitter.emit('lead.updated', {
+        leadId: id,
+        customerName: `${lead.customer.firstName} ${lead.customer.lastName}`,
+        updatedByName: `${currentUser.firstName} ${currentUser.lastName}`,
+        changes: changedFields,
+      });
+    }
+
+    return updated;
   }
 
   @Patch(':id/stage')
@@ -109,6 +135,23 @@ export class LeadsController {
     });
 
     this.eventBus.publish(new LeadStageChangedEvent(id, fromStage, stage, userId));
+
+    // Emit event for notifications (notifies all stakeholders)
+    const leadWithCustomer = await this.prisma.lead.findUnique({
+      where: { id },
+      include: {
+        customer: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    if (leadWithCustomer) {
+      this.emitter.emit('lead.stageChanged', {
+        leadId: id,
+        customerName: `${leadWithCustomer.customer.firstName} ${leadWithCustomer.customer.lastName}`,
+        previousStage: fromStage,
+        newStage: stage,
+      });
+    }
 
     return updated;
   }
@@ -212,7 +255,7 @@ export class LeadsController {
     const lead = await this.leadRepo.findById(id);
     if (!lead) throw new NotFoundException('Lead not found');
 
-    return this.prisma.leadActivity.create({
+    const activity = await this.prisma.leadActivity.create({
       data: {
         leadId: id,
         userId,
@@ -220,6 +263,28 @@ export class LeadsController {
         description: content,
       },
     });
+
+    // Emit notification event
+    const leadWithCustomer = await this.prisma.lead.findUnique({
+      where: { id },
+      include: { customer: { select: { firstName: true, lastName: true } } },
+    });
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+
+    if (leadWithCustomer && currentUser) {
+      const preview = content.length > 80 ? content.substring(0, 80) + '...' : content;
+      this.emitter.emit('lead.noteAdded', {
+        leadId: id,
+        customerName: `${leadWithCustomer.customer.firstName} ${leadWithCustomer.customer.lastName}`,
+        addedByName: `${currentUser.firstName} ${currentUser.lastName}`,
+        notePreview: preview,
+      });
+    }
+
+    return activity;
   }
 
   @Post(':id/assign')
@@ -262,6 +327,94 @@ export class LeadsController {
       },
     });
 
+    // Emit notification event
+    const leadWithCustomer = await this.prisma.lead.findUnique({
+      where: { id },
+      include: { customer: { select: { firstName: true, lastName: true } } },
+    });
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+
+    if (leadWithCustomer && currentUser) {
+      this.emitter.emit('lead.assigned', {
+        leadId: id,
+        assigneeId,
+        customerName: `${leadWithCustomer.customer.firstName} ${leadWithCustomer.customer.lastName}`,
+        assignedByName: `${currentUser.firstName} ${currentUser.lastName}`,
+        isPrimary: isPrimary ?? false,
+      });
+    }
+
     return assignment;
+  }
+
+  @Post(':id/assign-pm')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Assign or remove a Project Manager from a lead' })
+  async assignPM(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('projectManagerId') pmId: string | null,
+    @CurrentUser('id') userId: string,
+  ): Promise<any> {
+    // Get previous PM before updating
+    const previousLead = await this.prisma.lead.findUnique({
+      where: { id },
+      select: { projectManagerId: true },
+    });
+
+    const lead = await this.prisma.lead.update({
+      where: { id },
+      data: { projectManagerId: pmId || null },
+      include: {
+        projectManager: true,
+        customer: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    const desc = pmId
+      ? `Project Manager assigned: ${lead.projectManager?.firstName} ${lead.projectManager?.lastName}`
+      : 'Project Manager removed';
+
+    await this.prisma.leadActivity.create({
+      data: {
+        leadId: id,
+        userId,
+        type: 'ASSIGNMENT_CHANGED',
+        description: desc,
+        metadata: { projectManagerId: pmId },
+      },
+    });
+
+    // Emit notification events
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+    const customerName = `${lead.customer.firstName} ${lead.customer.lastName}`;
+
+    if (currentUser) {
+      if (pmId) {
+        // PM was assigned
+        this.emitter.emit('lead.pmAssigned', {
+          leadId: id,
+          pmId,
+          pmName: `${lead.projectManager?.firstName} ${lead.projectManager?.lastName}`,
+          customerName,
+          assignedByName: `${currentUser.firstName} ${currentUser.lastName}`,
+        });
+      } else if (previousLead?.projectManagerId) {
+        // PM was removed
+        this.emitter.emit('lead.pmRemoved', {
+          leadId: id,
+          pmId: previousLead.projectManagerId,
+          customerName,
+          removedByName: `${currentUser.firstName} ${currentUser.lastName}`,
+        });
+      }
+    }
+
+    return lead;
   }
 }

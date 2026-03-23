@@ -8,6 +8,8 @@ export interface PipelineLead {
   leadScore: number;
   leadSource: string;
   stage: string;
+  owner?: string;
+  projectManager?: string;
   assignedTo?: string;
   createdAt: string;
 }
@@ -37,8 +39,35 @@ export const usePipelineStore = defineStore('pipeline', () => {
   }) {
     loading.value = true;
     try {
-      const { data } = await api.get<PipelineView>('/pipeline', { params });
-      pipelineData.value = data;
+      const { data } = await api.get('/pipeline', { params });
+      // API returns array of stages directly, not { stages: [...] }
+      const rawStages = Array.isArray(data) ? data : data.stages ?? [];
+      const stages: PipelineStage[] = rawStages.map((s: any) => ({
+        id: s.stage,
+        name: s.label || s.stage,
+        color: s.color || '#6B7280',
+        order: s.order ?? 0,
+        leads: (s.leads ?? []).map((l: any) => {
+          const assignments = l.assignments ?? [];
+          const primary = assignments.find((a: any) => a.isPrimary);
+          const ownerUser = primary?.user;
+          const pmUser = l.projectManager;
+          return {
+            id: l.id,
+            customerName: l.customer
+              ? `${l.customer.firstName} ${l.customer.lastName}`
+              : 'Unknown',
+            leadScore: Number(l.leadScore?.total ?? l.leadScore?.totalScore ?? l.score?.totalScore ?? l.score?.total ?? 0),
+            leadSource: l.source ?? '',
+            stage: l.currentStage ?? s.stage,
+            owner: ownerUser ? `${ownerUser.firstName} ${ownerUser.lastName}` : undefined,
+            projectManager: pmUser ? `${pmUser.firstName} ${pmUser.lastName}` : undefined,
+            assignedTo: ownerUser ? `${ownerUser.firstName} ${ownerUser.lastName}` : undefined,
+            createdAt: l.createdAt,
+          };
+        }),
+      }));
+      pipelineData.value = { stages };
     } finally {
       loading.value = false;
     }

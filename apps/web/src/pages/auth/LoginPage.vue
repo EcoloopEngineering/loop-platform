@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h5 class="q-mt-none q-mb-lg text-weight-bold text-center">Welcome Back</h5>
+    <h5 class="q-mt-none q-mb-lg text-weight-bold text-center" style="color: #1A1A2E">Welcome Back</h5>
 
     <q-form @submit.prevent="handleLogin" class="q-gutter-md">
       <e-input
@@ -39,7 +39,7 @@
       />
 
       <div class="text-center q-mt-md">
-        <span class="text-grey-6">Don't have an account? </span>
+        <span class="text-hint">Don't have an account? </span>
         <router-link to="/auth/signup" class="text-primary text-weight-medium">Sign Up</router-link>
       </div>
     </q-form>
@@ -95,3 +95,9 @@ async function handleGoogleLogin() {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+.text-hint {
+  color: #9CA3AF;
+}
+</style>

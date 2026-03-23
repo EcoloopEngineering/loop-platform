@@ -2,7 +2,7 @@
   <q-page class="q-pa-md">
     <EHeader title="Profile" />
 
-    <div class="column items-center q-mt-md q-mb-lg">
+    <div class="column items-center q-mt-lg q-mb-xl">
       <q-avatar size="80px" color="primary" text-color="white" class="cursor-pointer" @click="uploadAvatar">
         <q-img v-if="form.avatarUrl" :src="form.avatarUrl" />
         <span v-else class="text-h5 text-weight-bold">{{ userInitials }}</span>
@@ -86,37 +86,32 @@ const userInitials = computed(() => {
 const required = (val: string) => !!val || 'Required';
 
 onMounted(async () => {
-  if (userStore.user) {
-    form.value.name = userStore.user.name;
-    form.value.email = userStore.user.email;
-    form.value.phone = userStore.user.phone ?? '';
-    form.value.avatarUrl = userStore.user.avatarUrl ?? '';
-  }
-
   try {
-    const { data } = await api.get('/users/me/profile');
+    const { data } = await api.get('/users/me');
+    form.value.name = `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim();
+    form.value.email = data.email ?? '';
+    form.value.phone = data.phone ?? '';
+    form.value.avatarUrl = data.profileImage ?? '';
     form.value.language = data.language ?? 'en';
-    form.value.bankName = data.bankName ?? '';
-    form.value.accountNumber = data.accountNumber ?? '';
-    form.value.routingNumber = data.routingNumber ?? '';
   } catch {
-    // Use defaults
+    // Use store defaults
+    if (userStore.user) {
+      form.value.name = userStore.user.name;
+      form.value.email = userStore.user.email;
+      form.value.phone = userStore.user.phone ?? '';
+    }
   }
 });
 
 async function save() {
   saving.value = true;
   try {
-    await userStore.updateUser({
-      name: form.value.name,
+    const [firstName, ...rest] = form.value.name.split(' ');
+    await api.put('/users/me', {
+      firstName: firstName || form.value.name,
+      lastName: rest.join(' ') || '',
       phone: form.value.phone || undefined,
-    });
-
-    await api.patch('/users/me/profile', {
       language: form.value.language,
-      bankName: form.value.bankName,
-      accountNumber: form.value.accountNumber,
-      routingNumber: form.value.routingNumber,
     });
 
     $q.notify({ type: 'positive', message: 'Profile updated!' });
@@ -128,22 +123,7 @@ async function save() {
 }
 
 function uploadAvatar() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.onchange = async (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('avatar', file);
-    try {
-      const { data } = await api.post<{ url: string }>('/users/me/avatar', fd);
-      form.value.avatarUrl = data.url;
-    } catch {
-      $q.notify({ type: 'negative', message: 'Failed to upload avatar.' });
-    }
-  };
-  input.click();
+  $q.notify({ type: 'info', message: 'Avatar upload will be available when S3 is configured.' });
 }
 </script>
 

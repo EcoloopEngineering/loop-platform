@@ -1,130 +1,130 @@
-// Loop Platform - Global Styles
-// Primary palette: teal/dark-teal matching existing mobile app
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-// Brand colors
+// === Colors ===
 $primary: #00897B;
-$secondary: #00695C;
-$accent: #4DB6AC;
+$primary-light: #E0F2F1;
+$accent: #00FBAC;
+$bg-page: #F8FAFB;
+$bg-white: #FFFFFF;
+$text-primary: #1A1A2E;
+$text-secondary: #6B7280;
+$text-hint: #9CA3AF;
+$border: #E5E7EB;
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 
-// Typography
+// === Global ===
 body {
-  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: $bg-page;
+  color: $text-primary;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-// Utility classes
-.full-width {
-  width: 100%;
-}
-
-.rounded-lg {
-  border-radius: 16px;
-}
-
-.rounded-md {
-  border-radius: 12px;
-}
-
-.rounded-sm {
-  border-radius: 8px;
-}
-
-.shadow-soft {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-
-.shadow-md {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-}
-
-// Card overrides
-.q-card {
-  border-radius: 12px;
-}
-
-// Button overrides
-.q-btn {
+// === Typography ===
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', sans-serif;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  color: $text-primary;
 }
 
-// Input overrides
+// === Utility ===
+.text-secondary {
+  color: $text-secondary !important;
+}
+
+.text-hint {
+  color: $text-hint;
+}
+
+.bg-page {
+  background-color: $bg-page;
+}
+
+// === Cards ===
+.q-card {
+  background: $bg-white;
+  border: 1px solid $border;
+  border-radius: 16px;
+  box-shadow: $shadow-sm;
+}
+
+// === Inputs ===
 .q-field--outlined .q-field__control {
   border-radius: 12px;
 }
 
-// Header gradient
-.header-gradient {
-  background: linear-gradient(135deg, $secondary 0%, $primary 100%);
+// === Buttons ===
+.e-btn {
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-// Status colors
-.status-new {
-  color: #2196F3;
+// === Separators ===
+.q-separator {
+  background: $border;
 }
 
-.status-contacted {
-  color: #FF9800;
-}
-
-.status-qualified {
-  color: #9C27B0;
-}
-
-.status-proposal {
-  color: #00BCD4;
-}
-
-.status-won {
-  color: #4CAF50;
-}
-
-.status-lost {
-  color: #F44336;
-}
-
-// Scrollbar styling
+// === Scrollbar ===
 ::-webkit-scrollbar {
   width: 6px;
-  height: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: $bg-page;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: #D1D5DB;
   border-radius: 3px;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.25);
-  }
 }
 
-// Transitions
+// === Status Colors ===
+.status-new { color: #3B82F6; }
+.status-contacted { color: #00897B; }
+.status-qualified { color: #8B5CF6; }
+.status-proposal { color: #F59E0B; }
+.status-won { color: #10B981; }
+.status-lost { color: #EF4444; }
+
+// === Transitions ===
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
 
-.slide-up-enter-active,
-.slide-up-leave-active {
-  transition: all 0.3s ease;
+// === Stat Card ===
+.stat-card {
+  background: $bg-white;
+  border: 1px solid $border;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: $shadow-sm;
+  transition: all 0.2s ease;
+
+  &:hover {
+    box-shadow: $shadow-md;
+    border-color: rgba(0, 137, 123, 0.3);
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: $text-secondary;
+    font-weight: 500;
+  }
 }
 
-.slide-up-enter-from {
-  transform: translateY(20px);
-  opacity: 0;
-}
-
-.slide-up-leave-to {
-  transform: translateY(-20px);
-  opacity: 0;
+// === Logo ===
+.eco-logo {
+  height: 32px;
+  width: auto;
 }

@@ -33,6 +33,12 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
             },
           },
         },
+        createdBy: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        projectManager: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
         activities: {
           orderBy: { createdAt: 'desc' },
           take: 20,
@@ -134,6 +140,9 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
               select: { id: true, firstName: true, lastName: true },
             },
           },
+        },
+        projectManager: {
+          select: { id: true, firstName: true, lastName: true },
         },
       },
       orderBy: { createdAt: 'desc' },

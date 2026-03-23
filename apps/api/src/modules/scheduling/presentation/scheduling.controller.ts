@@ -45,9 +45,7 @@ export class SchedulingController {
     dto: {
       type: AppointmentType;
       scheduledAt: string;
-      endAt: string;
-      assignedTo: string;
-      location?: string;
+      duration?: number;
       notes?: string;
     },
     @CurrentUser() user: any,
@@ -57,11 +55,8 @@ export class SchedulingController {
         leadId,
         dto.type,
         new Date(dto.scheduledAt),
-        new Date(dto.endAt),
-        dto.assignedTo,
-        dto.location ?? null,
+        dto.duration ?? 60,
         dto.notes ?? null,
-        user.id,
       ),
     );
   }
@@ -70,14 +65,14 @@ export class SchedulingController {
   @ApiOperation({ summary: 'Reschedule an appointment' })
   async reschedule(
     @Param('id') id: string,
-    @Body() dto: { scheduledAt: string; endAt: string },
+    @Body() dto: { scheduledAt: string; duration?: number },
   ) {
     return this.prisma.appointment.update({
       where: { id },
       data: {
         scheduledAt: new Date(dto.scheduledAt),
-        endAt: new Date(dto.endAt),
-        status: 'SCHEDULED',
+        ...(dto.duration !== undefined && { duration: dto.duration }),
+        status: 'PENDING',
       },
     });
   }
@@ -92,8 +87,7 @@ export class SchedulingController {
       where: { id },
       data: {
         status: 'CANCELLED',
-        cancelledAt: new Date(),
-        cancelReason: dto.reason,
+        notes: dto.reason,
       },
     });
   }

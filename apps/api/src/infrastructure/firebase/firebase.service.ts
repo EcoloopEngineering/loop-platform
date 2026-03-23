@@ -15,6 +15,11 @@ export class FirebaseService implements OnModuleInit {
       ?.replace(/\\n/g, '\n');
     const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL');
 
+    if (!projectId || !clientEmail || !privateKey) {
+      console.warn('Firebase credentials not configured — running without Firebase');
+      return;
+    }
+
     if (!admin.apps.length) {
       this.app = admin.initializeApp({
         credential: admin.credential.cert({
@@ -26,6 +31,10 @@ export class FirebaseService implements OnModuleInit {
     } else {
       this.app = admin.apps[0]!;
     }
+  }
+
+  isConfigured(): boolean {
+    return !!this.app;
   }
 
   async verifyIdToken(token: string): Promise<admin.auth.DecodedIdToken> {
