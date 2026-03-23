@@ -181,6 +181,7 @@ const navItems = [
 const adminItems = [
   { label: 'Scoreboard', icon: 'leaderboard', route: '/admin/scoreboard' },
   { label: 'Users', icon: 'manage_accounts', route: '/admin/users' },
+  { label: 'Live Chat', icon: 'forum', route: '/admin/live-chat' },
   { label: 'Notifications', icon: 'notifications', route: '/admin/notifications' },
   { label: 'Settings', icon: 'settings', route: '/admin/settings' },
 ];

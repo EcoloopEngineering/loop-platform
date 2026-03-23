@@ -16,6 +16,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { EmailModule } from './infrastructure/email/email.module';
 import { PdfModule } from './infrastructure/pdf/pdf.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { PdfModule } from './infrastructure/pdf/pdf.module';
     FormModule,
     DashboardModule,
     IntegrationsModule,
+    ChatModule,
   ],
 })
 export class AppModule {}

@@ -56,7 +56,7 @@
         <q-tab name="home" icon="home" label="Home" @click="$router.push('/home')" />
         <q-tab name="leads" icon="add_circle" label="New Lead" @click="$router.push('/leads/new')" />
         <q-tab name="referrals" icon="group_add" label="Referrals" @click="$router.push('/referrals')" />
-        <q-tab name="forms" icon="description" label="Forms" @click="$router.push('/forms')" />
+        <q-tab name="support" icon="chat" label="Support" @click="$router.push('/support')" />
       </q-tabs>
     </q-footer>
   </q-layout>
@@ -107,6 +107,15 @@ async function fetchUser() {
   try {
     const { data } = await api.get('/users/me');
     userName.value = data.nickname || data.firstName || `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim();
+    // Persist for chat and other components
+    localStorage.setItem('user', JSON.stringify({
+      id: data.id,
+      name: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      role: data.role,
+    }));
   } catch { /* ignore */ }
 }
 
@@ -165,7 +174,7 @@ watch(
     if (path.includes('/home')) activeTab.value = 'home';
     else if (path.includes('/leads')) activeTab.value = 'leads';
     else if (path.includes('/referrals')) activeTab.value = 'referrals';
-    else if (path.includes('/forms')) activeTab.value = 'forms';
+    else if (path.includes('/support')) activeTab.value = 'support';
   },
   { immediate: true },
 );

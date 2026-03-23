@@ -57,9 +57,9 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/referrals/ReferralsPage.vue'),
       },
       {
-        path: 'forms',
-        name: 'forms',
-        component: () => import('@/pages/forms/PublicFormListPage.vue'),
+        path: 'support',
+        name: 'support',
+        component: () => import('@/pages/chat/SupportChatPage.vue'),
       },
       {
         path: 'notifications',
@@ -167,6 +167,11 @@ const routes: RouteRecordRaw[] = [
         path: 'notifications',
         name: 'admin-notifications',
         component: () => import('@/pages/admin/NotificationsPage.vue'),
+      },
+      {
+        path: 'live-chat',
+        name: 'admin-live-chat',
+        component: () => import('@/pages/admin/LiveChatPage.vue'),
       },
       {
         path: 'settings',

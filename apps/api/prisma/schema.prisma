@@ -52,6 +52,8 @@ model User {
   createdLeads      Lead[]           @relation("LeadCreatedBy")
   managedLeads      Lead[]           @relation("LeadProjectManager")
   documents         Document[]
+  conversations    Conversation[] @relation("UserConversations")
+  agentChats       Conversation[] @relation("AgentConversations")
 
   @@index([email])
   @@index([invitationCode])
@@ -603,4 +605,72 @@ model CompanyMetrics {
 
   @@index([periodStart, periodEnd])
   @@map("company_metrics")
+}
+
+// ============================
+// Chat & FAQ
+// ============================
+
+model Conversation {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String?   @map("user_id") @db.Uuid
+  visitorName String?   @map("visitor_name")
+  visitorEmail String?  @map("visitor_email")
+  status      ConversationStatus @default(OPEN)
+  assignedTo  String?   @map("assigned_to") @db.Uuid
+  subject     String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  closedAt    DateTime? @map("closed_at")
+
+  user       User?      @relation("UserConversations", fields: [userId], references: [id])
+  agent      User?      @relation("AgentConversations", fields: [assignedTo], references: [id])
+  messages   Message[]
+
+  @@map("conversations")
+  @@index([userId])
+  @@index([status])
+}
+
+model Message {
+  id             String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  conversationId String      @map("conversation_id") @db.Uuid
+  senderId       String?     @map("sender_id") @db.Uuid
+  senderType     SenderType  @map("sender_type")
+  content        String
+  isAutoReply    Boolean     @default(false) @map("is_auto_reply")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+  @@index([conversationId, createdAt])
+}
+
+model FaqEntry {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  question  String
+  answer    String
+  keywords  String[] @default([])
+  category  String?
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("faq_entries")
+  @@index([isActive])
+}
+
+enum ConversationStatus {
+  OPEN
+  WAITING_AGENT
+  WITH_AGENT
+  CLOSED
+}
+
+enum SenderType {
+  USER
+  AGENT
+  BOT
 }

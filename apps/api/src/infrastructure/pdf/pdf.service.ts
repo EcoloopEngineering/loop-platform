@@ -141,7 +141,7 @@ export class PdfService {
         ['EV Charger', data.upgrades.evCharger],
       ];
       for (const [label, included] of upgrades) {
-        const check = included ? '☑' : '☐';
+        const check = included ? '[X]' : '[ ]';
         page.drawText(`${check} ${label}`, { x: 60, y, size: 11, font });
         y -= 16;
       }
