@@ -15,17 +15,22 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { BookAppointmentCommand } from '../application/commands/book-appointment.handler';
 import { GetAvailabilityQuery } from '../application/queries/get-availability.handler';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { JobberService } from '../../../integrations/jobber/jobber.service';
 import { AppointmentType } from '../domain/entities/appointment.entity';
+import { Logger } from '@nestjs/common';
 
 @ApiTags('scheduling')
 @ApiBearerAuth()
 @UseGuards(FirebaseAuthGuard)
 @Controller()
 export class SchedulingController {
+  private readonly logger = new Logger(SchedulingController.name);
+
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     private readonly prisma: PrismaService,
+    private readonly jobberService: JobberService,
   ) {}
 
   @Get('scheduling/availability')
@@ -67,7 +72,7 @@ export class SchedulingController {
     @Param('id') id: string,
     @Body() dto: { scheduledAt: string; duration?: number },
   ) {
-    return this.prisma.appointment.update({
+    const appointment = await this.prisma.appointment.update({
       where: { id },
       data: {
         scheduledAt: new Date(dto.scheduledAt),
@@ -75,6 +80,19 @@ export class SchedulingController {
         status: 'PENDING',
       },
     });
+
+    // Sync reschedule to Jobber
+    if (appointment.jobberVisitId) {
+      const jobberVisitId = appointment.jobberVisitId;
+      const endAt = new Date(
+        new Date(dto.scheduledAt).getTime() + (dto.duration ?? appointment.duration) * 60000,
+      );
+      this.jobberService
+        .rescheduleVisit(jobberVisitId, dto.scheduledAt, endAt.toISOString())
+        .catch((err) => this.logger.warn(`Jobber reschedule failed: ${err.message}`));
+    }
+
+    return appointment;
   }
 
   @Put('appointments/:id/cancel')
@@ -83,12 +101,21 @@ export class SchedulingController {
     @Param('id') id: string,
     @Body() dto: { reason: string },
   ) {
-    return this.prisma.appointment.update({
+    const appointment = await this.prisma.appointment.update({
       where: { id },
       data: {
         status: 'CANCELLED',
         notes: dto.reason,
       },
     });
+
+    // Sync cancel to Jobber
+    if (appointment.jobberVisitId) {
+      this.jobberService
+        .cancelVisit(appointment.jobberVisitId)
+        .catch((err) => this.logger.warn(`Jobber cancel failed: ${err.message}`));
+    }
+
+    return appointment;
   }
 }

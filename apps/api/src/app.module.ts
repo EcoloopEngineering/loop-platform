@@ -14,6 +14,8 @@ import { DocumentModule } from './modules/document/document.module';
 import { FormModule } from './modules/form/form.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { EmailModule } from './infrastructure/email/email.module';
+import { PdfModule } from './infrastructure/pdf/pdf.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { IntegrationsModule } from './integrations/integrations.module';
     CqrsModule.forRoot(),
     PrismaModule,
     FirebaseModule,
+    EmailModule,
+    PdfModule,
     IdentityModule,
     CrmModule,
     DesignModule,

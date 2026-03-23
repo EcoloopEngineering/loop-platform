@@ -24,13 +24,14 @@ import { PrismaCustomerRepository } from './infrastructure/repositories/prisma-c
 import { LeadsController } from './presentation/leads.controller';
 import { CustomersController } from './presentation/customers.controller';
 import { PipelineController } from './presentation/pipeline.controller';
+import { SalesRabbitWebhookController } from './presentation/salesrabbit-webhook.controller';
 
 const CommandHandlers = [CreateLeadHandler];
 const QueryHandlers = [ListLeadsHandler, GetPipelineViewHandler];
 
 @Module({
   imports: [CqrsModule],
-  controllers: [LeadsController, CustomersController, PipelineController],
+  controllers: [LeadsController, CustomersController, PipelineController, SalesRabbitWebhookController],
   providers: [
     PrismaService,
     LeadScoringDomainService,
