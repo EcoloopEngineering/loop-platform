@@ -102,7 +102,7 @@
       <div class="section-title q-mb-sm">Recent Activity</div>
       <q-card flat>
         <q-list v-if="activities.length" separator>
-          <q-item v-for="a in activities" :key="a.id" dense>
+          <q-item v-for="a in activities.slice(0, 5)" :key="a.id" dense>
             <q-item-section avatar>
               <q-avatar size="28px" :color="activityColor(a.event)" text-color="white">
                 <q-icon :name="activityIcon(a.event)" size="14px" />
