@@ -40,33 +40,31 @@
               </q-badge>
             </div>
 
-            <div class="row justify-around q-mb-sm">
-              <div class="quick-action text-center" @click="onQuickAction('note')">
-                <q-btn round unelevated size="sm" icon="sticky_note_2" color="primary" />
-                <div class="quick-action-label">Note</div>
-              </div>
-              <div class="quick-action text-center" @click="onQuickAction('email')">
-                <q-btn round unelevated size="sm" icon="email" color="primary" />
-                <div class="quick-action-label">Email</div>
-              </div>
-              <div class="quick-action text-center" @click="onQuickAction('call')">
-                <q-btn round unelevated size="sm" icon="phone" color="primary" />
-                <div class="quick-action-label">Call</div>
-              </div>
-            </div>
-            <div class="row justify-around">
-              <div class="quick-action text-center" @click="showChangeOrderDialog = true">
-                <q-btn round unelevated size="sm" icon="description" color="orange-8" />
-                <div class="quick-action-label">Change Order</div>
-              </div>
-              <div class="quick-action text-center" @click="showCapDialog = true">
-                <q-btn round unelevated size="sm" icon="verified" color="purple" />
-                <div class="quick-action-label">CAP</div>
-              </div>
-              <div class="quick-action text-center" @click="showScheduleDialog = true">
-                <q-btn round unelevated size="sm" icon="event" color="blue" />
-                <div class="quick-action-label">Schedule</div>
-              </div>
+            <div class="action-bar">
+              <q-btn flat dense no-caps icon="sticky_note_2" label="Note" size="sm" color="grey-7" class="action-item" @click="onQuickAction('note')" />
+              <q-btn flat dense no-caps icon="email" label="Email" size="sm" color="grey-7" class="action-item" @click="onQuickAction('email')" />
+              <q-btn flat dense no-caps icon="phone" label="Call" size="sm" color="grey-7" class="action-item" @click="onQuickAction('call')" />
+              <q-btn flat dense no-caps icon="event" label="Schedule" size="sm" color="grey-7" class="action-item" @click="showScheduleDialog = true" />
+              <q-separator vertical class="q-mx-xs" style="height: 20px" />
+              <q-btn flat dense round icon="more_horiz" size="sm" color="grey-7">
+                <q-menu>
+                  <q-list dense style="min-width: 180px">
+                    <q-item clickable v-close-popup @click="showChangeOrderDialog = true">
+                      <q-item-section avatar><q-icon name="description" color="orange-8" size="18px" /></q-item-section>
+                      <q-item-section>Change Order</q-item-section>
+                    </q-item>
+                    <q-item clickable v-close-popup @click="showCapDialog = true">
+                      <q-item-section avatar><q-icon name="verified" color="purple" size="18px" /></q-item-section>
+                      <q-item-section>Generate CAP</q-item-section>
+                    </q-item>
+                    <q-separator />
+                    <q-item clickable v-close-popup @click="onQuickAction('email')">
+                      <q-item-section avatar><q-icon name="forward_to_inbox" size="18px" /></q-item-section>
+                      <q-item-section>Send Email</q-item-section>
+                    </q-item>
+                  </q-list>
+                </q-menu>
+              </q-btn>
             </div>
 
             <!-- Change Order Dialog -->
@@ -1360,14 +1358,24 @@ function initials(name: string) {
 }
 
 // ---- Quick actions ----
-.quick-action {
-  cursor: pointer;
+.action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 0;
+  border-top: 1px solid #F3F4F6;
+  margin-top: 8px;
 
-  .quick-action-label {
-    font-size: 11px;
-    color: #6B7280;
-    font-weight: 500;
-    margin-top: 4px;
+  .action-item {
+    border-radius: 8px;
+    font-size: 12px;
+    padding: 4px 8px;
+
+    &:hover {
+      background: #F3F4F6;
+      color: #00897B !important;
+    }
   }
 }
 
