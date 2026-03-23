@@ -122,10 +122,35 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
     return { data, total };
   }
 
-  async findByStageGrouped(pipelineId?: string): Promise<Record<string, any[]>> {
+  async findByStageGrouped(
+    pipelineId?: string,
+    filters?: { search?: string; source?: string; dateFrom?: string; dateTo?: string },
+  ): Promise<Record<string, any[]>> {
     const where: Prisma.LeadWhereInput = { isActive: true };
     if (pipelineId) {
       where.pipelineId = pipelineId;
+    }
+
+    // Search by customer name (Postgres ILIKE)
+    if (filters?.search) {
+      where.customer = {
+        OR: [
+          { firstName: { contains: filters.search, mode: 'insensitive' } },
+          { lastName: { contains: filters.search, mode: 'insensitive' } },
+          { email: { contains: filters.search, mode: 'insensitive' } },
+          { phone: { contains: filters.search } },
+        ],
+      };
+    }
+
+    if (filters?.source) {
+      where.source = filters.source as any;
+    }
+
+    if (filters?.dateFrom || filters?.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
+      if (filters.dateTo) where.createdAt.lte = new Date(filters.dateTo + 'T23:59:59Z');
     }
 
     const leads = await this.prisma.lead.findMany({

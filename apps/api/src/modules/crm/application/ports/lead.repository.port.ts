@@ -6,7 +6,7 @@ export interface LeadRepositoryPort {
   findById(id: string): Promise<LeadEntity | null>;
   findByIdWithRelations(id: string): Promise<any | null>;
   findAll(filter: LeadFilterDto): Promise<{ data: any[]; total: number }>;
-  findByStageGrouped(pipelineId?: string): Promise<Record<string, any[]>>;
+  findByStageGrouped(pipelineId?: string, filters?: { search?: string; source?: string; dateFrom?: string; dateTo?: string }): Promise<Record<string, any[]>>;
   update(id: string, data: Partial<any>): Promise<LeadEntity>;
   updateStage(id: string, stage: string): Promise<LeadEntity>;
   delete(id: string): Promise<void>;

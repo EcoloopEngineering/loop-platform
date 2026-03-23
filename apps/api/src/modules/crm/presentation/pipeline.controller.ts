@@ -24,8 +24,12 @@ export class PipelineController {
   @ApiOperation({ summary: 'Get kanban pipeline view with leads grouped by stage' })
   async getPipelineView(
     @Query('pipelineId') pipelineId?: string,
+    @Query('search') search?: string,
+    @Query('source') source?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
   ): Promise<any> {
-    return this.queryBus.execute(new GetPipelineViewQuery(pipelineId));
+    return this.queryBus.execute(new GetPipelineViewQuery(pipelineId, search, source, dateFrom, dateTo));
   }
 
   @Get('stages')

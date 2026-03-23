@@ -27,7 +27,7 @@
     <!-- Board View -->
     <PipelineBoard
       v-if="viewMode === 'board'"
-      :stages="stages"
+      :stages="filteredStages"
       :loading="pipelineStore.loading"
       @stage-change="onStageChange"
     />
@@ -159,14 +159,82 @@ import type { PipelineFilterValues } from '@/components/pipeline/PipelineFilters
 const router = useRouter();
 const pipelineStore = usePipelineStore();
 const viewMode = ref('list');
+const activeFilters = ref<PipelineFilterValues>({
+  search: '',
+  source: null,
+  assignedTo: null,
+  dateFrom: null,
+  dateTo: null,
+});
 
 const stages = computed(() => pipelineStore.pipelineData?.stages ?? []);
 
-const allLeads = computed(() =>
+// All leads flat from all stages
+const rawLeads = computed(() =>
   stages.value.flatMap((s) =>
     s.leads.map((l) => ({ ...l, stageName: s.name, stageColor: s.color })),
   ),
 );
+
+// Client-side filtered leads
+const allLeads = computed(() => {
+  let result = rawLeads.value;
+  const f = activeFilters.value;
+
+  // Search by name
+  if (f.search) {
+    const q = f.search.toLowerCase();
+    result = result.filter((l) =>
+      l.customerName.toLowerCase().includes(q)
+      || (l.owner ?? '').toLowerCase().includes(q)
+      || (l.projectManager ?? '').toLowerCase().includes(q),
+    );
+  }
+
+  // Filter by source
+  if (f.source) {
+    result = result.filter((l) => l.leadSource === f.source);
+  }
+
+  // Filter by assigned to
+  if (f.assignedTo) {
+    result = result.filter((l) => l.owner || l.assignedTo);
+  }
+
+  // Filter by date range
+  if (f.dateFrom) {
+    const from = new Date(f.dateFrom).getTime();
+    result = result.filter((l) => new Date(l.createdAt).getTime() >= from);
+  }
+  if (f.dateTo) {
+    const to = new Date(f.dateTo).getTime() + 86400000; // include full day
+    result = result.filter((l) => new Date(l.createdAt).getTime() <= to);
+  }
+
+  return result;
+});
+
+// Filtered stages for board view
+const filteredStages = computed(() => {
+  const f = activeFilters.value;
+  const hasFilter = f.search || f.source || f.assignedTo || f.dateFrom || f.dateTo;
+  if (!hasFilter) return stages.value;
+
+  return stages.value.map((s) => ({
+    ...s,
+    leads: s.leads.filter((l) => {
+      if (f.search) {
+        const q = f.search.toLowerCase();
+        if (!l.customerName.toLowerCase().includes(q)
+          && !(l.owner ?? '').toLowerCase().includes(q)) return false;
+      }
+      if (f.source && l.leadSource !== f.source) return false;
+      if (f.dateFrom && new Date(l.createdAt).getTime() < new Date(f.dateFrom).getTime()) return false;
+      if (f.dateTo && new Date(l.createdAt).getTime() > new Date(f.dateTo).getTime() + 86400000) return false;
+      return true;
+    }),
+  }));
+});
 
 const columns = [
   { name: 'name', label: 'Lead Name', field: 'customerName', align: 'left' as const, sortable: true },
@@ -194,14 +262,21 @@ onMounted(() => {
   pipelineStore.fetchPipelineView();
 });
 
+let debounceTimer: ReturnType<typeof setTimeout>;
+
 function onFilterChange(filters: PipelineFilterValues) {
-  pipelineStore.fetchPipelineView({
-    search: filters.search || undefined,
-    source: filters.source ?? undefined,
-    assignedTo: filters.assignedTo ?? undefined,
-    dateFrom: filters.dateFrom ?? undefined,
-    dateTo: filters.dateTo ?? undefined,
-  });
+  activeFilters.value = { ...filters };
+
+  // Server-side search with debounce for better results
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    pipelineStore.fetchPipelineView({
+      search: filters.search || undefined,
+      source: filters.source ?? undefined,
+      dateFrom: filters.dateFrom ?? undefined,
+      dateTo: filters.dateTo ?? undefined,
+    });
+  }, 300);
 }
 
 async function onStageChange(payload: { leadId: string; toStage: string }) {

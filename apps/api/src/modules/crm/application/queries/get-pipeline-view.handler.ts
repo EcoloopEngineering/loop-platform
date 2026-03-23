@@ -3,7 +3,13 @@ import { Inject } from '@nestjs/common';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 
 export class GetPipelineViewQuery {
-  constructor(public readonly pipelineId?: string) {}
+  constructor(
+    public readonly pipelineId?: string,
+    public readonly search?: string,
+    public readonly source?: string,
+    public readonly dateFrom?: string,
+    public readonly dateTo?: string,
+  ) {}
 }
 
 export interface PipelineStageView {
@@ -22,7 +28,12 @@ export class GetPipelineViewHandler implements IQueryHandler<GetPipelineViewQuer
   ) {}
 
   async execute(query: GetPipelineViewQuery): Promise<PipelineStageView[]> {
-    const grouped = await this.leadRepo.findByStageGrouped(query.pipelineId);
+    const grouped = await this.leadRepo.findByStageGrouped(query.pipelineId, {
+      search: query.search,
+      source: query.source,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+    });
 
     return Object.entries(grouped).map(([stage, leads]) => ({
       stage,

@@ -287,6 +287,73 @@ export class LeadsController {
     return activity;
   }
 
+  @Put(':id/notes/:noteId')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @ApiOperation({ summary: 'Edit a note on lead' })
+  async editNote(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+    @Body('content') content: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<any> {
+    const existing = await this.prisma.leadActivity.findFirst({
+      where: { id: noteId, leadId: id, type: 'NOTE_ADDED' },
+    });
+    if (!existing) throw new NotFoundException('Note not found');
+
+    const oldContent = existing.description;
+    const updated = await this.prisma.leadActivity.update({
+      where: { id: noteId },
+      data: { description: content, metadata: { editedAt: new Date().toISOString(), previousContent: oldContent } },
+    });
+
+    // Log the edit as activity
+    await this.prisma.leadActivity.create({
+      data: {
+        leadId: id,
+        userId,
+        type: 'NOTE_ADDED',
+        description: `Note edited (was: "${oldContent?.substring(0, 50)}...")`,
+        metadata: { action: 'note_edited', noteId, oldContent, newContent: content },
+      },
+    });
+
+    return updated;
+  }
+
+  @Patch(':id/notes/:noteId/delete')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @ApiOperation({ summary: 'Delete a note from lead (soft — logged in activity)' })
+  async deleteNote(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<any> {
+    const existing = await this.prisma.leadActivity.findFirst({
+      where: { id: noteId, leadId: id, type: 'NOTE_ADDED' },
+    });
+    if (!existing) throw new NotFoundException('Note not found');
+
+    // Soft delete: clear description and mark as deleted in metadata
+    await this.prisma.leadActivity.update({
+      where: { id: noteId },
+      data: { description: '[deleted]', metadata: { deleted: true, deletedContent: existing.description, deletedAt: new Date().toISOString() } },
+    });
+
+    // Log deletion in activity
+    await this.prisma.leadActivity.create({
+      data: {
+        leadId: id,
+        userId,
+        type: 'NOTE_ADDED',
+        description: `Note deleted (was: "${existing.description?.substring(0, 50)}...")`,
+        metadata: { action: 'note_deleted', noteId, deletedContent: existing.description },
+      },
+    });
+
+    return { success: true };
+  }
+
   @Post(':id/assign')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Assign a user to a lead' })

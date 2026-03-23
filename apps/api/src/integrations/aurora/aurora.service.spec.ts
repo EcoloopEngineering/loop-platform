@@ -1,0 +1,74 @@
+import { Test } from '@nestjs/testing';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { of } from 'rxjs';
+import { AuroraService } from './aurora.service';
+
+describe('AuroraService', () => {
+  let service: AuroraService;
+  let http: { post: jest.Mock; get: jest.Mock };
+
+  beforeEach(async () => {
+    http = { post: jest.fn(), get: jest.fn() };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        AuroraService,
+        { provide: HttpService, useValue: http },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string, fallback?: string) => {
+              const map: Record<string, string> = {
+                AURORA_SERVICE_URL: 'https://aurora.test',
+                AURORA_SERVICE_TOKEN: 'tok',
+              };
+              return map[key] ?? fallback;
+            }),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get(AuroraService);
+  });
+
+  it('should create a project via POST', async () => {
+    const raw = { project_id: 'p1', name: 'Test', status: 'active', created_at: '2026-01-01T00:00:00Z' };
+    http.post.mockReturnValue(of({ data: raw }));
+
+    const result = await service.createProject({
+      name: 'Test',
+      address: { street: '123 Main', city: 'Austin', state: 'TX', zip: '78701' },
+      latitude: 30,
+      longitude: -97,
+    });
+
+    expect(result.projectId).toBe('p1');
+    expect(http.post).toHaveBeenCalledWith(
+      'https://aurora.test/projects',
+      expect.anything(),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer tok' }) }),
+    );
+  });
+
+  it('should get designs for a project', async () => {
+    const raw = [
+      { design_id: 'd1', project_id: 'p1', system_size_kw: 10, annual_production_kwh: 14000, panel_count: 30, image_url: null, status: 'complete', created_at: '2026-01-01T00:00:00Z' },
+    ];
+    http.get.mockReturnValue(of({ data: raw }));
+
+    const result = await service.getDesigns('p1');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].designId).toBe('d1');
+  });
+
+  it('should get design status', async () => {
+    http.get.mockReturnValue(of({ data: { project_id: 'p1', status: 'processing', progress_pct: 50 } }));
+
+    const result = await service.getDesignStatus('p1');
+
+    expect(result).toEqual({ projectId: 'p1', status: 'processing', progressPct: 50 });
+  });
+});

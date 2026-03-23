@@ -280,8 +280,39 @@
                   <span class="text-weight-medium text-body2">{{ note.userName }}</span>
                   <q-space />
                   <span class="text-caption text-grey-5">{{ formatDateTime(note.createdAt) }}</span>
+                  <q-btn flat dense round icon="more_vert" size="xs" color="grey-5" class="q-ml-xs">
+                    <q-menu>
+                      <q-list dense style="min-width: 120px">
+                        <q-item clickable v-close-popup @click="startEditNote(note)">
+                          <q-item-section avatar><q-icon name="edit" size="16px" /></q-item-section>
+                          <q-item-section>Edit</q-item-section>
+                        </q-item>
+                        <q-item clickable v-close-popup @click="deleteNote(note)">
+                          <q-item-section avatar><q-icon name="delete" size="16px" color="negative" /></q-item-section>
+                          <q-item-section class="text-negative">Delete</q-item-section>
+                        </q-item>
+                      </q-list>
+                    </q-menu>
+                  </q-btn>
                 </div>
-                <div class="text-body2 text-grey-8 note-body">{{ note.body }}</div>
+                <!-- Edit mode -->
+                <div v-if="editingNoteId === note.id">
+                  <q-input
+                    v-model="editingNoteContent"
+                    type="textarea"
+                    outlined
+                    autogrow
+                    dense
+                    class="note-input q-mb-xs"
+                  />
+                  <div class="row justify-end q-gutter-xs">
+                    <q-btn flat dense no-caps label="Cancel" color="grey-6" @click="editingNoteId = null" />
+                    <q-btn unelevated dense no-caps label="Save" color="primary" class="rounded-btn" @click="saveEditNote(note)" />
+                  </div>
+                </div>
+                <!-- View mode -->
+                <div v-else class="text-body2 text-grey-8 note-body">{{ note.body }}</div>
+                <div v-if="note.editedAt" class="text-caption text-grey-4 q-mt-xs" style="font-size: 10px">(edited)</div>
               </div>
             </q-tab-panel>
 
@@ -304,14 +335,21 @@
               <q-list v-if="files.length" separator class="file-list">
                 <q-item v-for="file in files" :key="file.id" class="file-item">
                   <q-item-section avatar>
-                    <q-icon name="insert_drive_file" color="grey-5" />
+                    <q-icon :name="fileIcon(file.name)" :color="fileIconColor(file.name)" size="24px" />
                   </q-item-section>
                   <q-item-section>
                     <q-item-label>{{ file.name }}</q-item-label>
-                    <q-item-label caption>{{ formatDate(file.uploadedAt) }}</q-item-label>
+                    <q-item-label caption>{{ formatFileSize(file.size) }} · {{ formatDate(file.createdAt ?? '') }}</q-item-label>
                   </q-item-section>
                   <q-item-section side>
-                    <q-btn flat dense round icon="download" color="grey-7" @click="downloadFile(file)" />
+                    <div class="row no-wrap q-gutter-xs">
+                      <q-btn flat dense round icon="download" color="grey-7" @click="downloadFile(file)">
+                        <q-tooltip>Download</q-tooltip>
+                      </q-btn>
+                      <q-btn flat dense round icon="delete_outline" color="red-4" @click="deleteFile(file)">
+                        <q-tooltip>Delete</q-tooltip>
+                      </q-btn>
+                    </div>
                   </q-item-section>
                 </q-item>
               </q-list>
@@ -729,12 +767,16 @@ interface NoteItem {
   body: string;
   userName: string;
   createdAt: string;
+  editedAt?: string;
 }
 
 interface FileItem {
   id: string;
   name: string;
   url: string;
+  size?: number;
+  type?: string;
+  createdAt?: string;
   uploadedAt: string;
 }
 
@@ -767,14 +809,15 @@ async function loadExtras() {
   activities.value = Array.isArray(timelineRes.data) ? timelineRes.data : [];
   files.value = Array.isArray(docsRes.data) ? docsRes.data : [];
 
-  // Notes may come from timeline or a separate endpoint; extract note-type activities
+  // Extract notes from timeline (type NOTE_ADDED, exclude deleted and edit-log entries)
   notes.value = activities.value
-    .filter((a) => a.type === 'note')
+    .filter((a) => a.type === 'NOTE_ADDED' && a.description !== '[deleted]' && !(a as any).metadata?.action)
     .map((a) => ({
       id: a.id,
       body: a.description,
-      userName: a.userName ?? 'Unknown',
+      userName: a.userName ?? (a as any).user ? `${(a as any).user.firstName} ${(a as any).user.lastName}` : 'Unknown',
       createdAt: a.createdAt,
+      editedAt: (a as any).metadata?.editedAt,
     }));
 
   const commData = commRes.data as any;
@@ -917,7 +960,7 @@ async function saveNote() {
   if (!newNote.value.trim()) return;
   savingNote.value = true;
   try {
-    const { data } = await api.post(`/leads/${props.id}/notes`, { body: newNote.value.trim() });
+    const { data } = await api.post(`/leads/${props.id}/notes`, { content: newNote.value.trim() });
     const noteItem: NoteItem = {
       id: data.id ?? crypto.randomUUID(),
       body: newNote.value.trim(),
@@ -934,6 +977,45 @@ async function saveNote() {
   }
 }
 
+// ---- Edit/Delete Notes ----
+const editingNoteId = ref<string | null>(null);
+const editingNoteContent = ref('');
+
+function startEditNote(note: NoteItem) {
+  editingNoteId.value = note.id;
+  editingNoteContent.value = note.body;
+}
+
+async function saveEditNote(note: NoteItem) {
+  if (!editingNoteContent.value.trim()) return;
+  try {
+    await api.put(`/leads/${props.id}/notes/${note.id}`, { content: editingNoteContent.value.trim() });
+    note.body = editingNoteContent.value.trim();
+    note.editedAt = new Date().toISOString();
+    editingNoteId.value = null;
+    $q.notify({ type: 'positive', message: 'Note updated' });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to update note' });
+  }
+}
+
+async function deleteNote(note: NoteItem) {
+  $q.dialog({
+    title: 'Delete Note',
+    message: 'Are you sure you want to delete this note? This will be logged in the activity.',
+    cancel: true,
+    ok: { label: 'Delete', color: 'negative', flat: true },
+  }).onOk(async () => {
+    try {
+      await api.patch(`/leads/${props.id}/notes/${note.id}/delete`);
+      notes.value = notes.value.filter((n) => n.id !== note.id);
+      $q.notify({ type: 'positive', message: 'Note deleted' });
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to delete note' });
+    }
+  });
+}
+
 function uploadFile() {
   const input = document.createElement('input');
   input.type = 'file';
@@ -943,8 +1025,10 @@ function uploadFile() {
     if (!file) return;
     const form = new FormData();
     form.append('file', file);
+    form.append('leadId', props.id);
+    form.append('documentType', 'OTHER');
     try {
-      const { data } = await api.post<FileItem>(`/leads/${props.id}/documents`, form);
+      const { data } = await api.post<FileItem>('/documents/upload', form);
       files.value.unshift(data);
       $q.notify({ type: 'positive', message: 'File uploaded' });
     } catch {
@@ -955,7 +1039,48 @@ function uploadFile() {
 }
 
 function downloadFile(file: FileItem) {
-  window.open(file.url, '_blank');
+  const baseUrl = (process.env.API_URL ?? 'http://localhost:3000');
+  window.open(`${baseUrl}${file.url}`, '_blank');
+}
+
+function deleteFile(file: FileItem) {
+  $q.dialog({
+    title: 'Delete File',
+    message: `Delete "${file.name}"? This will be logged in the activity.`,
+    cancel: true,
+    ok: { label: 'Delete', color: 'negative', flat: true },
+  }).onOk(async () => {
+    try {
+      await api.delete(`/documents/${file.id}`);
+      files.value = files.value.filter((f) => f.id !== file.id);
+      $q.notify({ type: 'positive', message: 'File deleted' });
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to delete file' });
+    }
+  });
+}
+
+function fileIcon(name: string) {
+  const ext = (name || '').split('.').pop()?.toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext ?? '')) return 'image';
+  if (['pdf'].includes(ext ?? '')) return 'picture_as_pdf';
+  if (['doc', 'docx'].includes(ext ?? '')) return 'description';
+  return 'insert_drive_file';
+}
+
+function fileIconColor(name: string) {
+  const ext = (name || '').split('.').pop()?.toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext ?? '')) return 'purple';
+  if (['pdf'].includes(ext ?? '')) return 'red';
+  if (['doc', 'docx'].includes(ext ?? '')) return 'blue';
+  return 'grey-6';
+}
+
+function formatFileSize(bytes?: number) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
 // ---- Formatting ----
