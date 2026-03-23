@@ -36,6 +36,9 @@
     <div class="q-mb-lg">
       <div class="row items-center q-mb-sm">
         <div class="section-title">My Leads</div>
+        <q-badge v-if="myLeads.length" color="grey-3" text-color="grey-7" class="q-ml-sm" style="font-size: 11px">
+          {{ myLeads.length }}
+        </q-badge>
         <q-space />
         <q-btn flat dense no-caps color="primary" label="View all" @click="$router.push('/crm/pipeline')" size="sm" />
       </div>
@@ -54,7 +57,7 @@
       </div>
 
       <div v-else class="lead-list">
-        <q-card v-for="lead in myLeads" :key="lead.id" flat class="lead-card q-mb-xs" clickable @click="$router.push(`/crm/leads/${lead.id}`)">
+        <q-card v-for="lead in paginatedLeads" :key="lead.id" flat class="lead-card q-mb-xs" clickable @click="$router.push(`/crm/leads/${lead.id}`)">
           <q-card-section class="q-pa-sm">
             <div class="row items-center no-wrap">
               <q-avatar size="32px" color="primary" text-color="white" style="font-size: 12px" class="q-mr-sm">
@@ -74,6 +77,23 @@
             </div>
           </q-card-section>
         </q-card>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="row justify-center q-mt-sm" style="gap: 4px">
+          <q-btn
+            v-for="p in totalPages"
+            :key="p"
+            :flat="p !== leadsPage"
+            :unelevated="p === leadsPage"
+            :color="p === leadsPage ? 'primary' : 'grey-5'"
+            :text-color="p === leadsPage ? 'white' : 'grey-7'"
+            dense
+            round
+            size="xs"
+            :label="String(p)"
+            @click="leadsPage = p"
+          />
+        </div>
       </div>
     </div>
 
@@ -136,11 +156,18 @@ const stats = computed(() => [
   { label: 'Conversion', value: `${conversionRate.value}%`, icon: 'trending_up', color: 'orange-8' },
 ]);
 
+const LEADS_PER_PAGE = 5;
+const leadsPage = ref(1);
+const totalPages = computed(() => Math.ceil(myLeads.value.length / LEADS_PER_PAGE));
+const paginatedLeads = computed(() => {
+  const start = (leadsPage.value - 1) * LEADS_PER_PAGE;
+  return myLeads.value.slice(start, start + LEADS_PER_PAGE);
+});
+
 const myLeads = computed(() =>
   leads.value
     .slice()
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 10)
     .map((l) => ({
       id: l.id,
       name: `${l.customer?.firstName ?? ''} ${l.customer?.lastName ?? ''}`.trim() || 'Unknown',
