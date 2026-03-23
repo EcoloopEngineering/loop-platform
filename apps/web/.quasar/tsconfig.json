@@ -80,6 +80,39 @@
       ],
       "#q-app/bex/private/bex-bridge": [
         "./../../../node_modules/.pnpm/@quasar+app-vite@2.5.2_@types+node@22.19.15_jiti@2.6.1_pinia@2.3.1_typescript@5.7.3_vue_f3438d6bbcfd43070dd6df44645b6c30/node_modules/@quasar/app-vite/types/bex/bex-bridge.d.ts"
+      ],
+      "@capacitor/android": [
+        "./../src-capacitor/node_modules/@capacitor/android"
+      ],
+      "@capacitor/app": [
+        "./../src-capacitor/node_modules/@capacitor/app"
+      ],
+      "@capacitor/camera": [
+        "./../src-capacitor/node_modules/@capacitor/camera"
+      ],
+      "@capacitor/cli": [
+        "./../src-capacitor/node_modules/@capacitor/cli"
+      ],
+      "@capacitor/core": [
+        "./../src-capacitor/node_modules/@capacitor/core"
+      ],
+      "@capacitor/haptics": [
+        "./../src-capacitor/node_modules/@capacitor/haptics"
+      ],
+      "@capacitor/ios": [
+        "./../src-capacitor/node_modules/@capacitor/ios"
+      ],
+      "@capacitor/keyboard": [
+        "./../src-capacitor/node_modules/@capacitor/keyboard"
+      ],
+      "@capacitor/push-notifications": [
+        "./../src-capacitor/node_modules/@capacitor/push-notifications"
+      ],
+      "@capacitor/splash-screen": [
+        "./../src-capacitor/node_modules/@capacitor/splash-screen"
+      ],
+      "@capacitor/status-bar": [
+        "./../src-capacitor/node_modules/@capacitor/status-bar"
       ]
     }
   },

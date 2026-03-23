@@ -18,6 +18,7 @@ import { Response } from 'express';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { S3Service } from '../../../infrastructure/storage/s3.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -28,7 +29,10 @@ const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 @UseGuards(FirebaseAuthGuard)
 @Controller()
 export class DocumentController {
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3: S3Service,
+  ) {
     if (!fs.existsSync(UPLOAD_DIR)) {
       fs.mkdirSync(UPLOAD_DIR, { recursive: true });
     }
@@ -49,16 +53,25 @@ export class DocumentController {
     const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
     if (!lead) throw new NotFoundException('Lead not found');
 
-    // Save file locally
     const timestamp = Date.now();
     const safeFileName = `${timestamp}-${file.originalname}`;
-    const fileKey = `${leadId}/${safeFileName}`;
-    const dirPath = path.join(UPLOAD_DIR, leadId);
+    const fileKey = `documents/${leadId}/${safeFileName}`;
+    let downloadUrl: string | null = null;
 
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
+    // Upload to S3 if configured, otherwise save locally
+    if (this.s3.isConfigured()) {
+      downloadUrl = await this.s3.upload({
+        key: fileKey,
+        body: file.buffer,
+        contentType: file.mimetype,
+      });
+    } else {
+      const dirPath = path.join(UPLOAD_DIR, leadId);
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+      }
+      fs.writeFileSync(path.join(dirPath, safeFileName), file.buffer);
     }
-    fs.writeFileSync(path.join(dirPath, safeFileName), file.buffer);
 
     const doc = await this.prisma.document.create({
       data: {
@@ -69,6 +82,7 @@ export class DocumentController {
         fileSize: file.size,
         fileKey,
         uploadedById: user.id,
+        metadata: downloadUrl ? { downloadUrl, storage: 's3' } : { storage: 'local' },
       },
     });
 
@@ -86,7 +100,7 @@ export class DocumentController {
     return {
       id: doc.id,
       name: doc.fileName,
-      url: `/api/v1/documents/${doc.id}/download`,
+      url: downloadUrl || `/api/v1/documents/${doc.id}/download`,
       type: doc.type,
       size: doc.fileSize,
       createdAt: doc.createdAt,
@@ -100,14 +114,17 @@ export class DocumentController {
       where: { leadId },
       orderBy: { createdAt: 'desc' },
     });
-    return docs.map((d) => ({
-      id: d.id,
-      name: d.fileName,
-      url: `/api/v1/documents/${d.id}/download`,
-      type: d.type,
-      size: d.fileSize,
-      createdAt: d.createdAt,
-    }));
+    return docs.map((d) => {
+      const meta = (d.metadata as any) ?? {};
+      return {
+        id: d.id,
+        name: d.fileName,
+        url: meta.downloadUrl || `/api/v1/documents/${d.id}/download`,
+        type: d.type,
+        size: d.fileSize,
+        createdAt: d.createdAt,
+      };
+    });
   }
 
   @Get('documents/:id/download')
@@ -119,6 +136,15 @@ export class DocumentController {
     const doc = await this.prisma.document.findUnique({ where: { id } });
     if (!doc) throw new NotFoundException('Document not found');
 
+    const meta = (doc.metadata as any) ?? {};
+
+    // If stored on S3, redirect to signed URL
+    if (meta.storage === 's3' && this.s3.isConfigured()) {
+      const signedUrl = await this.s3.getSignedUrl(doc.fileKey);
+      return res.redirect(signedUrl);
+    }
+
+    // Local file fallback
     const filePath = path.join(UPLOAD_DIR, doc.fileKey);
     if (fs.existsSync(filePath)) {
       res.setHeader('Content-Type', doc.mimeType);
@@ -126,7 +152,7 @@ export class DocumentController {
       return res.sendFile(path.resolve(filePath));
     }
 
-    throw new NotFoundException('File not found on disk');
+    throw new NotFoundException('File not found');
   }
 
   @Delete('documents/:id')
@@ -138,10 +164,15 @@ export class DocumentController {
     const doc = await this.prisma.document.findUnique({ where: { id } });
     if (!doc) throw new NotFoundException('Document not found');
 
-    // Delete from disk
-    const filePath = path.join(UPLOAD_DIR, doc.fileKey);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Delete from storage
+    const meta = (doc.metadata as any) ?? {};
+    if (meta.storage === 's3') {
+      await this.s3.delete(doc.fileKey);
+    } else {
+      const filePath = path.join(UPLOAD_DIR, doc.fileKey);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     // Log activity

@@ -16,6 +16,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { EmailModule } from './infrastructure/email/email.module';
 import { PdfModule } from './infrastructure/pdf/pdf.module';
+import { StorageModule } from './infrastructure/storage/storage.module';
 import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { ChatModule } from './modules/chat/chat.module';
     FirebaseModule,
     EmailModule,
     PdfModule,
+    StorageModule,
     IdentityModule,
     CrmModule,
     DesignModule,
