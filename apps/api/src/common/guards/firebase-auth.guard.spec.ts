@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { FirebaseAuthGuard } from './firebase-auth.guard';
 import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
@@ -11,6 +12,7 @@ describe('FirebaseAuthGuard', () => {
   let reflector: Reflector;
   let firebaseService: { isConfigured: jest.Mock; verifyIdToken: jest.Mock };
   let prisma: MockPrismaService;
+  let configService: { get: jest.Mock };
 
   beforeEach(async () => {
     prisma = createMockPrismaService();
@@ -18,12 +20,16 @@ describe('FirebaseAuthGuard', () => {
       isConfigured: jest.fn().mockReturnValue(false),
       verifyIdToken: jest.fn(),
     };
+    configService = {
+      get: jest.fn().mockReturnValue('development'),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         FirebaseAuthGuard,
         { provide: FirebaseService, useValue: firebaseService },
         { provide: PrismaService, useValue: prisma },
+        { provide: ConfigService, useValue: configService },
         Reflector,
       ],
     }).compile();
@@ -47,7 +53,7 @@ describe('FirebaseAuthGuard', () => {
     expect(await guard.canActivate(ctx)).toBe(true);
   });
 
-  it('should dev-bypass when no token and firebase not configured', async () => {
+  it('should dev-bypass when NODE_ENV=development, no token, and firebase not configured', async () => {
     const devUser = { id: '1', name: 'Dev', email: 'dev@test.com', isActive: true };
     prisma.user.findFirst.mockResolvedValue(devUser);
 
@@ -58,14 +64,30 @@ describe('FirebaseAuthGuard', () => {
     expect(ctx.switchToHttp().getRequest().user).toEqual(devUser);
   });
 
-  it('should assign mock user in dev bypass when no users exist', async () => {
+  it('should assign mock user with SALES_REP role in dev bypass when no users exist', async () => {
     prisma.user.findFirst.mockResolvedValue(null);
 
     const ctx = mockContext({});
     const result = await guard.canActivate(ctx);
 
     expect(result).toBe(true);
-    expect(ctx.switchToHttp().getRequest().user).toHaveProperty('email', 'dev@localhost');
+    const mockUser = ctx.switchToHttp().getRequest().user;
+    expect(mockUser).toHaveProperty('email', 'dev@localhost');
+    expect(mockUser).toHaveProperty('role', 'SALES_REP');
+  });
+
+  it('should NOT dev-bypass when NODE_ENV is production', async () => {
+    configService.get.mockReturnValue('production');
+    const ctx = mockContext({});
+
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('should NOT dev-bypass when NODE_ENV is undefined', async () => {
+    configService.get.mockReturnValue(undefined);
+    const ctx = mockContext({});
+
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 
   it('should throw UnauthorizedException when token is missing and firebase is configured', async () => {

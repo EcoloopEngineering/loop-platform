@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CqrsModule } from '@nestjs/cqrs';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './infrastructure/database/prisma.module';
 import { FirebaseModule } from './infrastructure/firebase/firebase.module';
 import { IdentityModule } from './modules/identity/identity.module';
@@ -24,6 +26,10 @@ import { ChatModule } from './modules/chat/chat.module';
     ConfigModule.forRoot({ isGlobal: true }),
     EventEmitterModule.forRoot(),
     CqrsModule.forRoot(),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,  // 1 minute window
+      limit: 100,  // 100 requests per minute
+    }]),
     PrismaModule,
     FirebaseModule,
     EmailModule,
@@ -40,6 +46,9 @@ import { ChatModule } from './modules/chat/chat.module';
     DashboardModule,
     IntegrationsModule,
     ChatModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

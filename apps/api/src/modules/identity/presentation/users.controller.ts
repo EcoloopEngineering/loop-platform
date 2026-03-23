@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Put,
+  Patch,
   Body,
   Param,
   Query,
@@ -9,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { IsEnum } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -23,7 +26,14 @@ import {
   GetUserByIdQuery,
   GetUsersQuery,
 } from '../application/queries/get-user.handler';
+import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { UserEntity } from '../domain/entities/user.entity';
+
+class ChangeRoleDto {
+  @ApiProperty({ enum: UserRole })
+  @IsEnum(UserRole)
+  role!: UserRole;
+}
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -33,6 +43,7 @@ export class UsersController {
   constructor(
     private readonly queryBus: QueryBus,
     private readonly commandBus: CommandBus,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('me')
@@ -75,6 +86,20 @@ export class UsersController {
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get user by ID (admin/manager only)' })
   async findOne(@Param('id') id: string): Promise<UserEntity> {
+    return this.queryBus.execute(new GetUserByIdQuery(id));
+  }
+
+  @Patch(':id/role')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Change user role (admin only)' })
+  async changeRole(
+    @Param('id') id: string,
+    @Body() dto: ChangeRoleDto,
+  ): Promise<UserEntity> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { role: dto.role },
+    });
     return this.queryBus.execute(new GetUserByIdQuery(id));
   }
 }

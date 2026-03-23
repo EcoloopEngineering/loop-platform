@@ -42,19 +42,22 @@ export default route(function () {
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
 
-  Router.beforeEach((to, _from, next) => {
+  Router.beforeEach(async (to, _from, next) => {
     const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
 
     // Auth pages are always accessible
     if (to.path.startsWith('/auth')) return next();
 
-    if (!requiresAuth) {
-      // Check role-based access even for non-auth routes
-      const userStore = useUserStore();
-      const role = userStore.user?.role ?? 'SALES_REP';
+    // Ensure user is loaded before checking roles
+    const userStore = useUserStore();
+    if (!userStore.user) {
+      try { await userStore.loadUser(); } catch { /* ignore */ }
+    }
 
+    const role = userStore.user?.role ?? 'SALES_REP';
+
+    if (!requiresAuth) {
       if (!canAccessRoute(role, to.path)) {
-        // Redirect to appropriate home
         const homeRoute = ['ADMIN', 'MANAGER'].includes(role) ? '/crm' : '/home';
         return next(homeRoute);
       }
@@ -78,9 +81,7 @@ export default route(function () {
         return next({ name: 'login', query: { redirect: to.fullPath } });
       }
 
-      // Role check
-      const userStore = useUserStore();
-      const role = userStore.user?.role ?? 'SALES_REP';
+      // Role check (userStore already loaded above)
       if (!canAccessRoute(role, to.path)) {
         const homeRoute = ['ADMIN', 'MANAGER'].includes(role) ? '/crm' : '/home';
         return next(homeRoute);

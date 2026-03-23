@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
@@ -14,6 +15,7 @@ export class FirebaseAuthGuard implements CanActivate {
     private readonly firebaseService: FirebaseService,
     private readonly prisma: PrismaService,
     private readonly reflector: Reflector,
+    private readonly configService: ConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -26,8 +28,13 @@ export class FirebaseAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const token = this.extractToken(request);
 
-    // Dev bypass: if no Firebase configured and no token, use first active user
-    if (!token && !this.firebaseService.isConfigured()) {
+    // Dev bypass: ONLY when NODE_ENV=development AND Firebase is not configured
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    if (
+      nodeEnv === 'development' &&
+      !token &&
+      !this.firebaseService.isConfigured()
+    ) {
       const devUser = await this.prisma.user.findFirst({
         where: { isActive: true },
         orderBy: { id: 'asc' },
@@ -36,8 +43,8 @@ export class FirebaseAuthGuard implements CanActivate {
         request.user = devUser;
         return true;
       }
-      // No users in DB — allow with mock user
-      request.user = { id: 0, name: 'Dev User', email: 'dev@localhost', role: 'ADMIN' };
+      // No users in DB — allow with mock user (SALES_REP, never ADMIN)
+      request.user = { id: 0, name: 'Dev User', email: 'dev@localhost', role: 'SALES_REP' };
       return true;
     }
 

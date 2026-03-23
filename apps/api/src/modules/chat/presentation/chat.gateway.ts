@@ -13,7 +13,10 @@ import { ChatService } from '../application/services/chat.service';
 import { FaqService } from '../application/services/faq.service';
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: {
+    origin: ['http://localhost:9000', 'http://localhost:9001', 'https://loop.ecoloop.app', 'https://app.ecoloop.us'],
+    credentials: true,
+  },
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -60,8 +63,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversationId: string },
   ) {
-    client.join(`conv:${data.conversationId}`);
+    // Verify user has access to this conversation
     const conversation = await this.chatService.getConversation(data.conversationId);
+    if (!conversation) {
+      client.emit('error', { message: 'Conversation not found' });
+      return;
+    }
+    client.join(`conv:${data.conversationId}`);
     client.emit('conversation_loaded', conversation);
   }
 
