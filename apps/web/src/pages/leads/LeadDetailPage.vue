@@ -40,7 +40,7 @@
               </q-badge>
             </div>
 
-            <div class="row justify-around">
+            <div class="row justify-around q-mb-sm">
               <div class="quick-action text-center" @click="onQuickAction('note')">
                 <q-btn round unelevated size="sm" icon="sticky_note_2" color="primary" />
                 <div class="quick-action-label">Note</div>
@@ -54,6 +54,68 @@
                 <div class="quick-action-label">Call</div>
               </div>
             </div>
+            <div class="row justify-around">
+              <div class="quick-action text-center" @click="showChangeOrderDialog = true">
+                <q-btn round unelevated size="sm" icon="description" color="orange-8" />
+                <div class="quick-action-label">Change Order</div>
+              </div>
+              <div class="quick-action text-center" @click="showCapDialog = true">
+                <q-btn round unelevated size="sm" icon="verified" color="purple" />
+                <div class="quick-action-label">CAP</div>
+              </div>
+              <div class="quick-action text-center" @click="showScheduleDialog = true">
+                <q-btn round unelevated size="sm" icon="event" color="blue" />
+                <div class="quick-action-label">Schedule</div>
+              </div>
+            </div>
+
+            <!-- Change Order Dialog -->
+            <q-dialog v-model="showChangeOrderDialog" persistent>
+              <q-card style="min-width: 420px; border-radius: 16px">
+                <q-card-section><div class="text-h6 text-weight-bold">Generate Change Order</div></q-card-section>
+                <q-card-section class="q-gutter-md q-pt-none">
+                  <q-input v-model="changeOrderNote" label="Changes (one per line)" type="textarea" outlined autogrow />
+                  <q-input v-model="changeOrderNotes" label="Additional notes" outlined dense />
+                </q-card-section>
+                <q-card-actions align="right" class="q-pa-md">
+                  <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
+                  <q-btn unelevated no-caps label="Generate PDF" color="orange-8" :loading="generatingDoc" @click="generateChangeOrder" style="border-radius: 10px" />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
+
+            <!-- CAP Dialog -->
+            <q-dialog v-model="showCapDialog" persistent>
+              <q-card style="min-width: 420px; border-radius: 16px">
+                <q-card-section><div class="text-h6 text-weight-bold">Generate CAP</div></q-card-section>
+                <q-card-section class="q-gutter-md q-pt-none">
+                  <q-option-group v-model="capMode" :options="[{ label: 'Send for e-signature (ZapSign)', value: 'approval' }, { label: 'Send informative email', value: 'informative' }]" color="primary" />
+                  <q-input v-model="capSystemSize" label="System Size (kW)" outlined dense />
+                  <q-input v-model="capMonthlyPayment" label="Monthly Payment" outlined dense />
+                </q-card-section>
+                <q-card-actions align="right" class="q-pa-md">
+                  <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
+                  <q-btn unelevated no-caps label="Generate CAP" color="purple" :loading="generatingDoc" @click="generateCAP" style="border-radius: 10px" />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
+
+            <!-- Schedule Dialog -->
+            <q-dialog v-model="showScheduleDialog" persistent>
+              <q-card style="min-width: 420px; border-radius: 16px">
+                <q-card-section><div class="text-h6 text-weight-bold">Schedule Appointment</div></q-card-section>
+                <q-card-section class="q-gutter-md q-pt-none">
+                  <q-select v-model="scheduleType" :options="['SITE_AUDIT', 'INSTALLATION']" label="Type" outlined dense />
+                  <q-input v-model="scheduleDate" label="Date & Time" type="datetime-local" outlined dense />
+                  <q-input v-model="scheduleDuration" label="Duration (minutes)" type="number" outlined dense />
+                  <q-input v-model="scheduleNotes" label="Notes" outlined dense />
+                </q-card-section>
+                <q-card-actions align="right" class="q-pa-md">
+                  <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
+                  <q-btn unelevated no-caps label="Book Appointment" color="blue" :loading="scheduling" @click="bookAppointment" style="border-radius: 10px" />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
           </q-card-section>
         </q-card>
 
@@ -777,7 +839,7 @@ interface FileItem {
   size?: number;
   type?: string;
   createdAt?: string;
-  uploadedAt: string;
+  uploadedAt?: string;
 }
 
 const activities = ref<Activity[]>([]);
@@ -1014,6 +1076,90 @@ async function deleteNote(note: NoteItem) {
       $q.notify({ type: 'negative', message: 'Failed to delete note' });
     }
   });
+}
+
+// ---- Document Generation (Change Order, CAP) ----
+const showChangeOrderDialog = ref(false);
+const changeOrderNote = ref('');
+const changeOrderNotes = ref('');
+const generatingDoc = ref(false);
+
+async function generateChangeOrder() {
+  generatingDoc.value = true;
+  try {
+    const changes = changeOrderNote.value.split('\n').filter((l) => l.trim());
+    const { data } = await api.post(`/leads/${props.id}/change-order`, {
+      changes,
+      notes: changeOrderNotes.value || undefined,
+    });
+    files.value.unshift({ id: data.id, name: data.name, url: data.url, size: data.size, createdAt: new Date().toISOString() });
+    showChangeOrderDialog.value = false;
+    changeOrderNote.value = '';
+    changeOrderNotes.value = '';
+    $q.notify({ type: 'positive', message: 'Change Order generated' });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to generate Change Order' });
+  } finally {
+    generatingDoc.value = false;
+  }
+}
+
+const showCapDialog = ref(false);
+const capMode = ref('approval');
+const capSystemSize = ref('');
+const capMonthlyPayment = ref('');
+
+async function generateCAP() {
+  generatingDoc.value = true;
+  try {
+    const { data } = await api.post(`/leads/${props.id}/cap`, {
+      mode: capMode.value,
+      systemSize: capSystemSize.value || undefined,
+      monthlyPayment: capMonthlyPayment.value || undefined,
+    });
+    files.value.unshift({ id: data.id, name: data.name, url: data.url, size: data.size, createdAt: new Date().toISOString() });
+    showCapDialog.value = false;
+    const msg = data.zapSign ? 'CAP sent for e-signature via ZapSign' : 'CAP generated and emailed';
+    $q.notify({ type: 'positive', message: msg });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to generate CAP' });
+  } finally {
+    generatingDoc.value = false;
+  }
+}
+
+// ---- Scheduling ----
+const showScheduleDialog = ref(false);
+const scheduleType = ref('SITE_AUDIT');
+const scheduleDate = ref('');
+const scheduleDuration = ref(60);
+const scheduleNotes = ref('');
+const scheduling = ref(false);
+
+async function bookAppointment() {
+  if (!scheduleDate.value) {
+    $q.notify({ type: 'warning', message: 'Please select a date and time' });
+    return;
+  }
+  scheduling.value = true;
+  try {
+    await api.post(`/leads/${props.id}/appointments`, {
+      type: scheduleType.value,
+      scheduledAt: new Date(scheduleDate.value).toISOString(),
+      duration: scheduleDuration.value,
+      notes: scheduleNotes.value || undefined,
+    });
+    showScheduleDialog.value = false;
+    scheduleDate.value = '';
+    scheduleNotes.value = '';
+    $q.notify({ type: 'positive', message: 'Appointment booked (synced with Jobber)' });
+    // Reload activities
+    loadExtras();
+  } catch (err: any) {
+    $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to book appointment' });
+  } finally {
+    scheduling.value = false;
+  }
 }
 
 function uploadFile() {

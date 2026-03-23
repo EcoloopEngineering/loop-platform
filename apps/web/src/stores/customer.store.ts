@@ -52,8 +52,13 @@ export const useCustomerStore = defineStore('customer', () => {
         '/customers',
         { params },
       );
-      customers.value = data.data;
-      total.value = data.total;
+      const raw = Array.isArray(data) ? data : data.data ?? [];
+      customers.value = raw.map((c: any) => ({
+        ...c,
+        name: `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || c.name || '--',
+        leadsCount: c._count?.leads ?? c.leadsCount ?? 0,
+      }));
+      total.value = (data as any).total ?? (data as any).meta?.total ?? raw.length;
     } finally {
       loading.value = false;
     }
