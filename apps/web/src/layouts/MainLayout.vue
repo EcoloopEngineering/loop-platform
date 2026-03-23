@@ -2,7 +2,8 @@
   <q-layout view="hHh lpR fFf">
     <q-header class="main-header" bordered>
       <q-toolbar class="q-px-md">
-        <img src="/logo_short_dark.svg" alt="ecoLoop" style="height: 26px" />
+        <img src="/logo_short_dark.svg" alt="ecoLoop" style="height: 26px" class="q-mr-sm" />
+        <span class="text-weight-bold text-grey-8" style="font-size: 15px">Sales</span>
         <q-space />
         <q-btn flat round dense icon="notifications_none" color="grey-7" class="q-mr-xs">
           <q-badge v-if="unreadCount > 0" floating color="negative" :label="unreadCount" />
@@ -62,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue';
 import { useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
@@ -83,7 +84,12 @@ const route = useRoute();
 const activeTab = ref('home');
 const notifications = ref<AppNotification[]>([]);
 const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).length);
-const userInitials = computed(() => 'U');
+const userName = ref('');
+provide('userName', userName);
+const userInitials = computed(() => {
+  if (!userName.value) return 'U';
+  return userName.value.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+});
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -97,7 +103,15 @@ async function fetchNotifications() {
   }
 }
 
+async function fetchUser() {
+  try {
+    const { data } = await api.get('/users/me');
+    userName.value = data.nickname || data.firstName || `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim();
+  } catch { /* ignore */ }
+}
+
 onMounted(() => {
+  fetchUser();
   fetchNotifications();
   pollInterval = setInterval(fetchNotifications, 30000);
 });

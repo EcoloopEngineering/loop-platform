@@ -1,8 +1,8 @@
 <template>
   <q-page class="home-page q-pa-md">
     <!-- Greeting -->
-    <div class="q-mb-lg">
-      <div class="greeting-text">{{ greeting }}</div>
+    <div class="q-mb-md">
+      <div class="greeting-text">{{ greeting }}<span v-if="displayName" class="greeting-name">, {{ displayName }}</span></div>
       <div class="greeting-sub">Here's your sales overview</div>
     </div>
 
@@ -10,7 +10,10 @@
     <div class="row q-col-gutter-sm q-mb-lg">
       <div class="col-6" v-for="stat in stats" :key="stat.label">
         <div class="stat-card">
-          <div class="stat-label">{{ stat.label }}</div>
+          <div class="row items-center q-mb-xs" style="gap: 6px">
+            <q-icon :name="stat.icon" :color="stat.color" size="16px" />
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
           <div class="stat-value">{{ stat.value }}</div>
         </div>
       </div>
@@ -101,12 +104,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, inject, onMounted } from 'vue';
+import type { Ref } from 'vue';
 import { api } from '@/boot/axios';
 
 const loadingLeads = ref(true);
 const leads = ref<any[]>([]);
 const activities = ref<any[]>([]);
+const injectedName = inject<Ref<string>>('userName', ref(''));
+const displayName = computed(() => injectedName?.value || '');
 
 const greeting = computed(() => {
   const hour = new Date().getHours();
@@ -124,10 +130,10 @@ const conversionRate = computed(() => {
 });
 
 const stats = computed(() => [
-  { label: 'Total Leads', value: String(totalLeads.value) },
-  { label: 'Referrals', value: String(referralLeads.value) },
-  { label: 'Closed Won', value: String(wonLeads.value) },
-  { label: 'Conversion', value: `${conversionRate.value}%` },
+  { label: 'Total Leads', value: String(totalLeads.value), icon: 'people', color: 'primary' },
+  { label: 'Referrals', value: String(referralLeads.value), icon: 'group_add', color: 'purple' },
+  { label: 'Closed Won', value: String(wonLeads.value), icon: 'emoji_events', color: 'positive' },
+  { label: 'Conversion', value: `${conversionRate.value}%`, icon: 'trending_up', color: 'orange-8' },
 ]);
 
 const myLeads = computed(() =>
@@ -197,8 +203,29 @@ function activityColor(t: string) { return COLORS[t] ?? 'grey-6'; }
 
 <style lang="scss" scoped>
 .home-page { background: #F8FAFB; min-height: 100vh; }
-.greeting-text { font-size: 22px; font-weight: 700; color: #1A1A2E; }
+.greeting-text {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1A1A2E;
+  .greeting-name { color: #00897B; }
+}
 .greeting-sub { font-size: 14px; color: #9CA3AF; margin-top: 2px; }
+
+.stat-card {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 14px 16px;
+  transition: all 0.2s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    border-color: rgba(0, 137, 123, 0.2);
+  }
+
+  .stat-label { font-size: 12px; color: #9CA3AF; font-weight: 500; }
+  .stat-value { font-size: 26px; font-weight: 700; color: #1A1A2E; margin-top: 2px; }
+}
 .section-title { font-size: 14px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.04em; }
 .action-btn { border-radius: 12px; font-weight: 600; padding: 10px 16px; }
 
