@@ -17,7 +17,7 @@
 
           <!-- Footer -->
           <div class="text-center q-mt-lg text-hint" style="font-size: 13px">
-            &copy; {{ new Date().getFullYear() }} ecoLoop. All rights reserved.
+            &copy; {{ new Date().getFullYear() }} ecoLoop Solar Energy. All rights reserved.
           </div>
         </div>
       </q-page>
