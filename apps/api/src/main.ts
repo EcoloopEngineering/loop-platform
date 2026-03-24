@@ -64,6 +64,20 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
+  // Graceful shutdown
+  app.enableShutdownHooks();
+
+  // Process-level error handlers
+  process.on('unhandledRejection', (reason: any) => {
+    const logger = new Logger('UnhandledRejection');
+    logger.error(`Unhandled Rejection: ${reason?.message ?? reason}`, reason?.stack);
+  });
+  process.on('uncaughtException', (error: Error) => {
+    const logger = new Logger('UncaughtException');
+    logger.error(`Uncaught Exception: ${error.message}`, error.stack);
+    process.exit(1);
+  });
+
   const port = process.env.APP_PORT || 3000;
   await app.listen(port);
 

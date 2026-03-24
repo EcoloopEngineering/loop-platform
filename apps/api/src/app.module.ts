@@ -20,6 +20,7 @@ import { EmailModule } from './infrastructure/email/email.module';
 import { PdfModule } from './infrastructure/pdf/pdf.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { HealthModule } from './infrastructure/health/health.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ChatModule } from './modules/chat/chat.module';
     DashboardModule,
     IntegrationsModule,
     ChatModule,
+    HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
