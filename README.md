@@ -328,4 +328,4 @@ The frontend uses **Pinia stores** with persisted state, **Vue composables** for
 
 ## License
 
-This software is **proprietary** and confidential. All rights reserved by ecoLoop. Unauthorized copying, distribution, or modification is strictly prohibited.
+This software is **proprietary** and confidential. All rights reserved by EcoLoop. Unauthorized copying, distribution, or modification is strictly prohibited.
