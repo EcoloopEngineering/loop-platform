@@ -69,7 +69,7 @@ jobs:
           sudo chown -R www-data:www-data /var/www/html/
 
           echo "=== Verifying ==="
-          curl -s -o /dev/null -w "API: %{http_code}\n" http://localhost:3000/api/v1/settings
+          curl -s -o /dev/null -w "API: %{http_code}\n" http://localhost:3000/api/docs
           echo "=== Deploy complete! ==="
           DEPLOY
 
@@ -78,7 +78,7 @@ jobs:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
           sleep 5
-          STATUS=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/v1/settings")
+          STATUS=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/docs")
           if [ "$STATUS" != "200" ]; then
             echo "Deployment verification failed! API returned $STATUS"
             ssh -i ~/.ssh/deploy_key ubuntu@$HOST "tail -20 /home/ubuntu/api.log"
