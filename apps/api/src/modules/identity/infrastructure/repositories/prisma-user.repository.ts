@@ -55,7 +55,6 @@ export class PrismaUserRepository implements UserRepositoryPort {
         ...(data.language !== undefined && { language: data.language }),
         ...(data.role !== undefined && { role: data.role as any }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
-        ...(data.teamId !== undefined && { teamId: data.teamId }),
       },
     });
     return new UserEntity(user as any);

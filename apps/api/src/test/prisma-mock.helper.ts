@@ -40,7 +40,6 @@ export type MockPrismaService = {
   userDevice: MockModel;
   appointment: MockModel;
   referral: MockModel;
-  team: MockModel;
   $connect: jest.Mock;
   $disconnect: jest.Mock;
   $transaction: jest.Mock;
@@ -63,7 +62,6 @@ export function createMockPrismaService(): MockPrismaService {
     userDevice: createMockModel(),
     appointment: createMockModel(),
     referral: createMockModel(),
-    team: createMockModel(),
     $connect: jest.fn(),
     $disconnect: jest.fn(),
     $transaction: jest.fn(),

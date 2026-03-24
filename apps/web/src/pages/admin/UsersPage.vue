@@ -264,7 +264,6 @@ interface UserRow {
   role: string;
   nickname?: string;
   isActive: boolean;
-  teamName?: string;
   referredBy?: string;
   leadCount: number;
   createdAt: string;
@@ -299,7 +298,6 @@ const employeeColumns = [
   { name: 'email', label: 'Email', field: 'email', align: 'left' as const },
   { name: 'phone', label: 'Phone', field: 'phone', align: 'left' as const },
   { name: 'role', label: 'Role', field: 'role', align: 'left' as const },
-  { name: 'team', label: 'Team', field: 'teamName', align: 'left' as const },
   { name: 'status', label: 'Active', field: 'isActive', align: 'center' as const },
   { name: 'actions', label: '', field: 'id', align: 'right' as const },
 ];
@@ -329,7 +327,6 @@ onMounted(async () => {
       role: u.role,
       nickname: u.nickname,
       isActive: u.isActive,
-      teamName: u.team?.name ?? '--',
       referredBy: u.referralsReceived?.[0]?.inviter
         ? `${u.referralsReceived[0].inviter.firstName} ${u.referralsReceived[0].inviter.lastName}`
         : undefined,

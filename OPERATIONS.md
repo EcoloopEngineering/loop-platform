@@ -31,7 +31,7 @@ Comprehensive operations and integration reference for the engineering team.
 |  Mobile Apps     |       |  Jobber (GraphQL)   |
 +------------------+       |  Stripe             |
                            |  ZapSign            |
-                           |  Firebase Auth      |
+                           |  Firebase (Google+FCM)|
                            |  AWS S3             |
                            |  Nodemailer (Gmail) |
                            |  Mapbox             |
@@ -129,12 +129,13 @@ pnpm --filter @loop/api exec prisma migrate reset
 
 ## 3. Authentication
 
-### Dual Auth System
+### Auth System
 
 The platform supports two authentication methods:
 
-1. **JWT-based auth (primary)** — own session system with email/password
-2. **Firebase Auth (optional)** — for Google login and SSO
+1. **JWT-based auth (primary)** — email/password login. POST /auth/login returns JWT token. 7-day expiry.
+2. **Firebase Auth (Google Login only)** — used ONLY for "Continue with Google" button. Firebase SDK handles Google OAuth, then backend verifies the Firebase token.
+3. **Firebase Cloud Messaging** — used for push notifications on mobile (iOS/Android via Capacitor)
 
 ### JWT Configuration
 
@@ -151,10 +152,11 @@ The platform supports two authentication methods:
 - `lastLoginAt` field on User tracks last authentication
 - `passwordHash` stored on User model (null for Firebase-only users)
 
-### Firebase Auth (Optional)
+### Firebase (Google Login + Push Notifications)
 
 - **Project**: `loop-app-b49cb`
-- **Purpose**: Google login, SSO
+- **Purpose**: Google Login ("Continue with Google" button) + FCM push notifications on mobile
+- **NOT used for**: Email/password auth (that's JWT-based)
 - **Dev bypass**: When `NODE_ENV=development` and Firebase private key is not set, the API uses the first active database user for all requests
 - **Config**:
   - `FIREBASE_PROJECT_ID` — Firebase project identifier
@@ -438,7 +440,7 @@ Credentials: enabled
 
 ### Dev Bypass
 
-- Firebase auth bypass only works when `NODE_ENV=development`
+- Auth bypass only works when `NODE_ENV=development` and Firebase is not configured
 - When Firebase private key is not set, the API auto-authenticates as the first active DB user
 - **Never runs in production** — Firebase credentials required in prod
 
@@ -679,11 +681,15 @@ cd apps/web && pnpm dev
 3. Register the module in `apps/api/src/app.module.ts`
 4. Write tests for each service, handler, and controller
 
-### Deployment (Placeholder)
+### Deployment (CD)
 
-Deployment configuration is pending. Current workflow:
-- CI validates on push/PR to main
-- Manual deployment process to be documented
+Automated deployment via GitHub Actions (`.github/workflows/deploy-dev.yml`):
+- Triggers on push to `main` branch (after CI passes on PR)
+- SSH into EC2 instance, pulls latest code, builds, and restarts services
+- Frontend deployed to `/var/www/html/` (served by Nginx)
+- API restarted as background process
+- Health check verifies deployment via `/api/v1/settings` endpoint
+- Required secrets: `EC2_SSH_KEY`, `EC2_HOST`
 
 ---
 

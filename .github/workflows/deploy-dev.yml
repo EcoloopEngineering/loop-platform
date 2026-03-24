@@ -1,0 +1,84 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy to EC2
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST << 'DEPLOY'
+          set -e
+          cd /home/ubuntu/loop-platform
+
+          echo "=== Pulling latest code ==="
+          git fetch origin dev
+          git checkout dev
+          git pull origin dev
+
+          echo "=== Installing dependencies ==="
+          pnpm install --frozen-lockfile 2>&1 | tail -3
+
+          echo "=== Building shared package ==="
+          pnpm --filter @loop/shared build
+
+          echo "=== Building API ==="
+          cd apps/api
+          npx prisma generate
+          npx prisma db push --accept-data-loss 2>&1 | tail -3
+          npx nest build
+
+          echo "=== Restarting API ==="
+          pkill -f "node dist/main.js" 2>/dev/null || true
+          sleep 2
+          nohup node dist/main.js > /home/ubuntu/api.log 2>&1 &
+          sleep 5
+
+          echo "=== Building Frontend ==="
+          cd ../web
+          npx quasar build 2>&1 | tail -5
+
+          echo "=== Deploying Frontend ==="
+          sudo rm -rf /var/www/html/*
+          sudo cp -r dist/spa/* /var/www/html/
+          sudo chown -R www-data:www-data /var/www/html/
+
+          echo "=== Verifying ==="
+          curl -s -o /dev/null -w "API: %{http_code}\n" http://localhost:3000/api/v1/settings
+          echo "=== Deploy complete! ==="
+          DEPLOY
+
+      - name: Verify deployment
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          sleep 5
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$HOST/api/v1/settings)
+          if [ "$STATUS" != "200" ]; then
+            echo "Deployment verification failed! API returned $STATUS"
+            exit 1
+          fi
+          echo "Deployment verified! API is healthy (HTTP $STATUS)"

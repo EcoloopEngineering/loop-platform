@@ -15,7 +15,6 @@ export class UserEntity {
   closedDealEmoji: string | null;
   language: string;
   isActive: boolean;
-  teamId: string | null;
   createdAt: Date;
   updatedAt: Date;
 

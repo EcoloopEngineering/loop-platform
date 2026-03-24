@@ -20,7 +20,7 @@ apps/
       common/    # Guards, decorators, pipes
       infrastructure/
         prisma/        # Prisma service
-        firebase/      # Firebase Auth
+        firebase/      # Firebase (Google Login + FCM Push)
         email/         # Nodemailer transactional email
         pdf/           # pdf-lib document generation
         storage/       # AWS S3 file storage with local fallback
@@ -91,7 +91,7 @@ cd apps/web && pnpm dev
 - **DDD structure**: Each module has `domain/` (entities, events, services), `application/` (commands, queries, dto, listeners), `presentation/` (controllers)
 - **CQRS**: Commands for writes, Queries for reads, via NestJS `CommandBus`/`QueryBus`
 - **Events**: Use `EventEmitter2` (`@nestjs/event-emitter`) for cross-module communication, NOT the CQRS `EventBus`
-- **Auth**: Firebase Auth guard with dev bypass — when Firebase not configured, uses first active DB user
+- **Auth**: JWT primary + Firebase for Google Login. Dev bypass when Firebase not configured uses first active DB user
 - **API prefix**: All routes under `/api/v1/`
 - **Tests**: Co-located with source (`*.spec.ts`), Jest, 80% coverage threshold
 
@@ -130,10 +130,10 @@ Four roles with distinct permissions:
 
 ## Authentication
 
-### Dual Auth System
-- **JWT-based auth (primary)**: Own session system with email/password. Configured via `JWT_SECRET` and `JWT_EXPIRY` (default: 7 days)
-- **Firebase Auth (optional)**: For Google login/SSO. Project: `loop-app-b49cb`
-- **Dev bypass**: When `NODE_ENV=development` and Firebase private key is not set, API auto-authenticates as the first active DB user
+- **JWT-based auth (primary)**: Email/password login. POST /auth/login returns JWT token. 7-day expiry.
+- **Firebase Auth (Google Login only)**: Used ONLY for "Continue with Google" button. Firebase SDK handles Google OAuth, then backend verifies the Firebase token.
+- **Firebase Cloud Messaging**: Used for push notifications on mobile (iOS/Android via Capacitor)
+- **Dev bypass**: NODE_ENV=development + no Firebase = auto-auth as first active user
 - **Session management**: 7-day token expiry, activity-based. `lastLoginAt` tracked on User model
 - Tokens sent as `Authorization: Bearer <token>` header on every request
 
@@ -228,7 +228,7 @@ NEW_LEAD → REQUEST_DESIGN → DESIGN_IN_PROGRESS → DESIGN_READY → PENDING_
 | Stripe | Payments | Active — payment intents + webhook receiver |
 | ZapSign | E-signatures | Active — CAP document signing |
 | Mapbox | Address autocomplete | Active — frontend wizard (US addresses) |
-| Firebase | Auth (optional) | Active — Google login/SSO, graceful bypass in dev |
+| Firebase | Google Login + Push Notifications | Active — Google OAuth + FCM for mobile push |
 | Nodemailer | Transactional email | Active — Gmail SMTP, stage change emails |
 | AWS S3 | File storage | Active — document uploads with local fallback |
 | AWS CloudWatch | Log aggregation | Active — combined/error/audit log streams |
@@ -257,10 +257,8 @@ cd apps/api
 - **Important**: Use `./node_modules/.bin/jest` instead of `npx jest` — `npx` can resolve to a different Jest version and cause unexpected behavior
 
 ## CI/CD
-- GitHub Actions: `.github/workflows/ci.yml`
-- 3 parallel jobs: Build & Test, Lint, Security Audit
-- Runs on PR to main and push to main
-- PostgreSQL service container for tests
+- **CI**: GitHub Actions `.github/workflows/ci.yml` — 3 parallel jobs: Build & Test, Lint, Security Audit. Runs on PR to main and push to main. PostgreSQL service container for tests.
+- **CD**: GitHub Actions `.github/workflows/deploy-dev.yml` — auto-deploys to EC2 on push to main. SSH deploy, builds API + frontend, restarts services, health check.
 - Pre-commit hook (Husky) blocks commits if tests fail locally
 
 ## Environment Variables

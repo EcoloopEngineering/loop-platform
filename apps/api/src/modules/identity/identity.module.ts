@@ -9,7 +9,6 @@ import {
 } from './application/queries/get-user.handler';
 import { PrismaUserRepository } from './infrastructure/repositories/prisma-user.repository';
 import { UsersController } from './presentation/users.controller';
-import { TeamsController } from './presentation/teams.controller';
 import { ReferralsController } from './presentation/referrals.controller';
 import { AuthController } from './presentation/auth.controller';
 import { AuthService } from './application/services/auth.service';
@@ -23,7 +22,7 @@ const QueryHandlers = [
 
 @Module({
   imports: [CqrsModule],
-  controllers: [UsersController, TeamsController, ReferralsController, AuthController],
+  controllers: [UsersController, ReferralsController, AuthController],
   providers: [
     ...CommandHandlers,
     ...QueryHandlers,
