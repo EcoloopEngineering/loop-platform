@@ -35,8 +35,21 @@
             </q-list>
           </q-menu>
         </q-btn>
-        <q-avatar size="30px" color="primary" text-color="white" class="q-ml-sm cursor-pointer" @click="$router.push('/profile')">
-          <span style="font-size: 12px; font-weight: 600">A</span>
+        <q-avatar size="30px" color="primary" text-color="white" class="q-ml-sm cursor-pointer">
+          <span style="font-size: 12px; font-weight: 600">{{ userInitials }}</span>
+          <q-menu anchor="bottom right" self="top right" style="min-width: 180px; border-radius: 12px">
+            <q-list>
+              <q-item clickable v-close-popup @click="$router.push('/profile')">
+                <q-item-section avatar><q-icon name="person" size="20px" /></q-item-section>
+                <q-item-section>Profile</q-item-section>
+              </q-item>
+              <q-separator />
+              <q-item clickable v-close-popup @click="handleLogout">
+                <q-item-section avatar><q-icon name="logout" size="20px" color="negative" /></q-item-section>
+                <q-item-section class="text-negative">Log Out</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
         </q-avatar>
       </q-toolbar>
     </q-header>
@@ -93,8 +106,26 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { useAuthStore } from '@/stores/auth.store';
+import { useUserStore } from '@/stores/user.store';
 import { api } from '@/boot/axios';
+
+const router = useRouter();
+const authStore = useAuthStore();
+const userStore = useUserStore();
+
+const userInitials = computed(() => {
+  const u = userStore.user;
+  if (!u?.name) return 'A';
+  return u.name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
+});
+
+function handleLogout() {
+  authStore.logout();
+  router.push('/auth/login');
+}
 
 const $q = useQuasar();
 

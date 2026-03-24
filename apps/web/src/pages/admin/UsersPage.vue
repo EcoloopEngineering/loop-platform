@@ -343,12 +343,17 @@ onMounted(async () => {
 // ---- Update User ----
 async function updateUser(userId: string, updates: Record<string, any>) {
   try {
-    await api.put(`/users/${userId}`, updates);
+    // Role changes use dedicated admin endpoint
+    if (updates.role) {
+      await api.patch(`/users/${userId}/role`, { role: updates.role });
+    } else {
+      await api.put(`/users/${userId}`, updates);
+    }
     const user = allUsers.value.find((u) => u.id === userId);
     if (user) Object.assign(user, updates);
     $q.notify({ type: 'positive', message: 'User updated' });
-  } catch {
-    $q.notify({ type: 'negative', message: 'Failed to update user' });
+  } catch (err: any) {
+    $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to update user' });
   }
 }
 
@@ -408,12 +413,17 @@ function editUser(user: UserRow) {
 async function saveEdit() {
   saving.value = true;
   try {
+    // Update profile fields
     await api.put(`/users/${editForm.id}`, {
       firstName: editForm.firstName,
       lastName: editForm.lastName,
       phone: editForm.phone,
-      role: editForm.role,
     });
+    // Update role separately via admin endpoint
+    const currentRole = allUsers.value.find(u => u.id === editForm.id)?.role;
+    if (editForm.role && editForm.role !== currentRole) {
+      await api.patch(`/users/${editForm.id}/role`, { role: editForm.role });
+    }
     const user = allUsers.value.find((u) => u.id === editForm.id);
     if (user) {
       user.firstName = editForm.firstName;

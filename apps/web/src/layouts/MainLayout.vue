@@ -34,8 +34,21 @@
             </q-list>
           </q-menu>
         </q-btn>
-        <q-avatar size="34px" color="primary" text-color="white" class="cursor-pointer" @click="$router.push('/profile')">
+        <q-avatar size="34px" color="primary" text-color="white" class="cursor-pointer">
           <span style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
+          <q-menu anchor="bottom right" self="top right" style="min-width: 180px; border-radius: 12px">
+            <q-list>
+              <q-item clickable v-close-popup @click="$router.push('/profile')">
+                <q-item-section avatar><q-icon name="person" size="20px" /></q-item-section>
+                <q-item-section>Profile</q-item-section>
+              </q-item>
+              <q-separator />
+              <q-item clickable v-close-popup @click="handleLogout">
+                <q-item-section avatar><q-icon name="logout" size="20px" color="negative" /></q-item-section>
+                <q-item-section class="text-negative">Log Out</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
         </q-avatar>
       </q-toolbar>
     </q-header>
@@ -64,9 +77,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { useAuthStore } from '@/stores/auth.store';
 import { api } from '@/boot/axios';
+
+const router = useRouter();
+const authStore = useAuthStore();
 
 const $q = useQuasar();
 
@@ -138,6 +155,11 @@ async function openNotification(n: AppNotification) {
     message: n.message,
     ok: 'Close',
   });
+}
+
+function handleLogout() {
+  authStore.logout();
+  router.push('/auth/login');
 }
 
 function iconFor(type: string) {
