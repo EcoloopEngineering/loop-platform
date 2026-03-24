@@ -454,273 +454,368 @@
       </div>
 
       <!-- ============ RIGHT SIDEBAR ============ -->
-      <div class="col-12 col-md-3">
-        <!-- Created By / Referred By card -->
-        <div v-if="lead.createdBy || referredBy" class="sidebar-card q-mb-md">
-          <div class="sidebar-card-title">Attribution</div>
-          <div v-if="lead.createdBy" class="sidebar-field">
-            <div class="sidebar-field-label">Created by</div>
-            <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
-              <q-avatar size="20px" :color="isExternalCreator ? 'orange-6' : 'primary'" text-color="white" style="font-size: 9px">
-                {{ lead.createdBy.firstName?.charAt(0) }}
-              </q-avatar>
-              <span>{{ lead.createdBy.firstName }} {{ lead.createdBy.lastName }}</span>
-              <q-badge v-if="isExternalCreator" color="orange-2" text-color="orange-9" dense style="font-size: 10px">
-                Partner
-              </q-badge>
-              <q-badge v-else color="blue-1" text-color="blue-8" dense style="font-size: 10px">
-                Employee
-              </q-badge>
-            </div>
-            <div class="text-caption text-grey-5" style="margin-left: 26px">{{ lead.createdBy.email }}</div>
-          </div>
-          <div v-if="referredBy" class="sidebar-field">
-            <div class="sidebar-field-label">Referred by</div>
-            <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
-              <q-avatar size="20px" color="primary" text-color="white" style="font-size: 9px">
-                {{ referredBy.firstName?.charAt(0) }}
-              </q-avatar>
-              <span>{{ referredBy.firstName }} {{ referredBy.lastName }}</span>
-              <q-badge color="green-1" text-color="green-8" dense style="font-size: 10px">
-                Rep
-              </q-badge>
-            </div>
-            <div class="text-caption text-grey-5" style="margin-left: 26px">{{ referredBy.email }}</div>
-          </div>
-        </div>
+      <div class="col-12 col-md-3 right-sidebar">
 
-        <!-- Contact card -->
-        <div class="sidebar-card q-mb-md">
-          <div class="sidebar-card-title">Contact</div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Name</div>
-            <div class="sidebar-field-value">
-              {{ lead.customer?.firstName }} {{ lead.customer?.lastName }}
-            </div>
-          </div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Email</div>
-            <div class="sidebar-field-value">
-              <a
-                v-if="lead.customer?.email"
-                :href="'mailto:' + lead.customer.email"
-                class="field-link"
-              >{{ lead.customer.email }}</a>
-              <span v-else>--</span>
-            </div>
-          </div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Phone</div>
-            <div class="sidebar-field-value">
-              <a
-                v-if="lead.customer?.phone"
-                :href="'tel:' + lead.customer.phone"
-                class="field-link"
-              >{{ lead.customer.phone }}</a>
-              <span v-else>--</span>
-            </div>
-          </div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Source</div>
-            <div class="sidebar-field-value">{{ formatSource(lead.customer?.source) || '--' }}</div>
-          </div>
-        </div>
-
-        <!-- Property card -->
-        <div class="sidebar-card q-mb-md">
-          <div class="sidebar-card-title">Property</div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Address</div>
-            <div class="sidebar-field-value">
-              {{ fullAddress }}
-            </div>
-          </div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Type</div>
-            <div class="sidebar-field-value">{{ lead.property?.propertyType || '--' }}</div>
-          </div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Roof Condition</div>
-            <div class="sidebar-field-value">{{ lead.property?.roofCondition || '--' }}</div>
-          </div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Electrical Service</div>
-            <div class="sidebar-field-value">{{ lead.property?.electricalService || '--' }}</div>
-          </div>
-          <div v-if="lead.property?.hasPool || lead.property?.hasEV" class="sidebar-field">
-            <div class="sidebar-field-label">Features</div>
-            <div class="sidebar-field-value row q-gutter-xs">
-              <q-badge v-if="lead.property?.hasPool" outline color="blue" label="Pool" />
-              <q-badge v-if="lead.property?.hasEV" outline color="green" label="EV" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Energy card -->
-        <div class="sidebar-card q-mb-md">
-          <div class="sidebar-card-title">Energy</div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Monthly Bill</div>
-            <div class="sidebar-field-value">
-              {{ lead.property?.monthlyBill ? '$' + lead.property.monthlyBill : '--' }}
-            </div>
-          </div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Annual kWh</div>
-            <div class="sidebar-field-value">
-              {{ lead.property?.annualKwhUsage ? lead.property.annualKwhUsage.toLocaleString() + ' kWh' : '--' }}
-            </div>
-          </div>
-          <div class="sidebar-field">
-            <div class="sidebar-field-label">Utility Provider</div>
-            <div class="sidebar-field-value">{{ lead.property?.utilityProvider || '--' }}</div>
-          </div>
-        </div>
-
-        <!-- Design Status card -->
-        <div v-if="designRequests.length > 0" class="sidebar-card q-mb-md">
-          <div class="sidebar-card-title">Design</div>
-          <div v-for="dr in designRequests" :key="dr.id" class="sidebar-field">
-            <div class="row items-center justify-between q-mb-xs">
-              <q-chip
-                dense
-                :color="designTypeColor(dr.designType)"
-                text-color="white"
-                size="sm"
-              >
-                {{ dr.designType === 'AI_DESIGN' ? 'AI Design (Aurora)' : 'Manual Design' }}
-              </q-chip>
-              <q-badge
-                :color="designStatusColor(dr.status)"
-                text-color="white"
-                style="border-radius: 6px; padding: 2px 8px; font-size: 10px"
-              >
-                {{ formatDesignStatus(dr.status) }}
-              </q-badge>
-            </div>
-            <div v-if="dr.auroraProjectUrl" class="q-mt-xs">
-              <a :href="dr.auroraProjectUrl" target="_blank" class="field-link text-caption row items-center no-wrap" style="gap: 4px">
-                <q-icon name="open_in_new" size="14px" />
-                Open in Aurora Solar
-              </a>
-            </div>
-            <div v-else-if="dr.auroraProjectId" class="text-caption text-grey-5 q-mt-xs">
-              Aurora ID: {{ dr.auroraProjectId.slice(0, 12) }}...
-            </div>
-            <div v-if="dr.notes" class="text-caption text-grey-6 q-mt-xs">
-              {{ dr.notes }}
-            </div>
-            <div class="text-caption text-grey-4 q-mt-xs">
-              {{ dr.completedAt ? `Completed ${formatDate(dr.completedAt)}` : `Requested ${formatDate(dr.createdAt)}` }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Appointments card -->
-        <div v-if="appointments.length > 0" class="sidebar-card q-mb-md">
-          <div class="sidebar-card-title">Appointments</div>
-          <div v-for="appt in appointments" :key="appt.id" class="sidebar-field">
-            <div class="row items-center no-wrap q-mb-xs" style="gap: 8px">
-              <q-icon
-                :name="appt.type === 'SITE_AUDIT' ? 'home_work' : 'solar_power'"
-                :color="apptStatusColor(appt.status)"
-                size="20px"
-              />
-              <div class="col">
-                <div class="text-weight-medium" style="font-size: 13px">
-                  {{ appt.type === 'SITE_AUDIT' ? 'Site Audit' : 'Installation' }}
+        <!-- 1. ATTRIBUTION -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item default-opened header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Attribution</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-if="lead.createdBy" class="sidebar-field">
+                <div class="sidebar-field-label">Created by</div>
+                <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
+                  <q-avatar size="20px" :color="isExternalCreator ? 'orange-6' : 'primary'" text-color="white" style="font-size: 9px">
+                    {{ lead.createdBy.firstName?.charAt(0) }}
+                  </q-avatar>
+                  <span>{{ lead.createdBy.firstName }} {{ lead.createdBy.lastName }}</span>
+                  <q-badge v-if="isExternalCreator" color="orange-2" text-color="orange-9" dense style="font-size: 10px">Partner</q-badge>
+                  <q-badge v-else color="blue-1" text-color="blue-8" dense style="font-size: 10px">Employee</q-badge>
                 </div>
-                <div class="text-caption text-grey-6">
-                  {{ formatDateTime(appt.scheduledAt) }}
+                <div class="text-caption text-grey-5" style="margin-left: 26px">{{ lead.createdBy.email }}</div>
+              </div>
+              <div v-if="referredBy" class="sidebar-field">
+                <div class="sidebar-field-label">Referred by</div>
+                <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
+                  <q-avatar size="20px" color="primary" text-color="white" style="font-size: 9px">
+                    {{ referredBy.firstName?.charAt(0) }}
+                  </q-avatar>
+                  <span>{{ referredBy.firstName }} {{ referredBy.lastName }}</span>
+                  <q-badge color="green-1" text-color="green-8" dense style="font-size: 10px">Rep</q-badge>
+                </div>
+                <div class="text-caption text-grey-5" style="margin-left: 26px">{{ referredBy.email }}</div>
+              </div>
+              <div v-if="!lead.createdBy && !referredBy" class="text-grey-5 text-caption">No attribution data</div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
+
+        <!-- 2. CONTACT -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item default-opened header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Contact</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div class="field-row">
+                <div class="field-label">Name</div>
+                <div class="field-value">{{ lead.customer?.firstName }} {{ lead.customer?.lastName || '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Email</div>
+                <div class="field-value">
+                  <a v-if="lead.customer?.email" :href="'mailto:' + lead.customer.email" class="field-link">{{ lead.customer.email }}</a>
+                  <span v-else>--</span>
                 </div>
               </div>
-              <q-badge
-                :color="apptStatusColor(appt.status)"
-                text-color="white"
-                style="border-radius: 6px; padding: 2px 8px; font-size: 10px"
-              >
-                {{ appt.status }}
-              </q-badge>
-            </div>
-            <div class="text-caption text-grey-5" style="margin-left: 28px">
-              Duration: {{ appt.duration }}min
-              <span v-if="appt.notes"> · {{ appt.notes }}</span>
-            </div>
-          </div>
-        </div>
+              <div class="field-row">
+                <div class="field-label">Phone</div>
+                <div class="field-value">
+                  <a v-if="lead.customer?.phone" :href="'tel:' + lead.customer.phone" class="field-link">{{ lead.customer.phone }}</a>
+                  <span v-else>--</span>
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Source</div>
+                <div class="field-value">{{ formatSource(lead.customer?.source) || '--' }}</div>
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
 
-        <!-- Score Breakdown card -->
-        <div v-if="lead.leadScore" class="sidebar-card">
-          <div class="sidebar-card-title">Score Breakdown</div>
+        <!-- 3. PROPERTY -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item default-opened header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Property</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div class="field-row">
+                <div class="field-label">Address</div>
+                <div class="field-value">{{ lead.property?.streetAddress || '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">City</div>
+                <div class="field-value">{{ lead.property?.city || '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">State</div>
+                <div class="field-value">{{ lead.property?.state || '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">ZIP</div>
+                <div class="field-value">{{ lead.property?.zip || '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Property Type</div>
+                <div class="field-value">{{ lead.property?.propertyType || '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Roof Condition</div>
+                <div class="field-value">{{ lead.property?.roofCondition || '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Electrical Service</div>
+                <div class="field-value">{{ lead.property?.electricalService || '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Has Pool</div>
+                <div class="field-value">{{ lead.property?.hasPool ? 'Yes' : 'No' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Has EV</div>
+                <div class="field-value">{{ lead.property?.hasEV ? 'Yes' : 'No' }}</div>
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
 
-          <!-- Total score -->
-          <div class="score-total-row q-mb-md">
-            <div class="row items-center justify-between q-mb-xs">
-              <span class="text-weight-bold">Total</span>
-              <span class="text-weight-bold">{{ lead.leadScore.total }}/100</span>
-            </div>
-            <q-linear-progress
-              :value="(lead.leadScore.total ?? 0) / 100"
-              :color="tierQColor(lead.leadScore.tier)"
-              rounded
-              size="8px"
-              class="q-mb-xs"
-            />
-          </div>
+        <!-- 4. ENERGY -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Energy</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div class="field-row">
+                <div class="field-label">Monthly Bill</div>
+                <div class="field-value">{{ lead.property?.monthlyBill ? '$' + lead.property.monthlyBill : '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Annual kWh</div>
+                <div class="field-value">{{ lead.property?.annualKwhUsage ? lead.property.annualKwhUsage.toLocaleString() + ' kWh' : '--' }}</div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Utility Provider</div>
+                <div class="field-value">{{ lead.property?.utilityProvider || '--' }}</div>
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
 
-          <!-- Individual scores -->
-          <div class="score-row">
-            <div class="row items-center justify-between q-mb-xs">
-              <span class="text-caption text-grey-7">Contact</span>
-              <span class="text-caption text-grey-7">{{ lead.leadScore.contactScore }}</span>
-            </div>
-            <q-linear-progress
-              :value="(lead.leadScore.contactScore ?? 0) / 25"
-              color="blue"
-              rounded
-              size="4px"
-            />
-          </div>
+        <!-- 5. DESIGN -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Design</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <template v-if="designRequests.length > 0">
+                <div v-for="dr in designRequests" :key="dr.id">
+                  <div class="field-row">
+                    <div class="field-label">Aurora Link</div>
+                    <div class="field-value">
+                      <a v-if="dr.auroraProjectUrl" :href="dr.auroraProjectUrl" target="_blank" class="field-link">Open Aurora</a>
+                      <span v-else>--</span>
+                    </div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field-label">Design Type</div>
+                    <div class="field-value">{{ dr.designType === 'AI_DESIGN' ? 'AI Design' : 'Manual' }}</div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field-label">Status</div>
+                    <div class="field-value">
+                      <q-badge :color="designStatusColor(dr.status)" text-color="white" style="border-radius: 6px; padding: 2px 8px; font-size: 10px">
+                        {{ formatDesignStatus(dr.status) }}
+                      </q-badge>
+                    </div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field-label">Notes</div>
+                    <div class="field-value">{{ dr.notes || '--' }}</div>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="text-grey-5 text-caption">No design requests</div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
 
-          <div class="score-row">
-            <div class="row items-center justify-between q-mb-xs">
-              <span class="text-caption text-grey-7">Property</span>
-              <span class="text-caption text-grey-7">{{ lead.leadScore.propertyScore }}</span>
-            </div>
-            <q-linear-progress
-              :value="(lead.leadScore.propertyScore ?? 0) / 25"
-              color="purple"
-              rounded
-              size="4px"
-            />
-          </div>
+        <!-- 6. SYSTEM & PRICING -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">System & Pricing</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="field in systemPricingFields" :key="field.key" class="field-row">
+                <div class="field-label">{{ field.label }}</div>
+                <div v-if="editingField !== field.key" class="field-value editable" @click="startEdit(field.key, field.value)">
+                  {{ field.value || '--' }}
+                </div>
+                <q-input v-else v-model="editValue" dense borderless autofocus class="inline-edit" @blur="saveField(field.key)" @keyup.enter="saveField(field.key)" />
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
 
-          <div class="score-row">
-            <div class="row items-center justify-between q-mb-xs">
-              <span class="text-caption text-grey-7">Energy</span>
-              <span class="text-caption text-grey-7">{{ lead.leadScore.energyScore }}</span>
-            </div>
-            <q-linear-progress
-              :value="(lead.leadScore.energyScore ?? 0) / 25"
-              color="orange"
-              rounded
-              size="4px"
-            />
-          </div>
+        <!-- 7. FINANCING -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Financing</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="field in financingFields" :key="field.key" class="field-row">
+                <div class="field-label">{{ field.label }}</div>
+                <div v-if="editingField !== field.key" class="field-value editable" @click="startEdit(field.key, field.value)">
+                  {{ field.value || '--' }}
+                </div>
+                <q-input v-else v-model="editValue" dense borderless autofocus class="inline-edit" @blur="saveField(field.key)" @keyup.enter="saveField(field.key)" />
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
 
-          <div class="score-row">
-            <div class="row items-center justify-between q-mb-xs">
-              <span class="text-caption text-grey-7">Roof</span>
-              <span class="text-caption text-grey-7">{{ lead.leadScore.roofScore }}</span>
-            </div>
-            <q-linear-progress
-              :value="(lead.leadScore.roofScore ?? 0) / 25"
-              color="teal"
-              rounded
-              size="4px"
-            />
-          </div>
-        </div>
+        <!-- 8. SITE AUDIT -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Site Audit</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="field in siteAuditFields" :key="field.key" class="field-row">
+                <div class="field-label">{{ field.label }}</div>
+                <div v-if="editingField !== field.key" class="field-value editable" @click="startEdit(field.key, field.value)">
+                  {{ field.value || '--' }}
+                </div>
+                <q-input v-else v-model="editValue" dense borderless autofocus class="inline-edit" @blur="saveField(field.key)" @keyup.enter="saveField(field.key)" />
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
+
+        <!-- 9. QUOTES & UPGRADES -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Quotes & Upgrades</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="field in quotesUpgradesFields" :key="field.key" class="field-row">
+                <div class="field-label">{{ field.label }}</div>
+                <div v-if="editingField !== field.key" class="field-value editable" @click="startEdit(field.key, field.value)">
+                  {{ field.value || '--' }}
+                </div>
+                <q-input v-else v-model="editValue" dense borderless autofocus class="inline-edit" @blur="saveField(field.key)" @keyup.enter="saveField(field.key)" />
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
+
+        <!-- 10. CHANGE ORDER -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Change Order</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="field in changeOrderFields" :key="field.key" class="field-row">
+                <div class="field-label">{{ field.label }}</div>
+                <div v-if="editingField !== field.key" class="field-value editable" @click="startEdit(field.key, field.value)">
+                  {{ field.value || '--' }}
+                </div>
+                <q-input v-else v-model="editValue" dense borderless autofocus class="inline-edit" @blur="saveField(field.key)" @keyup.enter="saveField(field.key)" />
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
+
+        <!-- 11. ENGINEERING -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Engineering</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="field in engineeringFields" :key="field.key" class="field-row">
+                <div class="field-label">{{ field.label }}</div>
+                <div v-if="editingField !== field.key" class="field-value editable" @click="startEdit(field.key, field.value)">
+                  {{ field.value || '--' }}
+                </div>
+                <q-input v-else v-model="editValue" dense borderless autofocus class="inline-edit" @blur="saveField(field.key)" @keyup.enter="saveField(field.key)" />
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
+
+        <!-- 12. INSTALL -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Install</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="field in installFields" :key="field.key" class="field-row">
+                <div class="field-label">{{ field.label }}</div>
+                <div v-if="editingField !== field.key" class="field-value editable" @click="startEdit(field.key, field.value)">
+                  {{ field.value || '--' }}
+                </div>
+                <q-input v-else v-model="editValue" dense borderless autofocus class="inline-edit" @blur="saveField(field.key)" @keyup.enter="saveField(field.key)" />
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
+
+        <!-- 13. PTO & ACTIVATION -->
+        <q-card flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">PTO & Activation</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="field in ptoActivationFields" :key="field.key" class="field-row">
+                <div class="field-label">{{ field.label }}</div>
+                <div v-if="editingField !== field.key" class="field-value editable" @click="startEdit(field.key, field.value)">
+                  {{ field.value || '--' }}
+                </div>
+                <q-input v-else v-model="editValue" dense borderless autofocus class="inline-edit" @blur="saveField(field.key)" @keyup.enter="saveField(field.key)" />
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
+
+        <!-- 14. APPOINTMENTS -->
+        <q-card v-if="appointments.length > 0" flat class="sidebar-section-card q-mb-sm">
+          <q-expansion-item header-class="section-header" expand-icon-class="text-grey-6">
+            <template #header>
+              <q-item-section><span class="section-title">Appointments</span></q-item-section>
+            </template>
+            <q-card-section class="q-pt-none section-body">
+              <div v-for="appt in appointments" :key="appt.id" class="sidebar-field">
+                <div class="row items-center no-wrap q-mb-xs" style="gap: 8px">
+                  <q-icon
+                    :name="appt.type === 'SITE_AUDIT' ? 'home_work' : 'solar_power'"
+                    :color="apptStatusColor(appt.status)"
+                    size="20px"
+                  />
+                  <div class="col">
+                    <div class="text-weight-medium" style="font-size: 13px">
+                      {{ appt.type === 'SITE_AUDIT' ? 'Site Audit' : 'Installation' }}
+                    </div>
+                    <div class="text-caption text-grey-6">
+                      {{ formatDateTime(appt.scheduledAt) }}
+                    </div>
+                  </div>
+                  <q-badge
+                    :color="apptStatusColor(appt.status)"
+                    text-color="white"
+                    style="border-radius: 6px; padding: 2px 8px; font-size: 10px"
+                  >
+                    {{ appt.status }}
+                  </q-badge>
+                </div>
+                <div class="text-caption text-grey-5" style="margin-left: 28px">
+                  Duration: {{ appt.duration }}min
+                  <span v-if="appt.notes"> · {{ appt.notes }}</span>
+                </div>
+              </div>
+            </q-card-section>
+          </q-expansion-item>
+        </q-card>
+
       </div>
     </div>
   </q-page>
@@ -856,6 +951,127 @@ const referredBy = computed(() => {
   }
   return null;
 });
+
+// ---- Inline edit for right sidebar ----
+const editingField = ref<string | null>(null);
+const editValue = ref('');
+
+function startEdit(key: string, currentValue: string) {
+  editingField.value = key;
+  editValue.value = currentValue || '';
+}
+
+async function saveField(key: string) {
+  editingField.value = null;
+  const val = editValue.value.trim();
+
+  const directFields = ['kw', 'epc', 'financier', 'systemSize'];
+
+  try {
+    if (directFields.includes(key)) {
+      await api.put(`/leads/${props.id}`, { [key]: val || null });
+    } else {
+      await api.patch(`/leads/${props.id}/metadata`, { [key]: val || null });
+    }
+    // Update local state
+    if (lead.value) {
+      if (directFields.includes(key)) {
+        (lead.value as any)[key] = val || null;
+      } else {
+        const meta = (lead.value as any).metadata ?? {};
+        meta[key] = val || null;
+        (lead.value as any).metadata = meta;
+      }
+    }
+  } catch {
+    // Silently fail - value will revert on next load
+  }
+}
+
+function getMetaField(key: string): string {
+  return ((lead.value as any)?.metadata ?? {})[key] ?? '';
+}
+
+// ---- Right sidebar field definitions ----
+const systemPricingFields = computed(() => [
+  { key: 'kw', label: 'System Size (kW)', value: lead.value?.kw ? String(lead.value.kw) : '' },
+  { key: 'epc', label: 'EPC', value: lead.value?.epc ? String(lead.value.epc) : '' },
+  { key: 'contractCost', label: 'Contract Cost', value: getMetaField('contractCost') },
+  { key: 'solarRate', label: 'Solar Rate', value: getMetaField('solarRate') },
+  { key: 'escalator', label: 'Escalator', value: getMetaField('escalator') },
+  { key: 'monthlyPayment', label: 'Monthly Payment', value: getMetaField('monthlyPayment') },
+  { key: 'systemProduction', label: 'System Production', value: getMetaField('systemProduction') },
+  { key: 'customerUsage', label: 'Customer Usage', value: getMetaField('customerUsage') },
+  { key: 'calculatedOffset', label: 'Calculated Offset', value: getMetaField('calculatedOffset') },
+]);
+
+const financingFields = computed(() => [
+  { key: 'preferredFinancing', label: 'Preferred Financing', value: getMetaField('preferredFinancing') },
+  { key: 'financier', label: 'Financier', value: lead.value?.financier ? String(lead.value.financier) : '' },
+  { key: 'ntpApproval', label: 'NTP Approval', value: getMetaField('ntpApproval') },
+  { key: 'm1Payment', label: 'M1 Payment', value: getMetaField('m1Payment') },
+  { key: 'm2Payment', label: 'M2 Payment', value: getMetaField('m2Payment') },
+  { key: 'm3Approval', label: 'M3 Approval', value: getMetaField('m3Approval') },
+]);
+
+const siteAuditFields = computed(() => {
+  const auditAppt = appointments.value.find((a: any) => a.type === 'SITE_AUDIT');
+  return [
+    { key: 'siteAuditDate', label: 'Site Audit Date', value: auditAppt ? formatDateTime(auditAppt.scheduledAt) : getMetaField('siteAuditDate') },
+    { key: 'siteAuditInstructions', label: 'Instructions', value: getMetaField('siteAuditInstructions') },
+    { key: 'siteAuditStatus', label: 'Status', value: auditAppt ? auditAppt.status : getMetaField('siteAuditStatus') },
+    { key: 'surveyReview', label: 'Survey Review', value: getMetaField('surveyReview') },
+    { key: 'roofType', label: 'Roof Type', value: getMetaField('roofType') },
+  ];
+});
+
+const quotesUpgradesFields = computed(() => [
+  { key: 'electricalQuote', label: 'Electrical Quote', value: getMetaField('electricalQuote') },
+  { key: 'electricalDescription', label: 'Electrical Description', value: getMetaField('electricalDescription') },
+  { key: 'roofQuote', label: 'Roof Quote', value: getMetaField('roofQuote') },
+  { key: 'roofDescription', label: 'Roof Description', value: getMetaField('roofDescription') },
+  { key: 'treeQuote', label: 'Tree Quote', value: getMetaField('treeQuote') },
+  { key: 'treeDescription', label: 'Tree Description', value: getMetaField('treeDescription') },
+  { key: 'structuralQuote', label: 'Structural Quote', value: getMetaField('structuralQuote') },
+  { key: 'structuralDescription', label: 'Structural Description', value: getMetaField('structuralDescription') },
+  { key: 'upgradeQuoteTotal', label: 'Upgrade Quote Total', value: getMetaField('upgradeQuoteTotal') },
+  { key: 'repApprovals', label: 'Rep Approvals', value: getMetaField('repApprovals') },
+]);
+
+const changeOrderFields = computed(() => [
+  { key: 'coType', label: 'Type', value: getMetaField('coType') },
+  { key: 'coNewSystemSize', label: 'New System Size', value: getMetaField('coNewSystemSize') },
+  { key: 'coNewEpc', label: 'New EPC', value: getMetaField('coNewEpc') },
+  { key: 'coNewMonthlyPayment', label: 'New Monthly Payment', value: getMetaField('coNewMonthlyPayment') },
+  { key: 'coNewEscalator', label: 'New Escalator', value: getMetaField('coNewEscalator') },
+  { key: 'coNewOffset', label: 'New Offset', value: getMetaField('coNewOffset') },
+  { key: 'coTreeRemoval', label: 'Tree Removal', value: getMetaField('coTreeRemoval') },
+  { key: 'coNotes', label: 'Notes', value: getMetaField('coNotes') },
+  { key: 'coStatus', label: 'Status', value: getMetaField('coStatus') },
+]);
+
+const engineeringFields = computed(() => [
+  { key: 'finalDesignStatus', label: 'Final Design Status', value: getMetaField('finalDesignStatus') },
+  { key: 'electricalReview', label: 'Electrical Review', value: getMetaField('electricalReview') },
+  { key: 'permitStatus', label: 'Permit Status', value: getMetaField('permitStatus') },
+  { key: 'icxStatus', label: 'ICX Status', value: getMetaField('icxStatus') },
+]);
+
+const installFields = computed(() => {
+  const installAppt = appointments.value.find((a: any) => a.type === 'INSTALLATION');
+  return [
+    { key: 'installStatus', label: 'Install Status', value: getMetaField('installStatus') },
+    { key: 'installVisitDate', label: 'Visit Date', value: installAppt ? formatDateTime(installAppt.scheduledAt) : getMetaField('installVisitDate') },
+    { key: 'submissionStatus', label: 'Submission Status', value: getMetaField('submissionStatus') },
+    { key: 'rejectionDetails', label: 'Rejection Details', value: getMetaField('rejectionDetails') },
+  ];
+});
+
+const ptoActivationFields = computed(() => [
+  { key: 'ptoStatus', label: 'PTO Status', value: getMetaField('ptoStatus') },
+  { key: 'systemActivation', label: 'System Activation', value: getMetaField('systemActivation') },
+  { key: 'ptoM3Approval', label: 'M3 Approval', value: getMetaField('ptoM3Approval') },
+]);
 
 // ---- Extra data refs ----
 interface Activity {
@@ -1575,5 +1791,71 @@ function initials(name: string) {
 
 .inline-block {
   display: inline-block;
+}
+
+// ---- Right sidebar sections ----
+.right-sidebar {
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding-bottom: 24px;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #D1D5DB;
+    border-radius: 4px;
+  }
+}
+
+.sidebar-section-card {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  box-shadow: none;
+
+  :deep(.q-expansion-item) {
+    .q-item {
+      padding: 10px 16px;
+      min-height: 40px;
+    }
+  }
+}
+
+.section-header {
+  padding: 8px 0;
+}
+
+.section-body {
+  padding: 0 16px 12px;
+}
+
+.field-value.editable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #F3F4F6;
+  }
+}
+
+.inline-edit {
+  max-width: 160px;
+  margin-left: auto;
+
+  :deep(.q-field__control) {
+    min-height: 24px;
+  }
+
+  :deep(input) {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0;
+    text-align: right;
+  }
 }
 </style>

@@ -20,8 +20,9 @@ enum UserRole {
 
 model User {
   id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  firebaseUid          String   @unique @map("firebase_uid")
+  firebaseUid          String?  @unique @map("firebase_uid")
   email                String   @unique
+  passwordHash         String?  @map("password_hash")
   firstName            String   @map("first_name")
   lastName             String   @map("last_name")
   phone                String?
@@ -33,6 +34,7 @@ model User {
   closedDealEmoji      String?  @default("🎉") @map("closed_deal_emoji")
   language             String   @default("en") @db.VarChar(5)
   isActive             Boolean  @default(true) @map("is_active")
+  lastLoginAt          DateTime? @map("last_login_at")
   teamId               String?  @map("team_id") @db.Uuid
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
@@ -161,6 +163,7 @@ model Customer {
 
   properties Property[]
   leads      Lead[]
+  metadata   Json?          @default("{}")
 
   @@index([email])
   @@index([phone])
@@ -303,6 +306,7 @@ model Lead {
   appointments   Appointment[]
   documents      Document[]
   quotes         LeadQuote[]
+  metadata       Json?          @default("{}")
 
   @@index([customerId])
   @@index([propertyId])
@@ -673,4 +677,17 @@ enum SenderType {
   USER
   AGENT
   BOT
+}
+
+// ============================
+// App Settings
+// ============================
+
+model AppSetting {
+  key       String   @id
+  value     Json     @default("{}")
+  updatedAt DateTime? @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("app_settings")
 }

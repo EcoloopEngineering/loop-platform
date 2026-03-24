@@ -109,6 +109,40 @@ export class LeadsController {
     return updated;
   }
 
+  @Patch(':id/metadata')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @ApiOperation({ summary: 'Update lead metadata fields (merge)' })
+  async updateMetadata(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() data: Record<string, any>,
+    @CurrentUser('id') userId: string,
+  ): Promise<any> {
+    const lead = await this.prisma.lead.findUnique({ where: { id } });
+    if (!lead) throw new NotFoundException('Lead not found');
+
+    const currentMeta = (lead.metadata as Record<string, any>) ?? {};
+    const merged = { ...currentMeta, ...data };
+
+    const updated = await this.prisma.lead.update({
+      where: { id },
+      data: { metadata: merged },
+    });
+
+    // Log activity
+    const changedFields = Object.keys(data).join(', ');
+    await this.prisma.leadActivity.create({
+      data: {
+        leadId: id,
+        userId,
+        type: 'STAGE_CHANGE',
+        description: `Updated fields: ${changedFields}`,
+        metadata: { fields: Object.keys(data), values: data },
+      },
+    }).catch(() => {});
+
+    return updated;
+  }
+
   @Patch(':id/stage')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Change lead stage' })

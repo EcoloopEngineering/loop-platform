@@ -8,15 +8,20 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
+  private readonly jwtSecret: string;
+
   constructor(
     private readonly firebaseService: FirebaseService,
     private readonly prisma: PrismaService,
     private readonly reflector: Reflector,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.jwtSecret = this.configService.get<string>('JWT_SECRET', 'loop-platform-jwt-secret-change-in-prod');
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
@@ -28,7 +33,7 @@ export class FirebaseAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const token = this.extractToken(request);
 
-    // Dev bypass: ONLY when NODE_ENV=development AND Firebase is not configured
+    // Dev bypass: ONLY when NODE_ENV=development AND no token AND Firebase is not configured
     const nodeEnv = this.configService.get<string>('NODE_ENV');
     if (
       nodeEnv === 'development' &&
@@ -52,6 +57,23 @@ export class FirebaseAuthGuard implements CanActivate {
       throw new UnauthorizedException('No token provided');
     }
 
+    // 1. Try JWT verification first (our own tokens)
+    try {
+      const payload = jwt.verify(token, this.jwtSecret) as any;
+      if (payload?.sub) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: payload.sub },
+        });
+        if (user && user.isActive) {
+          request.user = user;
+          return true;
+        }
+      }
+    } catch {
+      // JWT verification failed — fall through to Firebase
+    }
+
+    // 2. Try Firebase verification
     try {
       const decoded = await this.firebaseService.verifyIdToken(token);
       const user = await this.prisma.user.findUnique({
@@ -66,8 +88,21 @@ export class FirebaseAuthGuard implements CanActivate {
       return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;
-      throw new UnauthorizedException('Invalid token');
     }
+
+    // 3. Dev bypass with token that fails both JWT and Firebase
+    if (nodeEnv === 'development') {
+      const devUser = await this.prisma.user.findFirst({
+        where: { isActive: true },
+        orderBy: { id: 'asc' },
+      });
+      if (devUser) {
+        request.user = devUser;
+        return true;
+      }
+    }
+
+    throw new UnauthorizedException('Invalid token');
   }
 
   private extractToken(request: any): string | undefined {

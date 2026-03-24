@@ -5,10 +5,9 @@ import {
   createWebHashHistory,
   createWebHistory,
 } from 'vue-router';
-import { getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import routes from './routes';
 import { useUserStore } from '@/stores/user.store';
+import { useAuthStore } from '@/stores/auth.store';
 
 // Role-based route access map
 const ROLE_ROUTES: Record<string, string[]> = {
@@ -50,7 +49,12 @@ export default route(function () {
 
     // Ensure user is loaded before checking roles
     const userStore = useUserStore();
-    if (!userStore.user) {
+    const authStore = useAuthStore();
+
+    // Restore session from persisted state
+    authStore.restoreSession();
+
+    if (!userStore.user && authStore.isAuthenticated) {
       try { await userStore.loadUser(); } catch { /* ignore */ }
     }
 
@@ -65,30 +69,18 @@ export default route(function () {
       return next();
     }
 
-    let firebaseReady = false;
-    try { getApp(); firebaseReady = true; } catch { /* not initialized */ }
-
-    if (!firebaseReady) {
+    // Check JWT auth
+    if (!authStore.isAuthenticated) {
       return next({ name: 'login', query: { redirect: to.fullPath } });
     }
 
-    const auth = getAuth();
+    // Role check (userStore already loaded above)
+    if (!canAccessRoute(role, to.path)) {
+      const homeRoute = ['ADMIN', 'MANAGER'].includes(role) ? '/crm' : '/home';
+      return next(homeRoute);
+    }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      unsubscribe();
-
-      if (!user) {
-        return next({ name: 'login', query: { redirect: to.fullPath } });
-      }
-
-      // Role check (userStore already loaded above)
-      if (!canAccessRoute(role, to.path)) {
-        const homeRoute = ['ADMIN', 'MANAGER'].includes(role) ? '/crm' : '/home';
-        return next(homeRoute);
-      }
-
-      return next();
-    });
+    return next();
   });
 
   return Router;

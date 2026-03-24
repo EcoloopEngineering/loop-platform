@@ -54,12 +54,14 @@
 import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
+import { useUserStore } from '@/stores/user.store';
 import EBtn from '@/components/common/EBtn.vue';
 import EInput from '@/components/common/EInput.vue';
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+const userStore = useUserStore();
 
 const email = ref('');
 const password = ref('');
@@ -72,6 +74,7 @@ async function handleLogin() {
   error.value = '';
   try {
     await authStore.login(email.value, password.value);
+    await userStore.loadUser();
     const redirect = (route.query.redirect as string) || '/home';
     router.push(redirect);
   } catch (err: unknown) {
@@ -86,6 +89,7 @@ async function handleGoogleLogin() {
   error.value = '';
   try {
     await authStore.loginWithGoogle();
+    await userStore.loadUser();
     const redirect = (route.query.redirect as string) || '/home';
     router.push(redirect);
   } catch (err: unknown) {

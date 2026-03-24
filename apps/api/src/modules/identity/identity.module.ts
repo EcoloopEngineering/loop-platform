@@ -11,6 +11,8 @@ import { PrismaUserRepository } from './infrastructure/repositories/prisma-user.
 import { UsersController } from './presentation/users.controller';
 import { TeamsController } from './presentation/teams.controller';
 import { ReferralsController } from './presentation/referrals.controller';
+import { AuthController } from './presentation/auth.controller';
+import { AuthService } from './application/services/auth.service';
 
 const CommandHandlers = [CreateUserHandler];
 const QueryHandlers = [
@@ -21,7 +23,7 @@ const QueryHandlers = [
 
 @Module({
   imports: [CqrsModule],
-  controllers: [UsersController, TeamsController, ReferralsController],
+  controllers: [UsersController, TeamsController, ReferralsController, AuthController],
   providers: [
     ...CommandHandlers,
     ...QueryHandlers,
@@ -30,7 +32,8 @@ const QueryHandlers = [
       useClass: PrismaUserRepository,
     },
     PrismaUserRepository,
+    AuthService,
   ],
-  exports: [USER_REPOSITORY],
+  exports: [USER_REPOSITORY, AuthService],
 })
 export class IdentityModule {}

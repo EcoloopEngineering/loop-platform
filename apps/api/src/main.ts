@@ -1,16 +1,29 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { WinstonModule } from 'nest-winston';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { AuditInterceptor } from './infrastructure/logging/audit.interceptor';
+import { createWinstonLogger } from './infrastructure/logging/winston.config';
+import { initSentry } from './infrastructure/logging/sentry.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Initialize Sentry first (captures errors during startup too)
+  initSentry();
+
+  const winstonLogger = createWinstonLogger();
+
+  const app = await NestFactory.create(AppModule, {
+    logger: WinstonModule.createLogger({ instance: winstonLogger }),
+  });
 
   app.setGlobalPrefix('api/v1');
 
+  // Security
   app.use(helmet({
-    contentSecurityPolicy: false, // Disable CSP for now (Swagger needs inline scripts)
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
   }));
 
@@ -26,6 +39,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // Global pipes, filters, interceptors
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -35,6 +49,10 @@ async function bootstrap() {
     }),
   );
 
+  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalInterceptors(new AuditInterceptor());
+
+  // Swagger (dev only)
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('Loop Platform API')
@@ -48,9 +66,12 @@ async function bootstrap() {
 
   const port = process.env.APP_PORT || 3000;
   await app.listen(port);
-  console.log(`Loop API running on http://localhost:${port}`);
+
+  const logger = new Logger('Bootstrap');
+  logger.log(`Loop API running on http://localhost:${port}`);
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+    logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
   }
+  logger.log(`Logs directory: ${process.cwd()}/logs`);
 }
 bootstrap();

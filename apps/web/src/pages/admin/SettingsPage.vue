@@ -438,7 +438,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, watch, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
 
@@ -455,7 +455,7 @@ const savingCompany = ref(false);
 async function saveCompany() {
   savingCompany.value = true;
   try {
-    await api.put('/admin/settings/company', company);
+    await api.put('/settings/company', { ...company });
     $q.notify({ type: 'positive', message: 'Company profile saved.' });
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to save company profile.' });
@@ -657,7 +657,7 @@ const savingCommission = ref(false);
 async function saveCommission() {
   savingCommission.value = true;
   try {
-    await api.put('/admin/settings/commission', commission);
+    await api.put('/settings/commission', { ...commission });
     $q.notify({ type: 'positive', message: 'Commission rules saved.' });
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to save commission rules.' });
@@ -752,9 +752,74 @@ function confirmResetPipeline() {
   });
 }
 
+// --- Save Preferences ---
+async function savePreferences() {
+  try {
+    await api.put('/settings/preferences', { ...preferences });
+    $q.notify({ type: 'positive', message: 'Preferences saved.', timeout: 1000 });
+  } catch { /* ignore */ }
+}
+
+// --- Save Notification Preferences ---
+async function saveNotificationPrefs() {
+  try {
+    const data: Record<string, boolean> = {};
+    for (const e of notificationEvents) { data[e.key] = e.enabled; }
+    data.emailChannel = channels.email;
+    data.pushChannel = channels.push;
+    await api.put('/settings/notifications', data);
+    $q.notify({ type: 'positive', message: 'Notification preferences saved.', timeout: 1000 });
+  } catch { /* ignore */ }
+}
+
+// --- Auto-save watchers (debounced) ---
+let prefTimeout: ReturnType<typeof setTimeout>;
+watch(preferences, () => {
+  clearTimeout(prefTimeout);
+  prefTimeout = setTimeout(() => savePreferences(), 800);
+}, { deep: true });
+
+let notifTimeout: ReturnType<typeof setTimeout>;
+watch([notificationEvents, channels], () => {
+  clearTimeout(notifTimeout);
+  notifTimeout = setTimeout(() => saveNotificationPrefs(), 800);
+}, { deep: true });
+
 // --- Init ---
-onMounted(() => {
+onMounted(async () => {
   loadPipelineStages();
+
+  // Load all settings from API
+  try {
+    const { data } = await api.get('/settings');
+    if (data.company) {
+      company.name = data.company.name ?? company.name;
+      company.website = data.company.website ?? company.website;
+      company.supportEmail = data.company.supportEmail ?? company.supportEmail;
+    }
+    if (data.commission) {
+      commission.m1 = data.commission.m1 ?? commission.m1;
+      commission.m2 = data.commission.m2 ?? commission.m2;
+      commission.m3 = data.commission.m3 ?? commission.m3;
+    }
+    if (data.preferences) {
+      preferences.timezone = data.preferences.timezone ?? preferences.timezone;
+      preferences.language = data.preferences.language ?? preferences.language;
+      preferences.currency = data.preferences.currency ?? preferences.currency;
+      preferences.darkMode = data.preferences.darkMode ?? preferences.darkMode;
+      preferences.compactView = data.preferences.compactView ?? preferences.compactView;
+      preferences.autoAssign = data.preferences.autoAssign ?? preferences.autoAssign;
+    }
+    if (data.notifications) {
+      for (const e of notificationEvents) {
+        if (data.notifications[e.key] !== undefined) e.enabled = data.notifications[e.key];
+      }
+      if (data.notifications.emailChannel !== undefined) channels.email = data.notifications.emailChannel;
+      if (data.notifications.pushChannel !== undefined) channels.push = data.notifications.pushChannel;
+    }
+  } catch {
+    // Use defaults
+  }
 });
 </script>
 
