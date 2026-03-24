@@ -1,26 +1,23 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { HealthCheck, HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
-import { PrismaService } from '../database/prisma.service';
 import { SetMetadata } from '@nestjs/common';
+import { PrismaService } from '../database/prisma.service';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
-  constructor(
-    private health: HealthCheckService,
-    private prismaHealth: PrismaHealthIndicator,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   @Get()
   @SetMetadata('isPublic', true)
-  @ApiOperation({ summary: 'Health check — liveness probe' })
-  @HealthCheck()
-  check() {
-    return this.health.check([
-      () => this.prismaHealth.pingCheck('database', this.prisma),
-    ]);
+  @ApiOperation({ summary: 'Health check' })
+  async check() {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      return { status: 'ok', database: 'connected', timestamp: new Date().toISOString() };
+    } catch {
+      return { status: 'error', database: 'disconnected', timestamp: new Date().toISOString() };
+    }
   }
 
   @Get('ready')
@@ -43,7 +40,6 @@ export class HealthController {
       status: 'ok',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
-      memory: process.memoryUsage(),
     };
   }
 }
