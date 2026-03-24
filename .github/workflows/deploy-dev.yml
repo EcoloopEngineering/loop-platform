@@ -60,6 +60,7 @@ jobs:
           echo "=== Building Frontend ==="
           cd ../web
           sed -i 's|API_URL=.*|API_URL=http://44.202.51.163|' .env
+          export API_URL=http://44.202.51.163
           npx quasar build 2>&1 | tail -5
 
           echo "=== Deploying Frontend ==="
