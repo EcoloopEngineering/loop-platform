@@ -31,9 +31,12 @@
     >
       <template #body-cell-name="props">
         <q-td :props="props">
-          <span class="text-weight-bold cursor-pointer text-primary">
-            {{ props.row.name }}
-          </span>
+          <div class="row items-center no-wrap" style="gap: 10px">
+            <UserAvatar :name="titleCase(props.row.name)" size="32px" />
+            <span class="text-weight-bold cursor-pointer text-primary">
+              {{ titleCase(props.row.name) }}
+            </span>
+          </div>
         </q-td>
       </template>
 
@@ -50,6 +53,8 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCustomerStore } from '@/stores/customer.store';
+import UserAvatar from '@/components/common/UserAvatar.vue';
+import { titleCase } from '@/utils/format';
 
 const customerStore = useCustomerStore();
 const router = useRouter();

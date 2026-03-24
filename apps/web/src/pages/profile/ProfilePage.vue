@@ -91,7 +91,11 @@ onMounted(async () => {
     form.value.name = `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim();
     form.value.email = data.email ?? '';
     form.value.phone = data.phone ?? '';
-    form.value.avatarUrl = data.profileImage ?? '';
+    const img = data.profileImage ?? '';
+    // Convert relative API path to full URL
+    form.value.avatarUrl = img.startsWith('/api/')
+      ? `${(process.env.API_URL ?? 'http://localhost:3000')}${img}`
+      : img;
     form.value.language = data.language ?? 'en';
   } catch {
     // Use store defaults
@@ -123,7 +127,33 @@ async function save() {
 }
 
 function uploadAvatar() {
-  $q.notify({ type: 'info', message: 'Avatar upload will be available when S3 is configured.' });
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/webp';
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      $q.notify({ type: 'warning', message: 'Image must be less than 5MB' });
+      return;
+    }
+
+    try {
+      const fd = new FormData();
+      fd.append('avatar', file);
+
+      const { data } = await api.post<{ url: string }>('/users/me/avatar', fd);
+      // Convert relative path to full URL for display
+      form.value.avatarUrl = data.url.startsWith('/api/')
+        ? `${(process.env.API_URL ?? 'http://localhost:3000')}${data.url}`
+        : data.url;
+      $q.notify({ type: 'positive', message: 'Avatar updated!' });
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to upload avatar.' });
+    }
+  };
+  input.click();
 }
 </script>
 

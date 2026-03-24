@@ -35,8 +35,9 @@
             </q-list>
           </q-menu>
         </q-btn>
-        <q-avatar size="30px" color="primary" text-color="white" class="q-ml-sm cursor-pointer">
-          <span style="font-size: 12px; font-weight: 600">{{ userInitials }}</span>
+        <q-avatar size="36px" color="primary" text-color="white" class="q-ml-sm cursor-pointer">
+          <q-img v-if="userAvatar" :src="userAvatar" />
+          <span v-else style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
           <q-menu anchor="bottom right" self="top right" style="min-width: 180px; border-radius: 12px">
             <q-list>
               <q-item clickable v-close-popup @click="$router.push('/profile')">
@@ -66,6 +67,7 @@
           clickable
           v-ripple
           :to="item.route"
+          :exact="item.exact"
           active-class="active-item"
           class="nav-item"
         >
@@ -122,6 +124,9 @@ const userInitials = computed(() => {
   return u.name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
 });
 
+const apiBase = (process.env.API_URL ?? 'http://localhost:3000');
+const userAvatar = ref<string | null>(null);
+
 function handleLogout() {
   authStore.logout();
   router.push('/auth/login');
@@ -154,7 +159,37 @@ async function fetchNotifications() {
   }
 }
 
+async function fetchUser() {
+  try {
+    const { data } = await api.get('/users/me');
+    // Update store
+    userStore.$patch({
+      user: {
+        id: data.id,
+        name: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
+        email: data.email,
+        role: data.role,
+        profileImage: data.profileImage ?? null,
+      },
+    });
+    // Persist for avatar
+    localStorage.setItem('user', JSON.stringify({
+      id: data.id,
+      name: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      role: data.role,
+      profileImage: data.profileImage ?? null,
+    }));
+    // Update avatar reactively
+    const img = data.profileImage;
+    userAvatar.value = img?.startsWith('/api/') ? `${apiBase}${img}` : img || null;
+  } catch { /* ignore */ }
+}
+
 onMounted(() => {
+  fetchUser();
   fetchNotifications();
   pollInterval = setInterval(fetchNotifications, 30000);
 });
@@ -216,9 +251,9 @@ const userRole = computed(() => {
 });
 
 const navItems = [
-  { label: 'Dashboard', icon: 'dashboard', route: '/crm' },
-  { label: 'Pipeline', icon: 'view_kanban', route: '/crm/pipeline' },
-  { label: 'Customers', icon: 'people', route: '/crm/customers' },
+  { label: 'Dashboard', icon: 'dashboard', route: '/crm', exact: true },
+  { label: 'Pipeline', icon: 'view_kanban', route: '/crm/pipeline', exact: false },
+  { label: 'Customers', icon: 'people', route: '/crm/customers', exact: false },
 ];
 
 const allAdminItems = [
@@ -237,27 +272,36 @@ const adminItems = computed(() =>
 <style lang="scss" scoped>
 .admin-header {
   background: #FFFFFF;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid #F3F4F6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .admin-drawer {
-  background: #FFFFFF;
-  border-right: 1px solid #E5E7EB;
+  background: #FAFBFC;
+  border-right: 1px solid #F3F4F6;
 }
 
 .nav-item {
   border-radius: 8px;
-  margin: 2px 8px;
+  margin: 2px 10px;
   color: #6B7280;
-  min-height: 42px;
+  min-height: 40px;
+  font-size: 14px;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     background: #F3F4F6;
+    color: #374151;
   }
 }
 
 .active-item {
   color: #00897B !important;
   background: #E0F2F1 !important;
+  font-weight: 600;
+
+  :deep(.q-icon) {
+    color: #00897B;
+  }
 }
 </style>

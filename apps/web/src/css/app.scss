@@ -1,130 +1,422 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+// =============================================
+// DESIGN SYSTEM — ecoLoop Loop Platform
+// =============================================
+
 // === Colors ===
 $primary: #00897B;
+$primary-hover: #00796B;
 $primary-light: #E0F2F1;
 $accent: #00FBAC;
-$bg-page: #F8FAFB;
-$bg-white: #FFFFFF;
-$text-primary: #1A1A2E;
-$text-secondary: #6B7280;
-$text-hint: #9CA3AF;
-$border: #E5E7EB;
-$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 
-// === Global ===
+// Neutrals (expanded palette)
+$grey-50: #FAFBFC;
+$grey-100: #F3F4F6;
+$grey-200: #E5E7EB;
+$grey-300: #D1D5DB;
+$grey-400: #9CA3AF;
+$grey-500: #6B7280;
+$grey-600: #4B5563;
+$grey-700: #374151;
+$grey-800: #1F2937;
+$grey-900: #111827;
+
+// Semantic
+$success: #10B981;
+$warning: #F59E0B;
+$error: #EF4444;
+$info: #3B82F6;
+
+// Backgrounds
+$bg-page: #F9FAFB;
+$bg-card: #FFFFFF;
+$bg-elevated: #FFFFFF;
+
+// Text
+$text-primary: #111827;
+$text-secondary: #6B7280;
+$text-tertiary: #9CA3AF;
+$text-on-primary: #FFFFFF;
+
+// Borders
+$border-light: #F3F4F6;
+$border-default: #E5E7EB;
+$border-strong: #D1D5DB;
+
+// === Shadows (layered system) ===
+$shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+
+// === Typography Scale ===
+$font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+$text-xs: 11px;
+$text-sm: 13px;
+$text-base: 14px;
+$text-md: 15px;
+$text-lg: 16px;
+$text-xl: 18px;
+$text-2xl: 20px;
+$text-3xl: 24px;
+$text-4xl: 30px;
+
+// === Spacing ===
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-8: 32px;
+$space-10: 40px;
+$space-12: 48px;
+
+// === Border Radius ===
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 12px;
+$radius-xl: 16px;
+$radius-2xl: 20px;
+$radius-full: 9999px;
+
+// === Transitions ===
+$ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+$duration-fast: 150ms;
+$duration-normal: 200ms;
+$duration-slow: 300ms;
+
+// =============================================
+// GLOBAL STYLES
+// =============================================
+
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: $font-family;
   background-color: $bg-page;
   color: $text-primary;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  font-size: $text-base;
 }
 
 // === Typography ===
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Inter', sans-serif;
+  font-family: $font-family;
   font-weight: 600;
+  color: $text-primary;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+// === Links ===
+a {
+  color: $primary;
+  text-decoration: none;
+  transition: color $duration-fast $ease-default;
+  &:hover { color: $primary-hover; }
+}
+
+// === Selection ===
+::selection {
+  background: rgba($primary, 0.15);
   color: $text-primary;
 }
 
-// === Utility ===
-.text-secondary {
-  color: $text-secondary !important;
-}
+// =============================================
+// CARD SYSTEM
+// =============================================
 
-.text-hint {
-  color: $text-hint;
-}
-
-.bg-page {
-  background-color: $bg-page;
-}
-
-// === Cards ===
 .q-card {
-  background: $bg-white;
-  border: 1px solid $border;
-  border-radius: 16px;
-  box-shadow: $shadow-sm;
-}
-
-// === Inputs ===
-.q-field--outlined .q-field__control {
-  border-radius: 12px;
-}
-
-// === Buttons ===
-.e-btn {
-  border-radius: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-// === Separators ===
-.q-separator {
-  background: $border;
-}
-
-// === Scrollbar ===
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: $bg-page;
-}
-::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
-  border-radius: 3px;
-}
-
-// === Status Colors ===
-.status-new { color: #3B82F6; }
-.status-contacted { color: #00897B; }
-.status-qualified { color: #8B5CF6; }
-.status-proposal { color: #F59E0B; }
-.status-won { color: #10B981; }
-.status-lost { color: #EF4444; }
-
-// === Transitions ===
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-// === Stat Card ===
-.stat-card {
-  background: $bg-white;
-  border: 1px solid $border;
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: $shadow-sm;
-  transition: all 0.2s ease;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xs;
+  transition: all $duration-normal $ease-default;
 
   &:hover {
+    box-shadow: $shadow-sm;
+  }
+}
+
+// =============================================
+// FORM ELEMENTS
+// =============================================
+
+.q-field--outlined .q-field__control {
+  border-radius: $radius-md;
+  transition: border-color $duration-fast $ease-default, box-shadow $duration-fast $ease-default;
+
+  &:hover {
+    border-color: $grey-400;
+  }
+
+  &:focus-within {
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba($primary, 0.1);
+  }
+}
+
+.q-field__label {
+  color: $text-tertiary;
+  font-size: $text-sm;
+}
+
+// =============================================
+// SEPARATORS
+// =============================================
+
+.q-separator {
+  background: $border-light;
+}
+
+// =============================================
+// BUTTONS
+// =============================================
+
+.e-btn {
+  border-radius: $radius-md;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all $duration-fast $ease-default;
+
+  &:hover {
+    transform: translateY(-1px);
     box-shadow: $shadow-md;
-    border-color: rgba(0, 137, 123, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+// =============================================
+// SCROLLBAR
+// =============================================
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $grey-300;
+  border-radius: 3px;
+  &:hover { background: $grey-400; }
+}
+
+// =============================================
+// ACCESSIBILITY
+// =============================================
+
+*:focus-visible {
+  outline: 2px solid $primary;
+  outline-offset: 2px;
+  border-radius: $radius-sm;
+}
+
+// =============================================
+// STATUS BADGES
+// =============================================
+
+.stage-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: $radius-sm;
+  font-size: $text-xs;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+// =============================================
+// STAT CARDS
+// =============================================
+
+.stat-card {
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-lg;
+  padding: $space-4;
+  transition: all $duration-normal $ease-default;
+
+  &:hover {
+    border-color: rgba($primary, 0.2);
+    box-shadow: $shadow-sm;
   }
 
   .stat-value {
     font-size: 28px;
     font-weight: 700;
     color: $text-primary;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
   }
 
   .stat-label {
-    font-size: 13px;
-    color: $text-secondary;
+    font-size: $text-xs;
+    color: $text-tertiary;
     font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 }
 
-// === Logo ===
-.eco-logo {
-  height: 32px;
-  width: auto;
+// =============================================
+// ANIMATIONS
+// =============================================
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp $duration-slow $ease-default;
+}
+
+.animate-fadeIn {
+  animation: fadeIn $duration-normal $ease-default;
+}
+
+// Skeleton loading
+.skeleton {
+  background: linear-gradient(90deg, $grey-100 25%, $grey-200 50%, $grey-100 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: $radius-sm;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+// =============================================
+// SECTION TITLES
+// =============================================
+
+.section-title {
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $text-tertiary;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+// =============================================
+// TRANSITIONS
+// =============================================
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity $duration-normal $ease-default;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active {
+  transition: all $duration-slow $ease-default;
+}
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+// =============================================
+// TABLES
+// =============================================
+
+.q-table {
+  thead th {
+    font-size: $text-xs;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: $text-tertiary;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid $border-default;
+    padding: $space-3 $space-4;
+  }
+
+  tbody tr {
+    transition: background $duration-fast $ease-default;
+
+    &:hover {
+      background: $grey-50;
+    }
+
+    td {
+      font-size: $text-sm;
+      border-bottom: 1px solid $border-light;
+      padding: $space-3 $space-4;
+    }
+  }
+}
+
+// =============================================
+// QUASAR OVERRIDES
+// =============================================
+
+.q-tab {
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.q-avatar {
+  .q-avatar__content {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+}
+
+.q-badge {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.q-dialog__inner > .q-card {
+  border-radius: $radius-xl;
+  box-shadow: $shadow-xl;
+}
+
+.q-notify {
+  border-radius: $radius-md;
+}
+
+// =============================================
+// RESPONSIVE
+// =============================================
+
+@media (max-width: 599px) {
+  body {
+    font-size: $text-sm;
+  }
+
+  .q-card {
+    border-radius: $radius-md;
+  }
 }

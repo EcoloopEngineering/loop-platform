@@ -2,21 +2,19 @@
   <q-layout view="hHh lpR fFf">
     <q-page-container>
       <q-page class="auth-layout flex flex-center">
-        <div class="auth-container">
+        <div class="auth-container animate-fadeInUp">
           <!-- Logo -->
           <div class="text-center q-mb-xl">
             <img src="/logo_short_dark.svg" alt="ecoLoop" class="auth-logo" />
           </div>
 
           <!-- Auth Card -->
-          <q-card flat class="auth-card">
-            <q-card-section class="q-pa-lg">
-              <router-view />
-            </q-card-section>
-          </q-card>
+          <div class="auth-card">
+            <router-view />
+          </div>
 
           <!-- Footer -->
-          <div class="text-center q-mt-lg text-hint" style="font-size: 13px">
+          <div class="auth-footer">
             &copy; {{ new Date().getFullYear() }} EcoLoop Solar Energy. All rights reserved.
           </div>
         </div>
@@ -30,29 +28,33 @@
 
 <style lang="scss" scoped>
 .auth-layout {
-  background: #F8FAFB;
+  background: linear-gradient(135deg, #F9FAFB 0%, #F0FDFA 50%, #F9FAFB 100%);
   min-height: 100vh;
 }
 
 .auth-container {
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   padding: 24px 16px;
 }
 
 .auth-logo {
-  height: 44px;
+  height: 40px;
   width: auto;
+  opacity: 0.9;
 }
 
 .auth-card {
   background: #FFFFFF;
-  border: 1px solid #E5E7EB;
-  border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  padding: 32px;
 }
 
-.text-hint {
+.auth-footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 12px;
   color: #9CA3AF;
 }
 </style>

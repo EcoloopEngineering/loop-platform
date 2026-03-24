@@ -331,7 +331,8 @@
               <q-item-label caption class="secondary-text">Enable dark theme across the application</q-item-label>
             </q-item-section>
             <q-item-section side>
-              <q-toggle v-model="preferences.darkMode" color="primary" />
+              <q-toggle v-model="preferences.darkMode" color="primary" disable />
+              <q-badge color="grey-4" text-color="grey-7" label="Coming soon" class="q-ml-sm" />
             </q-item-section>
           </q-item>
           <q-item tag="label">
@@ -772,6 +773,9 @@ async function saveNotificationPrefs() {
   } catch { /* ignore */ }
 }
 
+// --- Dark mode (disabled for now — needs full CSS variable system) ---
+// watch(() => preferences.darkMode, (val) => { $q.dark.set(val); });
+
 // --- Auto-save watchers (debounced) ---
 let prefTimeout: ReturnType<typeof setTimeout>;
 watch(preferences, () => {
@@ -806,7 +810,8 @@ onMounted(async () => {
       preferences.timezone = data.preferences.timezone ?? preferences.timezone;
       preferences.language = data.preferences.language ?? preferences.language;
       preferences.currency = data.preferences.currency ?? preferences.currency;
-      preferences.darkMode = data.preferences.darkMode ?? preferences.darkMode;
+      preferences.darkMode = false; // Dark mode disabled for now
+      $q.dark.set(false);
       preferences.compactView = data.preferences.compactView ?? preferences.compactView;
       preferences.autoAssign = data.preferences.autoAssign ?? preferences.autoAssign;
     }

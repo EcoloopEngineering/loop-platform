@@ -8,6 +8,14 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { FirebaseService } from '../../infrastructure/firebase/firebase.service';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+
+// Never expose passwordHash, metadata with reset tokens, etc.
+const SAFE_USER_SELECT = {
+  id: true, firebaseUid: true, email: true, firstName: true, lastName: true,
+  phone: true, role: true, isActive: true, profileImage: true, nickname: true,
+  invitationCode: true, language: true, lastLoginAt: true,
+  createdAt: true, updatedAt: true,
+};
 import * as jwt from 'jsonwebtoken';
 
 @Injectable()
@@ -43,6 +51,7 @@ export class FirebaseAuthGuard implements CanActivate {
       const devUser = await this.prisma.user.findFirst({
         where: { isActive: true },
         orderBy: { id: 'asc' },
+        select: SAFE_USER_SELECT,
       });
       if (devUser) {
         request.user = devUser;
@@ -63,6 +72,7 @@ export class FirebaseAuthGuard implements CanActivate {
       if (payload?.sub) {
         const user = await this.prisma.user.findUnique({
           where: { id: payload.sub },
+          select: SAFE_USER_SELECT,
         });
         if (user && user.isActive) {
           request.user = user;
@@ -78,6 +88,7 @@ export class FirebaseAuthGuard implements CanActivate {
       const decoded = await this.firebaseService.verifyIdToken(token);
       const user = await this.prisma.user.findUnique({
         where: { firebaseUid: decoded.uid },
+        select: SAFE_USER_SELECT,
       });
 
       if (!user || !user.isActive) {
@@ -95,6 +106,7 @@ export class FirebaseAuthGuard implements CanActivate {
       const devUser = await this.prisma.user.findFirst({
         where: { isActive: true },
         orderBy: { id: 'asc' },
+        select: SAFE_USER_SELECT,
       });
       if (devUser) {
         request.user = devUser;

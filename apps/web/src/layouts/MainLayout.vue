@@ -34,8 +34,9 @@
             </q-list>
           </q-menu>
         </q-btn>
-        <q-avatar size="34px" color="primary" text-color="white" class="cursor-pointer">
-          <span style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
+        <q-avatar size="36px" color="primary" text-color="white" class="cursor-pointer">
+          <q-img v-if="userAvatar" :src="userAvatar" />
+          <span v-else style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
           <q-menu anchor="bottom right" self="top right" style="min-width: 180px; border-radius: 12px">
             <q-list>
               <q-item clickable v-close-popup @click="$router.push('/profile')">
@@ -108,6 +109,10 @@ const userInitials = computed(() => {
   return userName.value.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 });
 
+const apiBase = (process.env.API_URL ?? 'http://localhost:3000');
+const userAvatarUrl = ref<string | null>(null);
+const userAvatar = computed(() => userAvatarUrl.value);
+
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 async function fetchNotifications() {
@@ -132,7 +137,11 @@ async function fetchUser() {
       lastName: data.lastName,
       email: data.email,
       role: data.role,
+      profileImage: data.profileImage ?? null,
     }));
+    // Update avatar URL
+    const img = data.profileImage;
+    userAvatarUrl.value = img?.startsWith('/api/') ? `${apiBase}${img}` : img || null;
   } catch { /* ignore */ }
 }
 
@@ -205,12 +214,14 @@ watch(
 <style lang="scss" scoped>
 .main-header {
   background: #FFFFFF;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid #F3F4F6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .main-footer {
   background: #FFFFFF;
-  border-top: 1px solid #E5E7EB;
+  border-top: 1px solid #F3F4F6;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .footer-tabs {
@@ -218,9 +229,12 @@ watch(
     font-size: 11px;
     min-height: 56px;
     color: #9CA3AF;
+    font-weight: 500;
+    transition: color 150ms;
 
     &.q-tab--active {
       color: #00897B;
+      font-weight: 600;
     }
   }
 }

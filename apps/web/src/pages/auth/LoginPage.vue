@@ -1,6 +1,7 @@
 <template>
   <div>
-    <h5 class="q-mt-none q-mb-lg text-weight-bold text-center" style="color: #1A1A2E">Welcome Back</h5>
+    <h5 class="q-mt-none q-mb-md text-weight-bold text-center" style="color: #1A1A2E; font-size: 24px">Welcome Back</h5>
+    <div class="text-center text-grey-6 q-mb-lg" style="font-size: 14px">Sign in to your account</div>
 
     <q-form @submit.prevent="handleLogin" class="q-gutter-md">
       <e-input
@@ -32,7 +33,7 @@
         color="grey-7"
         icon="img:https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
         label="Continue with Google"
-        class="full-width"
+        class="full-width google-btn"
         @click="handleGoogleLogin"
         :loading="googleLoading"
         no-caps
@@ -77,8 +78,18 @@ async function handleLogin() {
     await userStore.loadUser();
     const redirect = (route.query.redirect as string) || '/home';
     router.push(redirect);
-  } catch (err: unknown) {
-    error.value = (err as Error).message || 'Login failed. Please try again.';
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const apiMsg = err?.response?.data?.message;
+    if (status === 401) {
+      error.value = 'Invalid email or password. Please try again.';
+    } else if (status === 429) {
+      error.value = 'Too many login attempts. Please wait a moment.';
+    } else if (apiMsg && !apiMsg.includes('status code')) {
+      error.value = apiMsg;
+    } else {
+      error.value = 'Unable to connect. Please check your internet and try again.';
+    }
   } finally {
     loading.value = false;
   }
@@ -92,8 +103,11 @@ async function handleGoogleLogin() {
     await userStore.loadUser();
     const redirect = (route.query.redirect as string) || '/home';
     router.push(redirect);
-  } catch (err: unknown) {
-    error.value = (err as Error).message || 'Google login failed.';
+  } catch (err: any) {
+    const apiMsg = err?.response?.data?.message;
+    error.value = apiMsg && !apiMsg.includes('status code')
+      ? apiMsg
+      : 'Google login is not available. Please use email and password.';
   } finally {
     googleLoading.value = false;
   }
@@ -103,5 +117,18 @@ async function handleGoogleLogin() {
 <style lang="scss" scoped>
 .text-hint {
   color: #9CA3AF;
+}
+
+.google-btn {
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 500;
+  transition: all 150ms ease;
+
+  &:hover {
+    border-color: #D1D5DB;
+    background: #F9FAFB;
+  }
 }
 </style>

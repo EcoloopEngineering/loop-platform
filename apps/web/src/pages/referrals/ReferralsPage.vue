@@ -47,7 +47,7 @@
     >
       <template #default-header="prop">
         <div class="row items-center q-gutter-x-sm">
-          <q-avatar size="28px" color="primary" text-color="white">
+          <q-avatar size="34px" color="primary" text-color="white" style="font-size: 13px">
             <span class="text-caption" style="font-size: 10px">
               {{ initials(prop.node.name) }}
             </span>

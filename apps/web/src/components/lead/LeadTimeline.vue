@@ -8,7 +8,7 @@
     >
       <template #subtitle>
         <div class="row items-center q-gutter-x-sm">
-          <q-avatar v-if="item.userName" size="20px" color="grey-4" text-color="grey-8">
+          <q-avatar v-if="item.userName" size="28px" color="grey-4" text-color="grey-8">
             <span class="text-caption" style="font-size: 10px">
               {{ initials(item.userName) }}
             </span>

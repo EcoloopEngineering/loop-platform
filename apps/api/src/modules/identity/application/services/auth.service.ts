@@ -121,7 +121,14 @@ export class AuthService {
   async validateToken(token: string): Promise<any> {
     try {
       const payload = jwt.verify(token, this.jwtSecret) as any;
-      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: {
+          id: true, email: true, firstName: true, lastName: true,
+          phone: true, role: true, isActive: true, profileImage: true,
+          lastLoginAt: true, createdAt: true,
+        },
+      });
       if (!user || !user.isActive) return null;
       return user;
     } catch {

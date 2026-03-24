@@ -30,9 +30,12 @@
               @click="selectConversation(conv)"
             >
               <q-item-section avatar>
-                <q-avatar size="36px" :color="conv.status === 'WAITING_AGENT' ? 'orange' : 'primary'" text-color="white" style="font-size: 13px">
-                  {{ (conv.visitorName || conv.user?.firstName || '?').charAt(0).toUpperCase() }}
-                </q-avatar>
+                <UserAvatar
+                  :user-id="conv.userId || null"
+                  :name="conv.visitorName || (conv.user ? `${conv.user.firstName} ${conv.user.lastName}` : 'Visitor')"
+                  size="36px"
+                  :color="conv.status === 'WAITING_AGENT' ? 'orange' : 'primary'"
+                />
               </q-item-section>
               <q-item-section>
                 <q-item-label class="text-weight-medium">
@@ -63,9 +66,12 @@
           <!-- Chat header -->
           <div class="chat-win-header q-pa-sm">
             <div class="row items-center no-wrap">
-              <q-avatar size="32px" color="primary" text-color="white" style="font-size: 12px" class="q-mr-sm">
-                {{ (selectedConv.visitorName || selectedConv.user?.firstName || '?').charAt(0).toUpperCase() }}
-              </q-avatar>
+              <UserAvatar
+                :user-id="selectedConv.userId || null"
+                :name="selectedConv.visitorName || (selectedConv.user ? `${selectedConv.user.firstName} ${selectedConv.user.lastName}` : 'Visitor')"
+                size="36px"
+                class="q-mr-sm"
+              />
               <div>
                 <div class="text-weight-bold" style="font-size: 14px">
                   {{ selectedConv.visitorName || (selectedConv.user ? `${selectedConv.user.firstName} ${selectedConv.user.lastName}` : 'Visitor') }}
@@ -129,6 +135,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { io, Socket } from 'socket.io-client';
 import { api } from '@/boot/axios';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const API_URL = (process.env.API_URL ?? 'http://localhost:3000');
 const socket = ref<Socket | null>(null);

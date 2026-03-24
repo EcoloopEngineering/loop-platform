@@ -18,7 +18,7 @@
           <q-card flat class="metric-card">
             <q-card-section>
               <div class="row items-center q-gutter-x-sm q-mb-sm">
-                <q-avatar size="32px" :color="card.bgColor" text-color="white">
+                <q-avatar size="36px" :color="card.bgColor" text-color="white">
                   <q-icon :name="card.icon" size="16px" />
                 </q-avatar>
                 <span class="text-caption text-grey-6 text-weight-medium">{{ card.label }}</span>
@@ -120,12 +120,10 @@
               <q-list v-if="recentLeads.length" separator>
                 <q-item v-for="lead in recentLeads" :key="lead.id" clickable @click="$router.push(`/crm/leads/${lead.id}`)">
                   <q-item-section avatar>
-                    <q-avatar size="36px" color="primary" text-color="white" style="font-size: 13px">
-                      {{ lead.initials }}
-                    </q-avatar>
+                    <UserAvatar :name="titleCase(lead.name)" size="36px" />
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label class="text-weight-medium">{{ lead.name }}</q-item-label>
+                    <q-item-label class="text-weight-medium">{{ titleCase(lead.name) }}</q-item-label>
                     <q-item-label caption>{{ lead.email }} · {{ formatSource(lead.source) }}</q-item-label>
                   </q-item-section>
                   <q-item-section side>
@@ -157,7 +155,7 @@
               <q-list v-if="recentActivity.length" separator>
                 <q-item v-for="item in recentActivity" :key="item.id" dense>
                   <q-item-section avatar>
-                    <q-avatar size="28px" :color="activityColor(item.type)" text-color="white">
+                    <q-avatar size="34px" :color="activityColor(item.type)" text-color="white">
                       <q-icon :name="activityIcon(item.type)" size="14px" />
                     </q-avatar>
                   </q-item-section>
@@ -182,6 +180,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { api } from '@/boot/axios';
+import { titleCase } from '@/utils/format';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 
 interface LeadData {
   id: string;

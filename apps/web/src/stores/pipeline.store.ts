@@ -61,7 +61,9 @@ export const usePipelineStore = defineStore('pipeline', () => {
             leadSource: l.source ?? '',
             stage: l.currentStage ?? s.stage,
             owner: ownerUser ? `${ownerUser.firstName} ${ownerUser.lastName}` : undefined,
+            ownerId: primary?.userId ?? null,
             projectManager: pmUser ? `${pmUser.firstName} ${pmUser.lastName}` : undefined,
+            pmId: l.projectManagerId ?? null,
             assignedTo: ownerUser ? `${ownerUser.firstName} ${ownerUser.lastName}` : undefined,
             createdAt: l.createdAt,
           };

@@ -7,7 +7,7 @@
   >
     <q-card-section class="q-pa-sm">
       <div class="text-subtitle2 text-weight-bold ellipsis">
-        {{ lead.customerName }}
+        {{ titleCase(lead.customerName) }}
       </div>
 
       <div class="row items-center q-mt-xs q-gutter-x-sm">
@@ -30,6 +30,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { titleCase } from '@/utils/format';
 import type { PipelineLead } from '@/stores/pipeline.store';
 
 const props = defineProps<{

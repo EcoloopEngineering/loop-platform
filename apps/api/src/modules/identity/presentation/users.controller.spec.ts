@@ -5,6 +5,7 @@ import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { createMockPrismaService, MockPrismaService } from '../../../test/prisma-mock.helper';
+import { S3Service } from '../../../infrastructure/storage/s3.service';
 import { UserRole } from '@loop/shared';
 
 describe('UsersController', () => {
@@ -24,6 +25,7 @@ describe('UsersController', () => {
         { provide: QueryBus, useValue: queryBus },
         { provide: CommandBus, useValue: commandBus },
         { provide: PrismaService, useValue: prisma },
+        { provide: S3Service, useValue: { isConfigured: jest.fn().mockReturnValue(false), upload: jest.fn(), getObject: jest.fn() } },
       ],
     })
       .overrideGuard(FirebaseAuthGuard)
@@ -52,13 +54,20 @@ describe('UsersController', () => {
   });
 
   describe('getMe', () => {
-    it('should return current user', async () => {
-      const user = { id: 'user-1', email: 'test@test.com' };
-      queryBus.execute.mockResolvedValue(user);
+    it('should return user without sensitive fields', async () => {
+      const fullUser = {
+        id: 'user-1', email: 'test@test.com', firstName: 'Test',
+        passwordHash: 'secret', metadata: { token: 'x' }, socialSecurityNumber: '123',
+      };
+      queryBus.execute.mockResolvedValue(fullUser);
 
-      const result = await controller.getMe(user as any);
+      const result = await controller.getMe({ id: 'user-1' } as any);
 
-      expect(result).toEqual(user);
+      expect(result.id).toBe('user-1');
+      expect(result.email).toBe('test@test.com');
+      expect((result as any).passwordHash).toBeUndefined();
+      expect((result as any).metadata).toBeUndefined();
+      expect((result as any).socialSecurityNumber).toBeUndefined();
     });
   });
 

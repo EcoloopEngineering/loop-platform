@@ -1,15 +1,20 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
   Patch,
   Body,
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Res,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
@@ -27,6 +32,7 @@ import {
   GetUsersQuery,
 } from '../application/queries/get-user.handler';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { S3Service } from '../../../infrastructure/storage/s3.service';
 import { UserEntity } from '../domain/entities/user.entity';
 
 class ChangeRoleDto {
@@ -44,12 +50,16 @@ export class UsersController {
     private readonly queryBus: QueryBus,
     private readonly commandBus: CommandBus,
     private readonly prisma: PrismaService,
+    private readonly s3: S3Service,
   ) {}
 
   @Get('me')
   @ApiOperation({ summary: 'Get current authenticated user' })
-  async getMe(@CurrentUser() user: UserEntity): Promise<UserEntity> {
-    return this.queryBus.execute(new GetUserByIdQuery(user.id));
+  async getMe(@CurrentUser() user: any): Promise<any> {
+    const fullUser = await this.queryBus.execute(new GetUserByIdQuery(user.id));
+    // Never expose sensitive fields
+    const { passwordHash, metadata, socialSecurityNumber, ...safe } = fullUser as any;
+    return safe;
   }
 
   @Put('me')
@@ -63,6 +73,72 @@ export class UsersController {
 
     // Re-fetch via query to return updated data
     return this.queryBus.execute(new GetUserByIdQuery(user.id));
+  }
+
+  @Post('me/avatar')
+  @ApiOperation({ summary: 'Upload avatar image' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('avatar'))
+  async uploadAvatar(
+    @UploadedFile() file: any,
+    @CurrentUser('id') userId: string,
+  ) {
+    if (!file) {
+      return { error: 'No file provided' };
+    }
+
+    const key = `avatars/${userId}-${Date.now()}.${file.originalname.split('.').pop()}`;
+
+    if (this.s3.isConfigured()) {
+      await this.s3.upload({
+        key,
+        body: file.buffer,
+        contentType: file.mimetype,
+      });
+    }
+
+    // Save the S3 key as profileImage (served via /users/me/avatar GET)
+    const avatarPath = `/api/v1/users/avatar/${userId}`;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profileImage: avatarPath, metadata: { avatarS3Key: key } },
+    });
+
+    return { url: avatarPath };
+  }
+
+  @Get('avatar/:id')
+  @ApiOperation({ summary: 'Get user avatar image (streams from S3)' })
+  async getAvatar(
+    @Param('id') id: string,
+    @Res() res: any,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const meta = (user.metadata as any) ?? {};
+    const s3Key = meta.avatarS3Key;
+
+    if (s3Key && this.s3.isConfigured()) {
+      try {
+        const { body, contentType } = await this.s3.getObject(s3Key);
+        const chunks: Buffer[] = [];
+        for await (const chunk of body) {
+          chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.end(buffer);
+        return;
+      } catch {
+        return res.status(404).json({ error: 'Avatar not found in storage' });
+      }
+    }
+
+    return res.status(404).json({ error: 'No avatar' });
   }
 
   @Get()

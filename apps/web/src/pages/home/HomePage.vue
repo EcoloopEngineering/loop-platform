@@ -60,11 +60,9 @@
         <q-card v-for="lead in paginatedLeads" :key="lead.id" flat class="lead-card q-mb-xs" clickable @click="$router.push(`/crm/leads/${lead.id}`)">
           <q-card-section class="q-pa-sm">
             <div class="row items-center no-wrap">
-              <q-avatar size="32px" color="primary" text-color="white" style="font-size: 12px" class="q-mr-sm">
-                {{ lead.initials }}
-              </q-avatar>
+              <UserAvatar :name="titleCase(lead.name)" size="36px" class="q-mr-sm" />
               <div class="col">
-                <div class="text-weight-medium" style="font-size: 13px">{{ lead.name }}</div>
+                <div class="text-weight-medium" style="font-size: 13px">{{ titleCase(lead.name) }}</div>
                 <div class="text-caption text-grey-5">{{ lead.source }} · {{ lead.timeAgo }}</div>
               </div>
               <q-badge
@@ -104,7 +102,7 @@
         <q-list v-if="activities.length" separator>
           <q-item v-for="a in activities.slice(0, 5)" :key="a.id" dense>
             <q-item-section avatar>
-              <q-avatar size="28px" :color="activityColor(a.event)" text-color="white">
+              <q-avatar size="34px" :color="activityColor(a.event)" text-color="white">
                 <q-icon :name="activityIcon(a.event)" size="14px" />
               </q-avatar>
             </q-item-section>
@@ -127,10 +125,13 @@
 import { ref, computed, inject, onMounted } from 'vue';
 import type { Ref } from 'vue';
 import { api } from '@/boot/axios';
+import { titleCase } from '@/utils/format';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const loadingLeads = ref(true);
 const leads = ref<any[]>([]);
 const activities = ref<any[]>([]);
+const currentUser = ref<any>(null);
 const injectedName = inject<Ref<string>>('userName', ref(''));
 const displayName = computed(() => injectedName?.value || '');
 
@@ -141,9 +142,9 @@ const greeting = computed(() => {
   return 'Good evening';
 });
 
-const totalLeads = computed(() => leads.value.length);
-const wonLeads = computed(() => leads.value.filter((l) => l.currentStage === 'WON').length);
-const referralLeads = computed(() => leads.value.filter((l) => l.source === 'REFERRAL').length);
+const totalLeads = computed(() => filteredLeads.value.length);
+const wonLeads = computed(() => filteredLeads.value.filter((l) => l.currentStage === 'WON').length);
+const referralLeads = computed(() => filteredLeads.value.filter((l) => l.source === 'REFERRAL').length);
 const conversionRate = computed(() => {
   if (totalLeads.value === 0) return 0;
   return Math.round((wonLeads.value / totalLeads.value) * 100);
@@ -164,8 +165,29 @@ const paginatedLeads = computed(() => {
   return myLeads.value.slice(start, start + LEADS_PER_PAGE);
 });
 
+// Filter leads: ADMIN sees all, others see only their assigned/created leads
+const filteredLeads = computed(() => {
+  const userRole = currentUser.value?.role;
+  const userId = currentUser.value?.id;
+
+  // Admins see everything
+  if (userRole === 'ADMIN') return leads.value;
+
+  if (!userId) return leads.value;
+
+  return leads.value.filter((l: any) => {
+    // Created by this user
+    if (l.createdById === userId) return true;
+    // Assigned to this user (primary or secondary)
+    if (l.assignments?.some((a: any) => a.userId === userId)) return true;
+    // PM of this lead
+    if (l.projectManagerId === userId) return true;
+    return false;
+  });
+});
+
 const myLeads = computed(() =>
-  leads.value
+  filteredLeads.value
     .slice()
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((l) => ({
@@ -179,6 +201,12 @@ const myLeads = computed(() =>
 );
 
 onMounted(async () => {
+  // Load current user info for filtering
+  try {
+    const { data: me } = await api.get('/auth/me');
+    currentUser.value = me;
+  } catch { /* dev bypass user */ }
+
   try {
     const [leadsRes, notifsRes] = await Promise.all([
       api.get('/leads', { params: { limit: 100 } }),
@@ -258,10 +286,15 @@ function activityColor(t: string) { return COLORS[t] ?? 'grey-6'; }
 
 .lead-card {
   background: #fff;
-  border: 1px solid #E5E7EB;
+  border: 1px solid #F3F4F6;
   border-radius: 10px;
-  transition: all 0.15s;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  &:hover { border-color: #00897B; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+
+  &:hover {
+    border-color: #00897B;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+  }
 }
 </style>

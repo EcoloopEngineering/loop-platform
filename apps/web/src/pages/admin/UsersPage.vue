@@ -37,11 +37,9 @@
             <template #body-cell-name="props">
               <q-td :props="props">
                 <div class="row items-center no-wrap" style="gap: 10px">
-                  <q-avatar size="32px" color="primary" text-color="white" style="font-size: 12px">
-                    {{ props.row.initials }}
-                  </q-avatar>
+                  <UserAvatar :user-id="props.row.id" :name="titleCase(props.row.name)" size="36px" />
                   <div>
-                    <div class="text-weight-medium">{{ props.row.name }}</div>
+                    <div class="text-weight-medium">{{ titleCase(props.row.name) }}</div>
                     <div class="text-caption text-grey-5">{{ props.row.nickname || '' }}</div>
                   </div>
                 </div>
@@ -114,11 +112,9 @@
             <template #body-cell-name="props">
               <q-td :props="props">
                 <div class="row items-center no-wrap" style="gap: 10px">
-                  <q-avatar size="32px" color="orange-7" text-color="white" style="font-size: 12px">
-                    {{ props.row.initials }}
-                  </q-avatar>
+                  <UserAvatar :user-id="props.row.id" :name="titleCase(props.row.name)" size="36px" color="orange-7" />
                   <div>
-                    <div class="text-weight-medium">{{ props.row.name }}</div>
+                    <div class="text-weight-medium">{{ titleCase(props.row.name) }}</div>
                   </div>
                 </div>
               </q-td>
@@ -127,10 +123,10 @@
             <template #body-cell-referredBy="props">
               <q-td :props="props">
                 <div v-if="props.row.referredBy" class="row items-center no-wrap" style="gap: 6px">
-                  <q-avatar size="20px" color="primary" text-color="white" style="font-size: 9px">
+                  <q-avatar size="26px" color="primary" text-color="white" style="font-size: 11px">
                     {{ props.row.referredBy.charAt(0) }}
                   </q-avatar>
-                  <span class="text-caption">{{ props.row.referredBy }}</span>
+                  <span class="text-caption">{{ titleCase(props.row.referredBy) }}</span>
                 </div>
                 <span v-else class="text-grey-4">--</span>
               </q-td>
@@ -250,6 +246,8 @@
 import { ref, computed, reactive, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
+import { titleCase } from '@/utils/format';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const $q = useQuasar();
 

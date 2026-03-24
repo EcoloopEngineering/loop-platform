@@ -88,6 +88,19 @@ export class S3Service {
     return getSignedUrl(this.client, command, { expiresIn });
   }
 
+  async getObject(key: string): Promise<{ body: any; contentType: string }> {
+    if (!this.client) throw new Error('S3 not configured');
+
+    const result = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+
+    return {
+      body: result.Body,
+      contentType: result.ContentType ?? 'application/octet-stream',
+    };
+  }
+
   getPublicUrl(key: string): string {
     return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
   }

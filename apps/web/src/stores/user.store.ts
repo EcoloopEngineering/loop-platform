@@ -9,6 +9,7 @@ export interface UserProfile {
   phone?: string;
   role: string;
   avatarUrl?: string;
+  profileImage?: string;
   companyId?: string;
   managerId?: string;
   createdAt: string;

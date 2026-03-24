@@ -24,7 +24,7 @@
         <q-card flat class="sidebar-card q-mb-md">
           <q-card-section>
             <h1 class="customer-name q-mt-none q-mb-xs">
-              {{ lead.customer?.firstName }} {{ lead.customer?.lastName }}
+              {{ titleCase((lead.customer?.firstName ?? '') + ' ' + (lead.customer?.lastName ?? '')) }}
             </h1>
 
             <div class="row items-center q-gutter-x-sm q-mb-md">
@@ -334,7 +334,7 @@
               </div>
               <div v-for="note in notes" :key="note.id" class="note-item q-mb-md">
                 <div class="row items-center q-mb-xs">
-                  <q-avatar size="24px" color="grey-3" text-color="grey-7" class="q-mr-sm">
+                  <q-avatar size="30px" color="grey-3" text-color="grey-7" class="q-mr-sm">
                     <span style="font-size: 10px">{{ initials(note.userName) }}</span>
                   </q-avatar>
                   <span class="text-weight-medium text-body2">{{ note.userName }}</span>
@@ -466,10 +466,10 @@
               <div v-if="lead.createdBy" class="sidebar-field">
                 <div class="sidebar-field-label">Created by</div>
                 <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
-                  <q-avatar size="20px" :color="isExternalCreator ? 'orange-6' : 'primary'" text-color="white" style="font-size: 9px">
+                  <q-avatar size="26px" :color="isExternalCreator ? 'orange-6' : 'primary'" text-color="white" style="font-size: 11px">
                     {{ lead.createdBy.firstName?.charAt(0) }}
                   </q-avatar>
-                  <span>{{ lead.createdBy.firstName }} {{ lead.createdBy.lastName }}</span>
+                  <span>{{ titleCase(lead.createdBy.firstName + ' ' + lead.createdBy.lastName) }}</span>
                   <q-badge v-if="isExternalCreator" color="orange-2" text-color="orange-9" dense style="font-size: 10px">Partner</q-badge>
                   <q-badge v-else color="blue-1" text-color="blue-8" dense style="font-size: 10px">Employee</q-badge>
                 </div>
@@ -478,10 +478,10 @@
               <div v-if="referredBy" class="sidebar-field">
                 <div class="sidebar-field-label">Referred by</div>
                 <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
-                  <q-avatar size="20px" color="primary" text-color="white" style="font-size: 9px">
+                  <q-avatar size="26px" color="primary" text-color="white" style="font-size: 11px">
                     {{ referredBy.firstName?.charAt(0) }}
                   </q-avatar>
-                  <span>{{ referredBy.firstName }} {{ referredBy.lastName }}</span>
+                  <span>{{ titleCase(referredBy.firstName + ' ' + referredBy.lastName) }}</span>
                   <q-badge color="green-1" text-color="green-8" dense style="font-size: 10px">Rep</q-badge>
                 </div>
                 <div class="text-caption text-grey-5" style="margin-left: 26px">{{ referredBy.email }}</div>
@@ -500,7 +500,7 @@
             <q-card-section class="q-pt-none section-body">
               <div class="field-row">
                 <div class="field-label">Name</div>
-                <div class="field-value">{{ lead.customer?.firstName }} {{ lead.customer?.lastName || '--' }}</div>
+                <div class="field-value">{{ titleCase((lead.customer?.firstName ?? '') + ' ' + (lead.customer?.lastName ?? '')) || '--' }}</div>
               </div>
               <div class="field-row">
                 <div class="field-label">Email</div>
@@ -826,6 +826,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useLeadStore } from '@/stores/lead.store';
 import { api } from '@/boot/axios';
+import { titleCase } from '@/utils/format';
 import LeadTimeline from '@/components/lead/LeadTimeline.vue';
 
 const props = defineProps<{ id: string }>();

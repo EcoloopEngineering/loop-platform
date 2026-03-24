@@ -55,7 +55,7 @@
         >
           <template #body-cell-name="props">
             <q-td :props="props">
-              <span class="text-weight-bold text-primary cursor-pointer">{{ props.row.customerName }}</span>
+              <span class="text-weight-bold text-primary cursor-pointer">{{ titleCase(props.row.customerName) }}</span>
             </q-td>
           </template>
 
@@ -97,10 +97,8 @@
           <template #body-cell-owner="props">
             <q-td :props="props">
               <div v-if="props.row.owner" class="row items-center no-wrap" style="gap: 6px">
-                <q-avatar size="22px" color="primary" text-color="white" style="font-size: 10px">
-                  {{ props.row.owner.charAt(0) }}
-                </q-avatar>
-                <span class="text-caption">{{ props.row.owner }}</span>
+                <UserAvatar :user-id="props.row.ownerId" :name="titleCase(props.row.owner)" size="28px" />
+                <span class="text-caption">{{ titleCase(props.row.owner) }}</span>
               </div>
               <span v-else class="text-grey-4">--</span>
             </q-td>
@@ -109,10 +107,8 @@
           <template #body-cell-pm="props">
             <q-td :props="props">
               <div v-if="props.row.projectManager" class="row items-center no-wrap" style="gap: 6px">
-                <q-avatar size="22px" color="orange-8" text-color="white" style="font-size: 10px">
-                  {{ props.row.projectManager.charAt(0) }}
-                </q-avatar>
-                <span class="text-caption">{{ props.row.projectManager }}</span>
+                <UserAvatar :user-id="props.row.pmId" :name="titleCase(props.row.projectManager)" size="28px" color="orange-8" />
+                <span class="text-caption">{{ titleCase(props.row.projectManager) }}</span>
               </div>
               <span v-else class="text-grey-4">--</span>
             </q-td>
@@ -154,6 +150,8 @@ import { useRouter } from 'vue-router';
 import { usePipelineStore } from '@/stores/pipeline.store';
 import PipelineBoard from '@/components/pipeline/PipelineBoard.vue';
 import PipelineFilters from '@/components/pipeline/PipelineFilters.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
+import { titleCase } from '@/utils/format';
 import type { PipelineFilterValues } from '@/components/pipeline/PipelineFilters.vue';
 
 const router = useRouter();
