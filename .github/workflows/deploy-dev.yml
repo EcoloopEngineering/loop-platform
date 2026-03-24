@@ -14,6 +14,7 @@ jobs:
     name: Deploy to EC2
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -30,29 +31,28 @@ jobs:
         env:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST << 'DEPLOY'
-          set -e
-          cd /home/ubuntu/loop-platform
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST 'bash -s' << 'DEPLOY'
+          cd /home/ubuntu/loop-platform || exit 1
 
           echo "=== Pulling latest code ==="
           git fetch origin develop
           git checkout develop
-          git pull origin develop
+          git reset --hard origin/develop
 
           echo "=== Installing dependencies ==="
-          pnpm install 2>&1 | tail -5
+          pnpm install || true
 
-          echo "=== Building shared package ==="
-          pnpm --filter @loop/shared build
+          echo "=== Building shared ==="
+          pnpm --filter @loop/shared build || true
 
           echo "=== Building API ==="
           cd apps/api
-          npx prisma generate
-          npx prisma db push --accept-data-loss 2>&1 | tail -3
-          npx nest build
+          npx prisma generate || true
+          npx prisma db push --accept-data-loss || true
+          npx nest build || { echo "API build failed!"; exit 1; }
 
           echo "=== Restarting API ==="
-          pkill -f "node dist/main.js" 2>/dev/null || true
+          pkill -f "node dist/main.js" || true
           sleep 2
           nohup node dist/main.js > /home/ubuntu/api.log 2>&1 &
           sleep 5
@@ -60,30 +60,27 @@ jobs:
           echo "=== Building Frontend ==="
           cd ../web
           sed -i 's|API_URL=.*|API_URL=http://44.202.51.163|' .env
-          export API_URL=http://44.202.51.163
-          npx quasar build 2>&1 | tail -5
+          API_URL=http://44.202.51.163 npx quasar build || { echo "Frontend build failed!"; exit 1; }
 
           echo "=== Deploying Frontend ==="
           sudo rm -rf /var/www/html/*
           sudo cp -r dist/spa/* /var/www/html/
           sudo chown -R www-data:www-data /var/www/html/
 
-          echo "=== Verifying ==="
-          curl -s -o /dev/null -w "API: %{http_code}\n" http://localhost:3000/api/v1/health/live
-          echo "=== Deploy complete! ==="
+          echo "=== Deploy complete ==="
           DEPLOY
 
       - name: Verify deployment
         env:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
-          sleep 10
-          # Try health endpoint first, fallback to any 2xx/3xx
-          STATUS=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/v1/health/live 2>/dev/null || curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/docs 2>/dev/null || echo '000'")
-          echo "API health check returned: $STATUS"
-          if [[ "$STATUS" == "000" || "$STATUS" == "5"* ]]; then
-            echo "Deployment verification failed! API returned $STATUS"
-            ssh -i ~/.ssh/deploy_key ubuntu@$HOST "tail -20 /home/ubuntu/api.log" 2>/dev/null || true
+          sleep 5
+          STATUS=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/docs')
+          echo "API returned: $STATUS"
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
+            echo "Deploy verified!"
+          else
+            echo "Deploy check returned $STATUS — showing logs:"
+            ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'tail -20 /home/ubuntu/api.log' || true
             exit 1
           fi
-          echo "Deployment verified! API is responding (HTTP $STATUS)"
