@@ -7,6 +7,7 @@ import {
   createMockPrismaService,
   MockPrismaService,
 } from '../../../../test/prisma-mock.helper';
+import { EmailService } from '../../../../infrastructure/email/email.service';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 
@@ -31,6 +32,10 @@ describe('AuthService', () => {
               return defaultVal;
             }),
           },
+        },
+        {
+          provide: EmailService,
+          useValue: { send: jest.fn().mockResolvedValue(true), isConfigured: jest.fn().mockReturnValue(true) },
         },
       ],
     }).compile();

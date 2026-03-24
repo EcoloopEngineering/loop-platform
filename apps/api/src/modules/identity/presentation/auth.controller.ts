@@ -20,6 +20,15 @@ class LoginDto {
   @IsNotEmpty() password: string;
 }
 
+class ForgotPasswordDto {
+  @IsEmail() email: string;
+}
+
+class ResetPasswordDto {
+  @IsNotEmpty() @IsString() token: string;
+  @MinLength(8) password: string;
+}
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
@@ -44,6 +53,20 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh JWT token' })
   async refresh(@CurrentUser('id') userId: string) {
     return this.authService.refreshToken(userId);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Request password reset email' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Reset password with token' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPasswordWithToken(dto.token, dto.password);
   }
 
   @Get('me')

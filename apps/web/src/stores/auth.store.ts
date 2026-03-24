@@ -75,7 +75,14 @@ export const useAuthStore = defineStore(
     }
 
     async function resetPassword(email: string) {
-      // Try Firebase password reset
+      // Use JWT API for password reset
+      try {
+        await api.post('/auth/forgot-password', { email });
+        return;
+      } catch (err: any) {
+        throw new Error(err.response?.data?.message || 'Failed to send reset link');
+      }
+      // Firebase fallback (keep for reference but won't reach here)
       try {
         const { getApp } = await import('firebase/app');
         getApp();

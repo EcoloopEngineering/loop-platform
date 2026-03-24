@@ -1,8 +1,10 @@
-import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { EmailService } from '../../../../infrastructure/email/email.service';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +15,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
   ) {
     this.jwtSecret = this.config.get<string>('JWT_SECRET', 'loop-platform-jwt-secret-change-in-prod');
     this.jwtExpiry = this.config.get<string>('JWT_EXPIRY', '7d');
@@ -130,6 +133,93 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.isActive) throw new UnauthorizedException('User not found');
     return { token: this.generateToken(user) };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+
+    // Always return success to prevent email enumeration
+    if (!user || !user.isActive) {
+      this.logger.warn(`Password reset requested for unknown email: ${email}`);
+      return { message: 'If an account exists with that email, a reset link has been sent.' };
+    }
+
+    // Generate reset token (valid for 1 hour)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    // Store token in user metadata
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        metadata: {
+          ...(user.metadata as any ?? {}),
+          resetToken: await bcrypt.hash(resetToken, 10),
+          resetExpiry: resetExpiry.toISOString(),
+        },
+      },
+    });
+
+    // Send email
+    const resetUrl = `${this.config.get('APP_URL', 'http://localhost:9000')}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
+    await this.emailService.send({
+      to: email,
+      subject: 'Reset your ecoLoop password',
+      html: `
+        <h2>Password Reset</h2>
+        <p>Hi ${user.firstName},</p>
+        <p>You requested a password reset for your ecoLoop account.</p>
+        <p><a href="${resetUrl}" style="display: inline-block; background: #00897B; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset Password</a></p>
+        <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+        <br>
+        <p style="color: #6B7280; font-size: 12px;">— ecoLoop Solar Energy</p>
+      `,
+    });
+
+    this.logger.log(`Password reset email sent to ${email}`);
+    return { message: 'If an account exists with that email, a reset link has been sent.' };
+  }
+
+  async resetPasswordWithToken(token: string, newPassword: string) {
+    // Find users with reset tokens (check all users — token is hashed)
+    const users = await this.prisma.user.findMany({
+      where: { isActive: true },
+    });
+
+    let matchedUser: any = null;
+    for (const user of users) {
+      const meta = user.metadata as any;
+      if (!meta?.resetToken || !meta?.resetExpiry) continue;
+
+      // Check expiry
+      if (new Date(meta.resetExpiry) < new Date()) continue;
+
+      // Check token
+      const valid = await bcrypt.compare(token, meta.resetToken);
+      if (valid) {
+        matchedUser = user;
+        break;
+      }
+    }
+
+    if (!matchedUser) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    // Update password and clear reset token
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const meta = (matchedUser.metadata as any) ?? {};
+    delete meta.resetToken;
+    delete meta.resetExpiry;
+
+    await this.prisma.user.update({
+      where: { id: matchedUser.id },
+      data: { passwordHash, metadata: meta },
+    });
+
+    this.logger.log(`Password reset completed for ${matchedUser.email}`);
+    return { message: 'Password reset successfully. You can now log in.' };
   }
 
   private generateToken(user: any): string {
