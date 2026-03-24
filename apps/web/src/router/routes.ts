@@ -34,7 +34,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('@/layouts/MainLayout.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: true },
     children: [
       {
         path: '',
@@ -73,7 +73,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('@/layouts/BasicLayout.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: true },
     children: [
       {
         path: 'leads/new',
@@ -115,7 +115,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/crm',
     component: () => import('@/layouts/AdminLayout.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: true },
     children: [
       {
         path: '',
@@ -151,7 +151,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/admin',
     component: () => import('@/layouts/AdminLayout.vue'),
-    meta: { requiresAuth: false, roles: ['ADMIN'] },
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
     children: [
       {
         path: 'scoreboard',
