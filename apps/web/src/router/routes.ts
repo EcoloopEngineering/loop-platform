@@ -62,6 +62,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/chat/SupportChatPage.vue'),
       },
       {
+        path: 'leads',
+        name: 'my-leads',
+        component: () => import('@/pages/leads/MyLeadsPage.vue'),
+      },
+      {
         path: 'notifications',
         name: 'notifications',
         component: () => import('@/pages/admin/NotificationsPage.vue'),
