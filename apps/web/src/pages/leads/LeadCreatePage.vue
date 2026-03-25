@@ -1,8 +1,5 @@
 <template>
   <q-page class="lead-create-page">
-    <!-- Header -->
-    <e-header title="New Lead" show-back back-to="/home" />
-
     <!-- Stepper -->
     <wizard-stepper v-model="currentStep" />
 
