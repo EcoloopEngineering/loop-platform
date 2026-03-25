@@ -55,10 +55,23 @@ const steps = [
 <style lang="scss" scoped>
 .wizard-stepper {
   background: white;
+  padding-top: 12px;
+  border-bottom: 1px solid #F3F4F6;
 }
+
 .wizard-step-indicator {
   flex: 1;
   min-width: 0;
-  transition: opacity 0.2s;
+  transition: all 0.2s ease;
+  padding: 4px 0 8px;
+
+  &.is-active {
+    transform: scale(1.05);
+  }
+
+  span {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
 }
 </style>

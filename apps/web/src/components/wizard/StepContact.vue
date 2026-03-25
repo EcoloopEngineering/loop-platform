@@ -1,6 +1,6 @@
 <template>
   <div class="step-contact q-pa-md">
-    <div class="text-subtitle1 text-weight-bold q-mb-md">Contact Information</div>
+    <div class="step-section-title q-mb-lg">Contact Information</div>
 
     <e-input
       v-model="contact.firstName"
@@ -80,3 +80,12 @@ const leadSources = [
   { value: LeadSource.EVENT, label: 'Event' },
 ];
 </script>
+
+<style lang="scss" scoped>
+.step-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+</style>
