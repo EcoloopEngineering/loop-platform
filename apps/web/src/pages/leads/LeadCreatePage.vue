@@ -58,6 +58,7 @@
         color="teal"
         class="full-width"
         :loading="submitting"
+        :disable="!canSubmit"
         @click="submitLead"
       >
         <q-icon name="check" class="q-mr-xs" />
@@ -86,6 +87,7 @@ const {
   energyData,
   designData,
   isStepValid,
+  canSubmit,
   scorePreview,
   scoreTier,
   roofScore,

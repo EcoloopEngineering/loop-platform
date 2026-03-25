@@ -115,6 +115,11 @@ export function useLeadWizard() {
 
   const isStep5Valid = computed(() => true);
 
+  // All required fields filled + design type selected
+  const canSubmit = computed(() => {
+    return isStep1Valid.value && isStep2Valid.value && isStep3Valid.value && isStep4Valid.value;
+  });
+
   function isStepValid(step: number): boolean {
     switch (step) {
       case 1:
@@ -263,6 +268,7 @@ export function useLeadWizard() {
     isStep3Valid,
     isStep4Valid,
     isStep5Valid,
+    canSubmit,
     isStepValid,
     roofScore,
     energyScore,
