@@ -15,7 +15,14 @@
     <q-form @submit.prevent="save" class="q-gutter-y-md">
       <EInput v-model="form.name" label="Full Name" :rules="[required]" />
       <EInput v-model="form.email" label="Email" type="email" disable />
-      <EInput v-model="form.phone" label="Phone" type="tel" />
+      <EInput
+        v-model="form.phone"
+        label="Phone"
+        type="tel"
+        mask="(###) ###-####"
+        unmasked-value
+        :rules="[(v: string) => !v || /^\d{10,15}$/.test(v) || 'Enter a valid phone number']"
+      />
 
       <q-select
         v-model="form.language"

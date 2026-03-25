@@ -58,20 +58,15 @@ export default route(function () {
       try { await userStore.loadUser(); } catch { /* ignore */ }
     }
 
+    // Check JWT auth FIRST for protected routes
+    if (requiresAuth && !authStore.isAuthenticated) {
+      return next({ name: 'login', query: { redirect: to.fullPath } });
+    }
+
     const role = userStore.user?.role ?? 'SALES_REP';
 
     if (!requiresAuth) {
-      if (!canAccessRoute(role, to.path)) {
-        const homeRoute = ['ADMIN', 'MANAGER'].includes(role) ? '/crm' : '/home';
-        return next(homeRoute);
-      }
-
       return next();
-    }
-
-    // Check JWT auth
-    if (!authStore.isAuthenticated) {
-      return next({ name: 'login', query: { redirect: to.fullPath } });
     }
 
     // Role check (userStore already loaded above)

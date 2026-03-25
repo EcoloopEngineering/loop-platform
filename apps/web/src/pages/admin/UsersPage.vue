@@ -184,7 +184,7 @@
             </div>
           </div>
           <q-input v-model="newUser.email" label="Email" type="email" outlined dense />
-          <q-input v-model="newUser.phone" label="Phone (optional)" outlined dense />
+          <q-input v-model="newUser.phone" label="Phone (optional)" outlined dense mask="(###) ###-####" unmasked-value />
           <q-select
             v-model="newUser.role"
             :options="roleOptions"
@@ -221,7 +221,7 @@
             </div>
           </div>
           <q-input v-model="editForm.email" label="Email" outlined dense disable />
-          <q-input v-model="editForm.phone" label="Phone" outlined dense />
+          <q-input v-model="editForm.phone" label="Phone" outlined dense mask="(###) ###-####" unmasked-value />
           <q-select
             v-model="editForm.role"
             :options="roleOptions"

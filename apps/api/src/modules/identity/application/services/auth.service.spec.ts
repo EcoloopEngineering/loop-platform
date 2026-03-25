@@ -273,4 +273,144 @@ describe('AuthService', () => {
       await expect(service.refreshToken('non-existent')).rejects.toThrow(UnauthorizedException);
     });
   });
+
+  describe('forgotPassword', () => {
+    let emailService: { send: jest.Mock; isConfigured: jest.Mock };
+
+    beforeEach(() => {
+      emailService = (service as any).emailService;
+    });
+
+    it('should send reset email for existing active user', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        isActive: true,
+        metadata: {},
+      };
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.user.update.mockResolvedValue(mockUser);
+
+      const result = await service.forgotPassword('test@example.com');
+
+      expect(result.message).toContain('If an account exists');
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: expect.objectContaining({
+            metadata: expect.objectContaining({
+              resetToken: expect.any(String),
+              resetExpiry: expect.any(String),
+            }),
+          }),
+        }),
+      );
+      expect(emailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'test@example.com',
+          subject: expect.stringContaining('Reset'),
+        }),
+      );
+    });
+
+    it('should return same message for non-existent user (prevent email enumeration)', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.forgotPassword('nobody@example.com');
+
+      expect(result.message).toContain('If an account exists');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(emailService.send).not.toHaveBeenCalled();
+    });
+
+    it('should return same message for inactive user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'test@example.com', isActive: false });
+
+      const result = await service.forgotPassword('test@example.com');
+
+      expect(result.message).toContain('If an account exists');
+      expect(emailService.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPasswordWithToken', () => {
+    it('should reset password with valid token', async () => {
+      const resetToken = 'valid-reset-token';
+      const hashedToken = await bcrypt.hash(resetToken, 10);
+      const futureExpiry = new Date(Date.now() + 3600000).toISOString();
+
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+        metadata: { resetToken: hashedToken, resetExpiry: futureExpiry },
+      };
+
+      prisma.user.findMany.mockResolvedValue([mockUser]);
+      prisma.user.update.mockResolvedValue(mockUser);
+
+      const result = await service.resetPasswordWithToken(resetToken, 'newPassword123');
+
+      expect(result.message).toContain('Password reset successfully');
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: expect.objectContaining({
+            passwordHash: expect.any(String),
+          }),
+        }),
+      );
+      // Ensure reset token is cleared from metadata
+      const updateCall = prisma.user.update.mock.calls[0][0];
+      expect(updateCall.data.metadata).not.toHaveProperty('resetToken');
+      expect(updateCall.data.metadata).not.toHaveProperty('resetExpiry');
+    });
+
+    it('should throw UnauthorizedException for expired token', async () => {
+      const resetToken = 'expired-token';
+      const hashedToken = await bcrypt.hash(resetToken, 10);
+      const pastExpiry = new Date(Date.now() - 3600000).toISOString();
+
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'user-1',
+          isActive: true,
+          metadata: { resetToken: hashedToken, resetExpiry: pastExpiry },
+        },
+      ]);
+
+      await expect(service.resetPasswordWithToken(resetToken, 'newPassword')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should throw UnauthorizedException for invalid token', async () => {
+      const hashedToken = await bcrypt.hash('real-token', 10);
+      const futureExpiry = new Date(Date.now() + 3600000).toISOString();
+
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'user-1',
+          isActive: true,
+          metadata: { resetToken: hashedToken, resetExpiry: futureExpiry },
+        },
+      ]);
+
+      await expect(service.resetPasswordWithToken('wrong-token', 'newPassword')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should throw UnauthorizedException when no users have reset tokens', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'user-1', isActive: true, metadata: {} },
+        { id: 'user-2', isActive: true, metadata: null },
+      ]);
+
+      await expect(service.resetPasswordWithToken('any-token', 'newPassword')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
 });

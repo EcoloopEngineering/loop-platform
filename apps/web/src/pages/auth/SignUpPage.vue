@@ -57,24 +57,45 @@
         v-model="phone"
         label="Phone (optional)"
         type="tel"
+        mask="(###) ###-####"
+        unmasked-value
+        :rules="[
+          (v: string) => !v || /^\d{10,15}$/.test(v) || 'Enter a valid phone number',
+        ]"
       />
 
       <e-input
         v-model="password"
         label="Password"
-        type="password"
+        :type="showPassword ? 'text' : 'password'"
         :rules="[
           (v: string) => !!v || 'Password is required',
           (v: string) => v.length >= 8 || 'Minimum 8 characters',
         ]"
-      />
+      >
+        <template #append>
+          <q-icon
+            :name="showPassword ? 'visibility_off' : 'visibility'"
+            class="cursor-pointer" color="grey-5" size="20px"
+            @click="showPassword = !showPassword"
+          />
+        </template>
+      </e-input>
 
       <e-input
         v-model="confirmPassword"
         label="Confirm Password"
-        type="password"
+        :type="showConfirmPassword ? 'text' : 'password'"
         :rules="[(v: string) => v === password || 'Passwords do not match']"
-      />
+      >
+        <template #append>
+          <q-icon
+            :name="showConfirmPassword ? 'visibility_off' : 'visibility'"
+            class="cursor-pointer" color="grey-5" size="20px"
+            @click="showConfirmPassword = !showConfirmPassword"
+          />
+        </template>
+      </e-input>
 
       <e-btn type="submit" label="Sign Up" :loading="loading" class="full-width" />
 
@@ -110,6 +131,8 @@ const password = ref('');
 const confirmPassword = ref('');
 const selectedRole = ref('SALES_REP');
 const loading = ref(false);
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
 const error = ref('');
 
 const isEcoloopEmail = computed(() => {

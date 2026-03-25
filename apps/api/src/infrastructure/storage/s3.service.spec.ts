@@ -85,6 +85,34 @@ describe('S3Service', () => {
       const url = service.getPublicUrl('docs/file.pdf');
       expect(url).toBe('https://test-bucket.s3.us-east-1.amazonaws.com/docs/file.pdf');
     });
+
+    it('getObject should return body and contentType', async () => {
+      sendMock.mockResolvedValue({
+        Body: Buffer.from('image-data'),
+        ContentType: 'image/png',
+      });
+
+      const result = await service.getObject('avatars/user-1.png');
+      expect(result.body).toBeDefined();
+      expect(result.contentType).toBe('image/png');
+      expect(sendMock).toHaveBeenCalled();
+    });
+
+    it('getObject should default contentType to application/octet-stream', async () => {
+      sendMock.mockResolvedValue({
+        Body: Buffer.from('data'),
+        ContentType: undefined,
+      });
+
+      const result = await service.getObject('avatars/user-1.bin');
+      expect(result.contentType).toBe('application/octet-stream');
+    });
+
+    it('getObject should propagate S3 errors', async () => {
+      sendMock.mockRejectedValue(new Error('NoSuchKey'));
+
+      await expect(service.getObject('nonexistent.png')).rejects.toThrow('NoSuchKey');
+    });
   });
 
   describe('when NOT configured', () => {
@@ -124,6 +152,10 @@ describe('S3Service', () => {
 
     it('getSignedUrl should throw when not configured', async () => {
       await expect(service.getSignedUrl('test')).rejects.toThrow('S3 not configured');
+    });
+
+    it('getObject should throw when not configured', async () => {
+      await expect(service.getObject('test')).rejects.toThrow('S3 not configured');
     });
   });
 });
