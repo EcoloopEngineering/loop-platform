@@ -19,9 +19,24 @@ export class StageEmailListener {
     private readonly emailService: EmailService,
   ) {}
 
+  private async isNotificationEnabled(eventKey: string): Promise<boolean> {
+    try {
+      const setting = await this.prisma.appSetting.findUnique({ where: { key: 'notifications' } });
+      if (!setting?.value) return true; // enabled by default
+      const prefs = setting.value as Record<string, boolean>;
+      // Check if the event is disabled AND if email channel is disabled
+      if (prefs[eventKey] === false) return false;
+      if (prefs.emailChannel === false) return false;
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
   @OnEvent('lead.stageChanged')
   async handleStageChanged(payload: StageChangedPayload): Promise<void> {
     if (!this.emailService.isConfigured()) return;
+    if (!(await this.isNotificationEnabled('stage_changes'))) return;
 
     const lead = await this.prisma.lead.findUnique({
       where: { id: payload.leadId },

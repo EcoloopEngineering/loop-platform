@@ -10,12 +10,8 @@ interface LeadStageChangedPayload {
   newStage: string;
 }
 
-/** Commission tier percentages */
-const COMMISSION_TIERS = {
-  M1: 0.6,  // 60%
-  M2: 0.25, // 25%
-  M3: 0.15, // 15%
-} as const;
+/** Default commission tier percentages (overridden by AppSetting 'commission') */
+const DEFAULT_TIERS = { M1: 0.6, M2: 0.25, M3: 0.15 };
 
 /** Stages that trigger M1 commission payment */
 const M1_STAGES = ['WON', 'SITE_AUDIT'];
@@ -35,14 +31,30 @@ export class StageCommissionListener {
     private readonly emitter: EventEmitter2,
   ) {}
 
+  private async getTiers(): Promise<{ M1: number; M2: number; M3: number }> {
+    try {
+      const setting = await this.prisma.appSetting.findUnique({ where: { key: 'commission' } });
+      if (setting?.value) {
+        const v = setting.value as any;
+        return {
+          M1: (v.m1 ?? DEFAULT_TIERS.M1 * 100) / 100,
+          M2: (v.m2 ?? DEFAULT_TIERS.M2 * 100) / 100,
+          M3: (v.m3 ?? DEFAULT_TIERS.M3 * 100) / 100,
+        };
+      }
+    } catch { /* use defaults */ }
+    return DEFAULT_TIERS;
+  }
+
   @OnEvent('lead.stageChanged')
   async handleStageChanged(payload: LeadStageChangedPayload): Promise<void> {
     const { leadId, newStage } = payload;
+    const tiers = await this.getTiers();
 
     if (M1_STAGES.includes(newStage)) {
-      await this.createCommissionPayments(leadId, 'M1', COMMISSION_TIERS.M1);
+      await this.createCommissionPayments(leadId, 'M1', tiers.M1);
     } else if (newStage === M2_STAGE) {
-      await this.createCommissionPayments(leadId, 'M2', COMMISSION_TIERS.M2);
+      await this.createCommissionPayments(leadId, 'M2', tiers.M2);
     } else if (newStage === M3_STAGE) {
       await this.createM3IfEligible(leadId);
     }
@@ -145,7 +157,8 @@ export class StageCommissionListener {
         return;
       }
 
-      await this.createCommissionPayments(leadId, 'M3', COMMISSION_TIERS.M3);
+      const tiers = await this.getTiers();
+      await this.createCommissionPayments(leadId, 'M3', tiers.M3);
     } catch (error: any) {
       this.logger.error(
         `Failed to check M3 eligibility for lead ${leadId}: ${error.message}`,

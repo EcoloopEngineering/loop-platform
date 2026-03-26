@@ -62,8 +62,20 @@ export class LeadEventListener {
     private readonly prisma: PrismaService,
   ) {}
 
+  private async isEnabled(eventKey: string): Promise<boolean> {
+    try {
+      const setting = await this.prisma.appSetting.findUnique({ where: { key: 'notifications' } });
+      if (!setting?.value) return true;
+      const prefs = setting.value as Record<string, boolean>;
+      return prefs[eventKey] !== false;
+    } catch {
+      return true;
+    }
+  }
+
   @OnEvent('lead.created')
   async handleLeadCreated(payload: LeadCreatedPayload): Promise<void> {
+    if (!(await this.isEnabled('lead_assigned'))) return;
     this.logger.log(`Lead created event received: ${payload.leadId}`);
 
     await this.notificationService.create({
@@ -77,6 +89,7 @@ export class LeadEventListener {
 
   @OnEvent('lead.stageChanged')
   async handleLeadStageChanged(payload: LeadStageChangedPayload): Promise<void> {
+    if (!(await this.isEnabled('stage_changes'))) return;
     this.logger.log(
       `Lead stage changed: ${payload.leadId} from ${payload.previousStage} to ${payload.newStage}`,
     );
@@ -102,6 +115,7 @@ export class LeadEventListener {
 
   @OnEvent('lead.assigned')
   async handleLeadAssigned(payload: LeadAssignedPayload): Promise<void> {
+    if (!(await this.isEnabled('lead_assigned'))) return;
     this.logger.log(`Lead assigned: ${payload.leadId} to ${payload.assigneeId}`);
 
     await this.notificationService.create({
