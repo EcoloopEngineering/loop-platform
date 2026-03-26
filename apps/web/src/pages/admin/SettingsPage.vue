@@ -299,45 +299,6 @@
     <q-card flat class="settings-card q-mb-lg">
       <q-card-section>
         <div class="section-title q-mb-md">General Preferences</div>
-        <div class="row q-col-gutter-md">
-          <div class="col-12 col-md-4">
-            <q-select
-              v-model="preferences.timezone"
-              :options="timezoneOptions"
-              label="Timezone"
-              outlined
-              dense
-              emit-value
-              map-options
-              class="settings-input"
-            />
-          </div>
-          <div class="col-12 col-md-4">
-            <q-select
-              v-model="preferences.language"
-              :options="languageOptions"
-              label="Default Language"
-              outlined
-              dense
-              emit-value
-              map-options
-              class="settings-input"
-            />
-          </div>
-          <div class="col-12 col-md-4">
-            <q-select
-              v-model="preferences.currency"
-              :options="currencyOptions"
-              label="Currency"
-              outlined
-              dense
-              emit-value
-              map-options
-              class="settings-input"
-            />
-          </div>
-        </div>
-        <q-separator class="q-my-md" />
         <div class="text-weight-medium primary-text q-mb-sm">Display Options</div>
         <q-list>
           <q-item tag="label">
@@ -346,8 +307,7 @@
               <q-item-label caption class="secondary-text">Enable dark theme across the application</q-item-label>
             </q-item-section>
             <q-item-section side>
-              <q-toggle v-model="preferences.darkMode" color="primary" disable />
-              <q-badge color="grey-4" text-color="grey-7" label="Coming soon" class="q-ml-sm" />
+              <q-toggle v-model="preferences.darkMode" color="primary" />
             </q-item-section>
           </q-item>
           <q-item tag="label">
@@ -677,34 +637,10 @@ async function saveCommission() {
 
 // --- General Preferences ---
 const preferences = reactive({
-  timezone: 'America/New_York',
-  language: 'en',
-  currency: 'USD',
-  darkMode: false,
+  darkMode: localStorage.getItem('darkMode') === '1',
   compactView: false,
   autoAssign: true,
 });
-
-const timezoneOptions = [
-  { label: 'Eastern (ET)', value: 'America/New_York' },
-  { label: 'Central (CT)', value: 'America/Chicago' },
-  { label: 'Mountain (MT)', value: 'America/Denver' },
-  { label: 'Pacific (PT)', value: 'America/Los_Angeles' },
-  { label: 'São Paulo (BRT)', value: 'America/Sao_Paulo' },
-  { label: 'UTC', value: 'UTC' },
-];
-
-const languageOptions = [
-  { label: 'English', value: 'en' },
-  { label: 'Spanish', value: 'es' },
-  { label: 'Portuguese', value: 'pt' },
-];
-
-const currencyOptions = [
-  { label: 'USD ($)', value: 'USD' },
-  { label: 'BRL (R$)', value: 'BRL' },
-  { label: 'EUR (€)', value: 'EUR' },
-];
 
 // --- API & Webhooks ---
 const apiBaseUrl = 'http://localhost:3000/api/v1';
@@ -781,8 +717,17 @@ async function saveNotificationPrefs() {
   } catch { /* ignore */ }
 }
 
-// --- Dark mode (disabled for now — needs full CSS variable system) ---
-// watch(() => preferences.darkMode, (val) => { $q.dark.set(val); });
+// --- Dark mode ---
+watch(() => preferences.darkMode, (val) => {
+  $q.dark.set(val);
+  localStorage.setItem('darkMode', val ? '1' : '0');
+});
+
+// --- Compact view ---
+watch(() => preferences.compactView, (val) => {
+  document.body.classList.toggle('compact-view', val);
+  localStorage.setItem('compactView', val ? '1' : '0');
+}, { immediate: true });
 
 // --- Auto-save watchers (debounced) ---
 let prefTimeout: ReturnType<typeof setTimeout>;
@@ -817,11 +762,6 @@ onMounted(async () => {
       commission.m3 = data.commission.m3 ?? commission.m3;
     }
     if (data.preferences) {
-      preferences.timezone = data.preferences.timezone ?? preferences.timezone;
-      preferences.language = data.preferences.language ?? preferences.language;
-      preferences.currency = data.preferences.currency ?? preferences.currency;
-      preferences.darkMode = false; // Dark mode disabled for now
-      $q.dark.set(false);
       preferences.compactView = data.preferences.compactView ?? preferences.compactView;
       preferences.autoAssign = data.preferences.autoAssign ?? preferences.autoAssign;
     }

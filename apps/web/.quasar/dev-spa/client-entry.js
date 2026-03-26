@@ -148,7 +148,9 @@ createQuasarApp(createApp, quasarUserOptions)
       
       import('boot/firebase'),
       
-      import('boot/i18n')
+      import('boot/i18n'),
+      
+      import('boot/dark-mode')
       
     ]).then(bootFiles => {
       const boot = mapFn(bootFiles).filter(entry => typeof entry === 'function')

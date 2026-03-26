@@ -3,7 +3,7 @@ import path from 'node:path';
 
 export default configure(() => {
   return {
-    boot: ['axios', 'firebase', 'i18n'],
+    boot: ['axios', 'firebase', 'i18n', 'dark-mode'],
 
     css: ['app.scss'],
 

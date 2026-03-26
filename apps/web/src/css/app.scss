@@ -90,24 +90,63 @@ $duration-normal: 200ms;
 $duration-slow: 300ms;
 
 // =============================================
+// CSS VARIABLES (Light/Dark mode)
+// =============================================
+
+:root {
+  --bg-page: #{$bg-page};
+  --bg-card: #{$bg-card};
+  --bg-elevated: #{$bg-elevated};
+  --bg-hover: #{$grey-50};
+  --bg-input: #FFFFFF;
+  --text-primary: #{$text-primary};
+  --text-secondary: #{$text-secondary};
+  --text-tertiary: #{$text-tertiary};
+  --border-light: #{$border-light};
+  --border-default: #{$border-default};
+  --border-strong: #{$border-strong};
+  --shadow-xs: #{$shadow-xs};
+  --shadow-sm: #{$shadow-sm};
+  --shadow-md: #{$shadow-md};
+}
+
+.body--dark {
+  --bg-page: #0F1117;
+  --bg-card: #1A1D27;
+  --bg-elevated: #22262F;
+  --bg-hover: #262A34;
+  --bg-input: #1A1D27;
+  --text-primary: #F1F3F5;
+  --text-secondary: #9CA3AF;
+  --text-tertiary: #6B7280;
+  --border-light: #2D3140;
+  --border-default: #374151;
+  --border-strong: #4B5563;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+// =============================================
 // GLOBAL STYLES
 // =============================================
 
 body {
   font-family: $font-family;
-  background-color: $bg-page;
-  color: $text-primary;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
   font-size: $text-base;
+  transition: background-color 300ms ease, color 300ms ease;
 }
 
 // === Typography ===
 h1, h2, h3, h4, h5, h6 {
   font-family: $font-family;
   font-weight: 600;
-  color: $text-primary;
+  color: var(--text-primary);
   letter-spacing: -0.01em;
   line-height: 1.3;
 }
@@ -131,14 +170,14 @@ a {
 // =============================================
 
 .q-card {
-  background: $bg-card;
-  border: 1px solid $border-light;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: $radius-lg;
-  box-shadow: $shadow-xs;
+  box-shadow: var(--shadow-xs);
   transition: all $duration-normal $ease-default;
 
   &:hover {
-    box-shadow: $shadow-sm;
+    box-shadow: var(--shadow-sm);
   }
 }
 
@@ -148,10 +187,11 @@ a {
 
 .q-field--outlined .q-field__control {
   border-radius: $radius-md;
+  background: var(--bg-input);
   transition: border-color $duration-fast $ease-default, box-shadow $duration-fast $ease-default;
 
   &:hover {
-    border-color: $grey-400;
+    border-color: var(--border-strong);
   }
 
   &:focus-within {
@@ -161,8 +201,12 @@ a {
 }
 
 .q-field__label {
-  color: $text-tertiary;
+  color: var(--text-tertiary);
   font-size: $text-sm;
+}
+
+.q-field__native, .q-field__input {
+  color: var(--text-primary) !important;
 }
 
 // =============================================
@@ -170,7 +214,7 @@ a {
 // =============================================
 
 .q-separator {
-  background: $border-light;
+  background: var(--border-light);
 }
 
 // =============================================
@@ -241,28 +285,28 @@ a {
 // =============================================
 
 .stat-card {
-  background: $bg-card;
-  border: 1px solid $border-light;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: $radius-lg;
   padding: $space-4;
   transition: all $duration-normal $ease-default;
 
   &:hover {
     border-color: rgba($primary, 0.2);
-    box-shadow: $shadow-sm;
+    box-shadow: var(--shadow-sm);
   }
 
   .stat-value {
     font-size: 28px;
     font-weight: 700;
-    color: $text-primary;
+    color: var(--text-primary);
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
 
   .stat-label {
     font-size: $text-xs;
-    color: $text-tertiary;
+    color: var(--text-tertiary);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -352,24 +396,83 @@ a {
     font-size: $text-xs;
     font-weight: 600;
     text-transform: uppercase;
-    color: $text-tertiary;
+    color: var(--text-tertiary);
     letter-spacing: 0.04em;
-    border-bottom: 2px solid $border-default;
+    border-bottom: 2px solid var(--border-default);
     padding: $space-3 $space-4;
+    background: var(--bg-card);
   }
 
   tbody tr {
     transition: background $duration-fast $ease-default;
 
     &:hover {
-      background: $grey-50;
+      background: var(--bg-hover);
     }
 
     td {
       font-size: $text-sm;
-      border-bottom: 1px solid $border-light;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-light);
       padding: $space-3 $space-4;
     }
+  }
+}
+
+// =============================================
+// DARK MODE — Quasar component overrides
+// =============================================
+
+.body--dark {
+  .q-header, .q-footer {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  .q-drawer {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  .q-page {
+    background: var(--bg-page) !important;
+  }
+
+  .q-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .q-menu {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+  }
+
+  .q-dialog__inner > .q-card {
+    background: var(--bg-elevated);
+  }
+
+  .q-tab-panel {
+    background: transparent;
+  }
+
+  .q-tabs {
+    .q-tab {
+      color: var(--text-secondary);
+      &.q-tab--active { color: $primary; }
+    }
+  }
+
+  .q-toggle__inner--falsy .q-toggle__track {
+    background: var(--border-strong) !important;
+  }
+
+  .q-banner {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+  }
+
+  .q-select__dropdown-icon {
+    color: var(--text-tertiary);
   }
 }
 
@@ -405,6 +508,32 @@ a {
 
 .q-notify {
   border-radius: $radius-md;
+}
+
+// =============================================
+// COMPACT VIEW
+// =============================================
+
+body.compact-view {
+  .q-table tbody td {
+    padding: $space-1 $space-3 !important;
+    font-size: $text-xs;
+  }
+
+  .q-table thead th {
+    padding: $space-1 $space-3;
+  }
+
+  .q-item {
+    min-height: 36px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .stat-card {
+    padding: $space-2 $space-3;
+    .stat-value { font-size: 22px; }
+  }
 }
 
 // =============================================
