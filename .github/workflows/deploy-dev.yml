@@ -105,7 +105,7 @@ jobs:
 
           echo "--- Running Prisma db push ---"
           cd \$NEW_RELEASE/apps/api
-          npx prisma db push --accept-data-loss --skip-generate
+          prisma db push --accept-data-loss --skip-generate
 
           echo "--- Switching release (atomic) ---"
           ln -sfn \$NEW_RELEASE \$CURRENT_LINK
