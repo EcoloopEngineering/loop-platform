@@ -42,34 +42,37 @@ export default route(function () {
   });
 
   Router.beforeEach(async (to, _from, next) => {
-    const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
-
     // Auth pages are always accessible
     if (to.path.startsWith('/auth')) return next();
 
-    // Ensure user is loaded before checking roles
+    // Public pages (no auth required)
+    const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);
+
     const userStore = useUserStore();
     const authStore = useAuthStore();
 
     // Restore session from persisted state
     authStore.restoreSession();
 
-    if (!userStore.user && authStore.isAuthenticated) {
+    // Redirect to login if not authenticated
+    if (!authStore.isAuthenticated) {
+      if (requiresAuth) {
+        return next({ name: 'login', query: { redirect: to.fullPath } });
+      }
+      return next();
+    }
+
+    // Load user if needed
+    if (!userStore.user) {
       try { await userStore.loadUser(); } catch { /* ignore */ }
     }
-
-    // Check JWT auth FIRST for protected routes
-    if (requiresAuth && !authStore.isAuthenticated) {
-      return next({ name: 'login', query: { redirect: to.fullPath } });
-    }
-
-    const role = userStore.user?.role ?? 'SALES_REP';
 
     if (!requiresAuth) {
       return next();
     }
 
-    // Role check (userStore already loaded above)
+    // Role check
+    const role = userStore.user?.role ?? 'SALES_REP';
     if (!canAccessRoute(role, to.path)) {
       const homeRoute = ['ADMIN', 'MANAGER'].includes(role) ? '/crm' : '/home';
       return next(homeRoute);

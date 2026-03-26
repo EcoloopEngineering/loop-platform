@@ -6,7 +6,7 @@
     outlined
     :dense="size !== 'lg'"
     :rules="rules"
-    lazy-rules
+    lazy-rules="ondemand"
     :class="['e-input', `e-input--${size}`]"
   >
     <template v-for="(_, name) in $slots" #[name]="slotData">

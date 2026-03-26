@@ -1,8 +1,9 @@
 <template>
   <div>
-    <h5 class="q-mt-none q-mb-lg text-weight-bold text-center" style="color: #1A1A2E">Create Account</h5>
+    <h5 class="signup-title">Create Account</h5>
+    <p class="signup-subtitle">Join the ecoLoop platform</p>
 
-    <q-form @submit.prevent="handleSignUp" class="q-gutter-md">
+    <q-form @submit.prevent="handleSignUp" class="signup-form">
       <e-input
         v-model="name"
         label="Full Name"
@@ -14,34 +15,7 @@
         label="Email"
         type="email"
         :rules="[(v: string) => !!v || 'Email is required']"
-        @update:model-value="onEmailChange"
       />
-
-      <!-- Role selection: only for @ecoloop.us emails -->
-      <q-slide-transition>
-        <div v-if="isEcoloopEmail">
-          <div class="text-caption text-grey-7 q-mb-xs">What's your role?</div>
-          <div class="row q-gutter-sm">
-            <q-btn
-              v-for="opt in roleOptions"
-              :key="opt.value"
-              :outline="selectedRole !== opt.value"
-              :unelevated="selectedRole === opt.value"
-              :color="selectedRole === opt.value ? 'primary' : 'grey-5'"
-              :text-color="selectedRole === opt.value ? 'white' : 'grey-8'"
-              no-caps
-              class="col role-btn"
-              @click="selectedRole = opt.value"
-            >
-              <div class="column items-center q-pa-xs">
-                <q-icon :name="opt.icon" size="24px" class="q-mb-xs" />
-                <span class="text-weight-medium" style="font-size: 13px">{{ opt.label }}</span>
-                <span class="text-caption" style="font-size: 10px; opacity: 0.8">{{ opt.description }}</span>
-              </div>
-            </q-btn>
-          </div>
-        </div>
-      </q-slide-transition>
 
       <!-- Referral info for external users -->
       <q-slide-transition>
@@ -59,6 +33,8 @@
         type="tel"
         mask="(###) ###-####"
         unmasked-value
+        inputmode="numeric"
+        @keypress="onlyNumbers"
         :rules="[
           (v: string) => !v || /^\d{10,15}$/.test(v) || 'Enter a valid phone number',
         ]"
@@ -129,7 +105,6 @@ const email = ref('');
 const phone = ref('');
 const password = ref('');
 const confirmPassword = ref('');
-const selectedRole = ref('SALES_REP');
 const loading = ref(false);
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
@@ -139,15 +114,8 @@ const isEcoloopEmail = computed(() => {
   return email.value.toLowerCase().endsWith('@ecoloop.us');
 });
 
-const roleOptions = [
-  { label: 'Sales Rep', value: 'SALES_REP', icon: 'sell', description: 'Close deals' },
-  { label: 'Project Manager', value: 'MANAGER', icon: 'engineering', description: 'Manage installs' },
-];
-
-function onEmailChange() {
-  if (!isEcoloopEmail.value) {
-    selectedRole.value = 'SALES_REP';
-  }
+function onlyNumbers(evt: KeyboardEvent) {
+  if (!/\d/.test(evt.key)) evt.preventDefault();
 }
 
 async function handleSignUp() {
@@ -163,7 +131,7 @@ async function handleSignUp() {
     await authStore.signUp(email.value, password.value, {
       name: name.value,
       phone: phone.value || undefined,
-      role: isEcoloopEmail.value ? selectedRole.value : 'SALES_REP',
+      role: 'SALES_REP',
       inviteCode,
     });
     router.push('/home');
@@ -176,13 +144,31 @@ async function handleSignUp() {
 </script>
 
 <style lang="scss" scoped>
-.text-hint {
-  color: #9CA3AF;
+.signup-title {
+  margin: 0 0 4px 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  text-align: center;
+  letter-spacing: -0.02em;
 }
 
-.role-btn {
-  border-radius: 12px !important;
-  padding: 8px !important;
-  min-height: 80px;
+.signup-subtitle {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  color: #9CA3AF;
+  text-align: center;
 }
+
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.text-hint {
+  color: #9CA3AF;
+  font-size: 14px;
+}
+
 </style>

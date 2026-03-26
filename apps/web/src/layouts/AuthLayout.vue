@@ -49,6 +49,7 @@
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   padding: 32px;
+  overflow: hidden;
 }
 
 .auth-footer {
@@ -56,5 +57,21 @@
   margin-top: 24px;
   font-size: 12px;
   color: #9CA3AF;
+}
+
+@media (max-height: 700px) {
+  .auth-container {
+    padding: 12px 16px;
+  }
+  .auth-card {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 400px) {
+  .auth-card {
+    padding: 20px;
+    border-radius: 12px;
+  }
 }
 </style>
