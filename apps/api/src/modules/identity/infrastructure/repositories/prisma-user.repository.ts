@@ -93,7 +93,13 @@ export class PrismaUserRepository implements UserRepositoryPort {
     ]);
 
     return {
-      data: users.map((u) => new UserEntity(u as any)),
+      data: users.map((u) => {
+        const entity = new UserEntity(u as any);
+        // Preserve relations for API response
+        (entity as any).referralsReceived = (u as any).referralsReceived;
+        (entity as any)._count = (u as any)._count;
+        return entity;
+      }),
       total,
     };
   }
