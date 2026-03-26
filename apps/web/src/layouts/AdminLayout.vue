@@ -301,11 +301,20 @@ const adminItems = computed(() =>
 
 .active-item {
   color: #00897B !important;
-  background: #E0F2F1 !important;
+  background: rgba(0, 137, 123, 0.1) !important;
   font-weight: 600;
 
   :deep(.q-icon) {
     color: #00897B;
+  }
+}
+
+.body--dark .active-item {
+  color: #00E5C8 !important;
+  background: rgba(0, 137, 123, 0.12) !important;
+
+  :deep(.q-icon) {
+    color: #00E5C8;
   }
 }
 </style>
