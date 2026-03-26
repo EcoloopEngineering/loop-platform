@@ -13,11 +13,51 @@ jobs:
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build shared
+        run: pnpm --filter @loop/shared build
+
+      - name: Build API
+        run: |
+          cd apps/api
+          npx prisma generate
+          npx nest build
+
+      - name: Build Frontend
+        run: |
+          cd apps/web
+          API_URL=http://44.202.51.163 npx quasar build
+
+      - name: Package release
+        run: |
+          tar czf release.tar.gz \
+            apps/api/dist/ \
+            apps/api/prisma/ \
+            apps/api/package.json \
+            apps/web/dist/spa/ \
+            packages/shared/dist/ \
+            packages/shared/package.json \
+            package.json \
+            pnpm-workspace.yaml \
+            pnpm-lock.yaml
 
       - name: Setup SSH key
         run: |
@@ -27,70 +67,64 @@ jobs:
           echo "StrictHostKeyChecking no" > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
-      - name: Deploy with zero downtime
+      - name: Deploy to EC2
         env:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'bash -s' << 'DEPLOY'
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+
+          # Upload release
+          scp -i ~/.ssh/deploy_key release.tar.gz ubuntu@$HOST:/tmp/release.tar.gz
+
+          ssh -i ~/.ssh/deploy_key ubuntu@$HOST "bash -s" << DEPLOY
           set -e
 
           APP_DIR=/home/ubuntu/loop-platform
-          RELEASES_DIR=$APP_DIR/releases
-          CURRENT_LINK=$APP_DIR/current
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          NEW_RELEASE=$RELEASES_DIR/$TIMESTAMP
+          RELEASES_DIR=\$APP_DIR/releases
+          CURRENT_LINK=\$APP_DIR/current
+          NEW_RELEASE=\$RELEASES_DIR/$TIMESTAMP
 
-          echo "=== Preparing directories ==="
-          mkdir -p $RELEASES_DIR
-          mkdir -p $NEW_RELEASE
+          echo "=== Preparing release directory ==="
+          mkdir -p \$NEW_RELEASE
 
-          echo "=== Cloning repo ==="
-          git clone -b develop --single-branch https://github.com/${{ github.repository }}.git $NEW_RELEASE
-
-          cd $NEW_RELEASE
+          echo "=== Extracting release ==="
+          tar xzf /tmp/release.tar.gz -C \$NEW_RELEASE
+          rm /tmp/release.tar.gz
 
           echo "=== Copying env files ==="
-          ENV_DIR=$APP_DIR/envs
-          if [ ! -f "$ENV_DIR/.env.api" ]; then
-            echo "ERROR: $ENV_DIR/.env.api not found!"
-            echo "Create it on the server: mkdir -p $ENV_DIR && nano $ENV_DIR/.env.api"
+          ENV_DIR=\$APP_DIR/envs
+          if [ ! -f "\$ENV_DIR/.env.api" ]; then
+            echo "ERROR: \$ENV_DIR/.env.api not found!"
             exit 1
           fi
-          cp $ENV_DIR/.env.api apps/api/.env
-          cp $ENV_DIR/.env.web apps/web/.env 2>/dev/null || true
+          cp \$ENV_DIR/.env.api \$NEW_RELEASE/apps/api/.env
+          cp \$ENV_DIR/.env.web \$NEW_RELEASE/apps/web/.env 2>/dev/null || true
 
-          echo "=== Installing dependencies ==="
-          pnpm install
+          echo "=== Installing production dependencies ==="
+          cd \$NEW_RELEASE
+          pnpm install --prod
 
-          echo "=== Building shared ==="
-          pnpm --filter @loop/shared build
-
-          echo "=== Building API ==="
-          cd apps/api
+          echo "=== Running Prisma migrations ==="
+          cd \$NEW_RELEASE/apps/api
           npx prisma generate
-          npx prisma db push
-          npx nest build
-
-          echo "=== Building Frontend ==="
-          cd ../web
-          API_URL=http://44.202.51.163 npx quasar build
+          npx prisma db push --accept-data-loss
 
           echo "=== Switching release (atomic) ==="
-          ln -sfn $NEW_RELEASE $CURRENT_LINK
+          ln -sfn \$NEW_RELEASE \$CURRENT_LINK
 
           echo "=== Restarting API with PM2 ==="
-          cd $CURRENT_LINK/apps/api
+          cd \$CURRENT_LINK/apps/api
           pm2 delete api || true
-          pm2 start dist/main.js --name api --env production
+          pm2 start dist/main.js --name api
           pm2 save
 
           echo "=== Deploying Frontend ==="
           sudo rm -rf /var/www/html/*
-          sudo cp -r $CURRENT_LINK/apps/web/dist/spa/* /var/www/html/
+          sudo cp -r \$CURRENT_LINK/apps/web/dist/spa/* /var/www/html/
           sudo chown -R www-data:www-data /var/www/html/
 
           echo "=== Cleaning old releases ==="
-          ls -dt $RELEASES_DIR/* | tail -n +6 | xargs rm -rf
+          ls -dt \$RELEASES_DIR/* | tail -n +6 | xargs rm -rf 2>/dev/null || true
 
           echo "=== Deploy finished ==="
           DEPLOY
