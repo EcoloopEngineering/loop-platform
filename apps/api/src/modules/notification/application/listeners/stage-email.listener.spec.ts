@@ -57,7 +57,7 @@ describe('StageEmailListener', () => {
     await listener.handleStageChanged({
       leadId: 'lead-1',
       customerName: 'John',
-      previousStage: 'SIT',
+      previousStage: 'CONNECTED',
       newStage: 'INSTALL_READY',
     });
 
@@ -76,7 +76,7 @@ describe('StageEmailListener', () => {
     await listener.handleStageChanged({
       leadId: 'lead-1',
       customerName: 'John',
-      previousStage: 'PENDING_SIGNATURE',
+      previousStage: 'DESIGN_READY',
       newStage: 'WON',
     });
 
@@ -97,17 +97,17 @@ describe('StageEmailListener', () => {
     );
   });
 
-  it('should not send any email for LOST stage', async () => {
+  it('should send generic stage email for non-special stages', async () => {
     prisma.lead.findUnique.mockResolvedValue(mockLead);
 
     await listener.handleStageChanged({
       leadId: 'lead-1',
       customerName: 'John',
-      previousStage: 'PENDING_SIGNATURE',
-      newStage: 'LOST',
+      previousStage: 'DESIGN_READY',
+      newStage: 'SITE_AUDIT',
     });
 
-    expect(emailService.send).not.toHaveBeenCalled();
+    expect(emailService.send).toHaveBeenCalled();
   });
 
   it('should send generic stage email to owner and PM for other stages', async () => {

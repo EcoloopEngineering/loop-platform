@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 
 // Domain services
 import { LeadScoringDomainService } from './domain/services/lead-scoring.domain-service';
+import { LeadTransitionService } from './domain/services/lead-transition.service';
 
 // Command handlers
 import { CreateLeadHandler } from './application/commands/create-lead.handler';
+import { AutoAdvanceInstallsHandler } from './application/commands/auto-advance-installs.handler';
 
 // Query handlers
 import { ListLeadsHandler } from './application/queries/list-leads.handler';
@@ -20,6 +23,9 @@ import { CUSTOMER_REPOSITORY } from './application/ports/customer.repository.por
 import { PrismaLeadRepository } from './infrastructure/repositories/prisma-lead.repository';
 import { PrismaCustomerRepository } from './infrastructure/repositories/prisma-customer.repository';
 
+// Listeners
+import { StageAdvanceListener } from './application/listeners/stage-advance.listener';
+
 // Controllers
 import { LeadsController } from './presentation/leads.controller';
 import { CustomersController } from './presentation/customers.controller';
@@ -28,15 +34,19 @@ import { SalesRabbitWebhookController } from './presentation/salesrabbit-webhook
 
 const CommandHandlers = [CreateLeadHandler];
 const QueryHandlers = [ListLeadsHandler, GetPipelineViewHandler];
+const CronHandlers = [AutoAdvanceInstallsHandler];
+const Listeners = [StageAdvanceListener, LeadTransitionService];
 
 @Module({
-  imports: [CqrsModule],
+  imports: [CqrsModule, ScheduleModule.forRoot()],
   controllers: [LeadsController, CustomersController, PipelineController, SalesRabbitWebhookController],
   providers: [
     PrismaService,
     LeadScoringDomainService,
     ...CommandHandlers,
     ...QueryHandlers,
+    ...CronHandlers,
+    ...Listeners,
     {
       provide: LEAD_REPOSITORY,
       useClass: PrismaLeadRepository,

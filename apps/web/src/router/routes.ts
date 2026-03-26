@@ -138,6 +138,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/crm/PipelinePage.vue'),
       },
       {
+        path: 'tasks',
+        name: 'crm-tasks',
+        component: () => import('@/pages/admin/TasksPage.vue'),
+        meta: { requiresAuth: true, roles: ['ADMIN', 'MANAGER'] },
+      },
+      {
         path: 'customers',
         name: 'crm-customers',
         component: () => import('@/pages/crm/CustomerListPage.vue'),
@@ -147,6 +153,12 @@ const routes: RouteRecordRaw[] = [
         name: 'crm-customer-detail',
         component: () => import('@/pages/crm/CustomerDetailPage.vue'),
         props: true,
+      },
+      {
+        path: 'financiers',
+        name: 'crm-financiers',
+        component: () => import('@/pages/admin/FinanciersPage.vue'),
+        meta: { requiresAuth: true, roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'leads/:id',
@@ -169,9 +181,21 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/admin/ScoreboardPage.vue'),
       },
       {
+        path: 'rewards',
+        name: 'admin-rewards',
+        component: () => import('@/pages/admin/RewardsPage.vue'),
+        meta: { requiresAuth: true, roles: ['ADMIN', 'MANAGER', 'SALES_REP'] },
+      },
+      {
         path: 'users',
         name: 'admin-users',
         component: () => import('@/pages/admin/UsersPage.vue'),
+      },
+      {
+        path: 'commissions',
+        name: 'admin-commissions',
+        component: () => import('@/pages/admin/CommissionPaymentsPage.vue'),
+        meta: { requiresAuth: true, roles: ['ADMIN'] },
       },
       {
         path: 'notifications',

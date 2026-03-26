@@ -178,10 +178,10 @@ export class DocumentGenerationController {
         attachments: [{ filename: fileName, content: pdfBuffer, contentType: 'application/pdf' }],
       });
 
-      // Move to ENG_DESIGN stage
+      // Move to ENGINEERING stage
       await this.prisma.lead.update({
         where: { id },
-        data: { currentStage: 'ENGINEERING_DESIGN' },
+        data: { currentStage: 'ENGINEERING' },
       });
     }
 

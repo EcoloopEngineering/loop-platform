@@ -186,6 +186,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue';
 interface LeadData {
   id: string;
   currentStage: string;
+  status?: string;
   source: string;
   createdAt: string;
   customer?: { firstName: string; lastName: string; email: string };
@@ -204,10 +205,18 @@ const loading = ref(true);
 const leads = ref<LeadData[]>([]);
 const recentActivity = ref<Activity[]>([]);
 
+const PM_AND_BEYOND_STAGES = [
+  'SITE_AUDIT', 'PROGRESS_REVIEW', 'NTP', 'ENGINEERING', 'PERMIT_AND_ICE', 'FINAL_APPROVAL',
+  'INSTALL_READY', 'INSTALL', 'COMMISSION', 'SITE_COMPLETE', 'INITIAL_SUBMISSION_AND_INSPECTION',
+  'WAITING_FOR_PTO', 'FINAL_SUBMISSION', 'CUSTOMER_SUCCESS',
+  'FIN_TICKETS_OPEN', 'FIN_IN_PROGRESS', 'FIN_POST_INITIAL_NURTURE', 'FIN_TICKETS_CLOSED',
+  'MAINT_TICKETS_OPEN', 'MAINT_IN_PROGRESS', 'MAINT_POST_INSTALL_NURTURE', 'MAINT_TICKETS_CLOSED',
+];
+
 const totalLeads = computed(() => leads.value.length);
-const wonLeads = computed(() => leads.value.filter((l) => l.currentStage === 'WON').length);
-const lostLeads = computed(() => leads.value.filter((l) => l.currentStage === 'LOST').length);
-const activeLeads = computed(() => leads.value.filter((l) => l.currentStage !== 'WON' && l.currentStage !== 'LOST').length);
+const wonLeads = computed(() => leads.value.filter((l) => l.currentStage === 'WON' || PM_AND_BEYOND_STAGES.includes(l.currentStage)).length);
+const lostLeads = computed(() => leads.value.filter((l) => l.status === 'LOST').length);
+const activeLeads = computed(() => leads.value.filter((l) => l.status !== 'LOST' && l.status !== 'CANCELLED' && l.currentStage !== 'WON' && !PM_AND_BEYOND_STAGES.includes(l.currentStage)).length);
 const conversionRate = computed(() => {
   if (totalLeads.value === 0) return 0;
   return Math.round((wonLeads.value / totalLeads.value) * 100);
@@ -252,14 +261,39 @@ const metricCards = computed(() => [
 ]);
 
 const STAGE_COLORS: Record<string, { color: string; qColor: string }> = {
+  // Closer
   NEW_LEAD: { color: '#4CAF50', qColor: 'positive' },
-  REQUEST_DESIGN: { color: '#2196F3', qColor: 'blue' },
+  ALREADY_CALLED: { color: '#8BC34A', qColor: 'light-green' },
+  CONNECTED: { color: '#2196F3', qColor: 'blue' },
+  REQUEST_DESIGN: { color: '#03A9F4', qColor: 'light-blue' },
   DESIGN_IN_PROGRESS: { color: '#FF9800', qColor: 'orange' },
   DESIGN_READY: { color: '#9C27B0', qColor: 'purple' },
-  PENDING_SIGNATURE: { color: '#F44336', qColor: 'red' },
-  SIT: { color: '#607D8B', qColor: 'blue-grey' },
   WON: { color: '#00897B', qColor: 'teal' },
-  LOST: { color: '#EF4444', qColor: 'red-6' },
+  // PM
+  SITE_AUDIT: { color: '#FF5722', qColor: 'deep-orange' },
+  PROGRESS_REVIEW: { color: '#E91E63', qColor: 'pink' },
+  NTP: { color: '#9C27B0', qColor: 'purple' },
+  ENGINEERING: { color: '#3F51B5', qColor: 'indigo' },
+  PERMIT_AND_ICE: { color: '#2196F3', qColor: 'blue' },
+  FINAL_APPROVAL: { color: '#00BCD4', qColor: 'cyan' },
+  INSTALL_READY: { color: '#009688', qColor: 'teal' },
+  INSTALL: { color: '#4CAF50', qColor: 'positive' },
+  COMMISSION: { color: '#8BC34A', qColor: 'light-green' },
+  SITE_COMPLETE: { color: '#CDDC39', qColor: 'lime' },
+  INITIAL_SUBMISSION_AND_INSPECTION: { color: '#FFC107', qColor: 'amber' },
+  WAITING_FOR_PTO: { color: '#FF9800', qColor: 'orange' },
+  FINAL_SUBMISSION: { color: '#FF5722', qColor: 'deep-orange' },
+  CUSTOMER_SUCCESS: { color: '#4CAF50', qColor: 'positive' },
+  // Finance
+  FIN_TICKETS_OPEN: { color: '#2196F3', qColor: 'blue' },
+  FIN_IN_PROGRESS: { color: '#FF9800', qColor: 'orange' },
+  FIN_POST_INITIAL_NURTURE: { color: '#9C27B0', qColor: 'purple' },
+  FIN_TICKETS_CLOSED: { color: '#4CAF50', qColor: 'positive' },
+  // Maintenance
+  MAINT_TICKETS_OPEN: { color: '#2196F3', qColor: 'blue' },
+  MAINT_IN_PROGRESS: { color: '#FF9800', qColor: 'orange' },
+  MAINT_POST_INSTALL_NURTURE: { color: '#9C27B0', qColor: 'purple' },
+  MAINT_TICKETS_CLOSED: { color: '#4CAF50', qColor: 'positive' },
 };
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -306,7 +340,7 @@ const sourceBreakdown = computed(() => {
 const quickStats = computed(() => [
   { label: 'Active leads', value: activeLeads.value, icon: 'person', color: 'primary' },
   { label: 'In design', value: leads.value.filter((l) => ['DESIGN_IN_PROGRESS', 'REQUEST_DESIGN'].includes(l.currentStage)).length, icon: 'architecture', color: 'orange' },
-  { label: 'Pending signature', value: leads.value.filter((l) => l.currentStage === 'PENDING_SIGNATURE').length, icon: 'draw', color: 'red' },
+  { label: 'Lost', value: lostLeads.value, icon: 'cancel', color: 'red' },
   { label: 'This week', value: leads.value.filter((l) => isThisWeek(l.createdAt)).length, icon: 'calendar_today', color: 'blue' },
   { label: 'Avg score', value: avgScore.value, icon: 'speed', color: 'purple' },
 ]);

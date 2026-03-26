@@ -35,6 +35,22 @@
               >
                 {{ formatStage(lead.currentStage) }}
               </q-badge>
+              <q-badge
+                v-if="lead.status === 'LOST'"
+                color="red"
+                text-color="white"
+                class="stage-badge"
+              >
+                LOST
+              </q-badge>
+              <q-badge
+                v-if="lead.status === 'CANCELLED'"
+                color="grey-6"
+                text-color="white"
+                class="stage-badge"
+              >
+                CANCELLED
+              </q-badge>
               <q-badge v-if="lead.source" outline color="grey-6" class="source-badge">
                 {{ formatSource(lead.source) }}
               </q-badge>
@@ -61,6 +77,15 @@
                     <q-item clickable v-close-popup @click="onQuickAction('email')">
                       <q-item-section avatar><q-icon name="forward_to_inbox" size="18px" /></q-item-section>
                       <q-item-section>Send Email</q-item-section>
+                    </q-item>
+                    <q-separator />
+                    <q-item v-if="lead.status !== 'LOST'" clickable v-close-popup @click="showLostDialog = true">
+                      <q-item-section avatar><q-icon name="cancel" color="red" size="18px" /></q-item-section>
+                      <q-item-section class="text-red">Mark as Lost</q-item-section>
+                    </q-item>
+                    <q-item v-if="lead.status !== 'CANCELLED'" clickable v-close-popup @click="showCancelledDialog = true">
+                      <q-item-section avatar><q-icon name="block" color="grey-6" size="18px" /></q-item-section>
+                      <q-item-section class="text-grey-7">Mark as Cancelled</q-item-section>
                     </q-item>
                   </q-list>
                 </q-menu>
@@ -94,6 +119,34 @@
                 <q-card-actions align="right" class="q-pa-md">
                   <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
                   <q-btn unelevated no-caps label="Generate CAP" color="purple" :loading="generatingDoc" @click="generateCAP" style="border-radius: 10px" />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
+
+            <!-- Mark as Lost Dialog -->
+            <q-dialog v-model="showLostDialog" persistent>
+              <q-card style="min-width: 420px; border-radius: 16px">
+                <q-card-section><div class="text-h6 text-weight-bold">Mark as Lost</div></q-card-section>
+                <q-card-section class="q-pt-none">
+                  <q-input v-model="lostReason" label="Reason for losing this lead" type="textarea" outlined autogrow />
+                </q-card-section>
+                <q-card-actions align="right" class="q-pa-md">
+                  <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
+                  <q-btn unelevated no-caps label="Mark as Lost" color="red" :loading="markingStatus" @click="markAsLost" style="border-radius: 10px" />
+                </q-card-actions>
+              </q-card>
+            </q-dialog>
+
+            <!-- Mark as Cancelled Dialog -->
+            <q-dialog v-model="showCancelledDialog" persistent>
+              <q-card style="min-width: 420px; border-radius: 16px">
+                <q-card-section><div class="text-h6 text-weight-bold">Mark as Cancelled</div></q-card-section>
+                <q-card-section class="q-pt-none">
+                  <q-input v-model="cancelledReason" label="Reason for cancellation" type="textarea" outlined autogrow />
+                </q-card-section>
+                <q-card-actions align="right" class="q-pa-md">
+                  <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
+                  <q-btn unelevated no-caps label="Mark as Cancelled" color="grey-7" :loading="markingStatus" @click="markAsCancelled" style="border-radius: 10px" />
                 </q-card-actions>
               </q-card>
             </q-dialog>
@@ -289,6 +342,7 @@
           >
             <q-tab name="activity" label="Activity" />
             <q-tab name="notes" label="Notes" />
+            <q-tab name="tasks" label="Tasks" />
             <q-tab name="files" label="Files" />
             <q-tab name="commission" label="Commission" />
           </q-tabs>
@@ -373,6 +427,48 @@
                 <!-- View mode -->
                 <div v-else class="text-body2 text-grey-8 note-body">{{ note.body }}</div>
                 <div v-if="note.editedAt" class="text-caption text-grey-4 q-mt-xs" style="font-size: 10px">(edited)</div>
+              </div>
+            </q-tab-panel>
+
+            <!-- Tasks tab -->
+            <q-tab-panel name="tasks">
+              <div v-if="leadTasks.length === 0" class="text-center text-grey-5 q-pa-lg">
+                <q-icon name="task_alt" size="48px" color="grey-3" />
+                <div class="q-mt-sm">No tasks for this lead yet.</div>
+              </div>
+              <div v-else>
+                <q-list separator>
+                  <q-item v-for="task in leadTasks" :key="task.id">
+                    <q-item-section avatar>
+                      <q-icon :name="task.status === 'COMPLETED' ? 'check_circle' : 'radio_button_unchecked'"
+                              :color="task.status === 'COMPLETED' ? 'positive' : 'grey-4'" size="24px" />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label :class="task.status === 'COMPLETED' ? 'text-strike text-grey-5' : ''">
+                        {{ task.title }}
+                      </q-item-label>
+                      <q-item-label caption>
+                        {{ task.assignee ? `${task.assignee.firstName} ${task.assignee.lastName}` : 'Unassigned' }}
+                        <span v-if="task.dueDate"> · Due {{ new Date(task.dueDate).toLocaleDateString() }}</span>
+                      </q-item-label>
+                      <!-- Subtasks -->
+                      <div v-if="task.subtasks?.length" class="q-mt-xs q-ml-md">
+                        <div v-for="sub in task.subtasks" :key="sub.id" class="row items-center q-mb-xs">
+                          <q-icon :name="sub.status === 'COMPLETED' ? 'check_box' : 'check_box_outline_blank'"
+                                  :color="sub.status === 'COMPLETED' ? 'positive' : 'grey-4'" size="18px" class="q-mr-xs" />
+                          <span class="text-caption" :class="sub.status === 'COMPLETED' ? 'text-strike text-grey-5' : ''">{{ sub.title }}</span>
+                        </div>
+                      </div>
+                    </q-item-section>
+                    <q-item-section side>
+                      <q-badge :color="task.status === 'COMPLETED' ? 'positive' : task.status === 'IN_PROGRESS' ? 'orange' : 'blue'"
+                               :label="task.status.replace('_', ' ')" />
+                    </q-item-section>
+                    <q-item-section side v-if="task.status !== 'COMPLETED' && task.status !== 'CANCELLED'">
+                      <q-btn flat dense icon="check" color="positive" size="sm" @click="completeTask(task.id)" />
+                    </q-item-section>
+                  </q-item>
+                </q-list>
               </div>
             </q-tab-panel>
 
@@ -837,25 +933,72 @@ const lead = computed(() => leadStore.currentLead as Record<string, any> | null)
 const activeTab = ref('activity');
 const currentStage = ref('');
 
-// ---- Stage options & colors ----
-const stageOptions = [
+// ---- Stage options grouped by pipeline ----
+const CLOSER_STAGES = [
   { label: 'New Lead', value: 'NEW_LEAD' },
+  { label: 'Already Called', value: 'ALREADY_CALLED' },
+  { label: 'Connected', value: 'CONNECTED' },
   { label: 'Request Design', value: 'REQUEST_DESIGN' },
   { label: 'Design In Progress', value: 'DESIGN_IN_PROGRESS' },
   { label: 'Design Ready', value: 'DESIGN_READY' },
-  { label: 'Pending Signature', value: 'PENDING_SIGNATURE' },
   { label: 'Won', value: 'WON' },
-  { label: 'Lost', value: 'LOST' },
 ];
 
+const PM_STAGES = [
+  { label: 'Site Audit', value: 'SITE_AUDIT' },
+  { label: 'Progress Review', value: 'PROGRESS_REVIEW' },
+  { label: 'NTP', value: 'NTP' },
+  { label: 'Engineering', value: 'ENGINEERING' },
+  { label: 'Permit & ICE', value: 'PERMIT_AND_ICE' },
+  { label: 'Final Approval', value: 'FINAL_APPROVAL' },
+  { label: 'Install Ready', value: 'INSTALL_READY' },
+  { label: 'Install', value: 'INSTALL' },
+  { label: 'Commission', value: 'COMMISSION' },
+  { label: 'Site Complete', value: 'SITE_COMPLETE' },
+  { label: 'Initial Submission & Inspection', value: 'INITIAL_SUBMISSION_AND_INSPECTION' },
+  { label: 'Waiting For PTO', value: 'WAITING_FOR_PTO' },
+  { label: 'Final Submission', value: 'FINAL_SUBMISSION' },
+  { label: 'Customer Success', value: 'CUSTOMER_SUCCESS' },
+];
+
+const FINANCE_STAGES = [
+  { label: 'Tickets Open', value: 'FIN_TICKETS_OPEN' },
+  { label: 'In Progress', value: 'FIN_IN_PROGRESS' },
+  { label: 'Post Initial Nurture', value: 'FIN_POST_INITIAL_NURTURE' },
+  { label: 'Tickets Closed', value: 'FIN_TICKETS_CLOSED' },
+];
+
+const MAINTENANCE_STAGES = [
+  { label: 'Tickets Open', value: 'MAINT_TICKETS_OPEN' },
+  { label: 'In Progress', value: 'MAINT_IN_PROGRESS' },
+  { label: 'Post Install Nurture', value: 'MAINT_POST_INSTALL_NURTURE' },
+  { label: 'Tickets Closed', value: 'MAINT_TICKETS_CLOSED' },
+];
+
+const ALL_STAGE_VALUES = [...CLOSER_STAGES, ...PM_STAGES, ...FINANCE_STAGES, ...MAINTENANCE_STAGES].map((s) => s.value);
+
+const stageOptions = computed(() => {
+  const stage = lead.value?.currentStage ?? '';
+  // Determine which pipeline this lead belongs to based on current stage
+  if (PM_STAGES.some((s) => s.value === stage)) return PM_STAGES;
+  if (FINANCE_STAGES.some((s) => s.value === stage)) return FINANCE_STAGES;
+  if (MAINTENANCE_STAGES.some((s) => s.value === stage)) return MAINTENANCE_STAGES;
+  return CLOSER_STAGES;
+});
+
 const STAGE_COLORS: Record<string, string> = {
-  NEW_LEAD: '#4CAF50',
-  REQUEST_DESIGN: '#2196F3',
-  DESIGN_IN_PROGRESS: '#FF9800',
-  DESIGN_READY: '#9C27B0',
-  PENDING_SIGNATURE: '#F44336',
-  WON: '#00897B',
-  LOST: '#EF4444',
+  // Closer
+  NEW_LEAD: '#4CAF50', ALREADY_CALLED: '#8BC34A', CONNECTED: '#2196F3',
+  REQUEST_DESIGN: '#03A9F4', DESIGN_IN_PROGRESS: '#FF9800', DESIGN_READY: '#9C27B0', WON: '#00897B',
+  // PM
+  SITE_AUDIT: '#FF5722', PROGRESS_REVIEW: '#E91E63', NTP: '#9C27B0', ENGINEERING: '#3F51B5',
+  PERMIT_AND_ICE: '#2196F3', FINAL_APPROVAL: '#00BCD4', INSTALL_READY: '#009688', INSTALL: '#4CAF50',
+  COMMISSION: '#8BC34A', SITE_COMPLETE: '#CDDC39', INITIAL_SUBMISSION_AND_INSPECTION: '#FFC107',
+  WAITING_FOR_PTO: '#FF9800', FINAL_SUBMISSION: '#FF5722', CUSTOMER_SUCCESS: '#4CAF50',
+  // Finance
+  FIN_TICKETS_OPEN: '#2196F3', FIN_IN_PROGRESS: '#FF9800', FIN_POST_INITIAL_NURTURE: '#9C27B0', FIN_TICKETS_CLOSED: '#4CAF50',
+  // Maintenance
+  MAINT_TICKETS_OPEN: '#2196F3', MAINT_IN_PROGRESS: '#FF9800', MAINT_POST_INSTALL_NURTURE: '#9C27B0', MAINT_TICKETS_CLOSED: '#4CAF50',
 };
 
 const TIER_COLORS: Record<string, string> = {
@@ -1104,6 +1247,7 @@ interface FileItem {
 const activities = ref<Activity[]>([]);
 const notes = ref<NoteItem[]>([]);
 const files = ref<FileItem[]>([]);
+const leadTasks = ref<any[]>([]);
 const commissionLines = ref<{ label: string; value: string }[]>([]);
 const commissionTotal = ref('$0');
 const newNote = ref('');
@@ -1119,6 +1263,24 @@ onMounted(async () => {
   loadExtras();
   loadUsers();
 });
+
+async function fetchLeadTasks() {
+  try {
+    const { data } = await api.get(`/tasks`, { params: { leadId: props.id } });
+    leadTasks.value = Array.isArray(data) ? data : data.data ?? [];
+  } catch { leadTasks.value = []; }
+}
+
+async function completeTask(taskId: string) {
+  try {
+    await api.patch(`/tasks/${taskId}/complete`);
+    $q.notify({ type: 'positive', message: 'Task completed!' });
+    await fetchLeadTasks();
+    await loadExtras(); // Refresh activity too
+  } catch (err: any) {
+    $q.notify({ type: 'negative', message: err?.response?.data?.message ?? 'Failed' });
+  }
+}
 
 async function loadExtras() {
   const [timelineRes, docsRes, commRes] = await Promise.all([
@@ -1144,6 +1306,8 @@ async function loadExtras() {
   const commData = commRes.data as any;
   commissionLines.value = commData?.lines ?? [];
   commissionTotal.value = commData?.total ?? '$0';
+
+  fetchLeadTasks();
 }
 
 // ---- Actions ----
@@ -1418,6 +1582,45 @@ async function bookAppointment() {
     $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to book appointment' });
   } finally {
     scheduling.value = false;
+  }
+}
+
+// ---- Mark as Lost / Cancelled ----
+const showLostDialog = ref(false);
+const showCancelledDialog = ref(false);
+const lostReason = ref('');
+const cancelledReason = ref('');
+const markingStatus = ref(false);
+
+async function markAsLost() {
+  markingStatus.value = true;
+  try {
+    await api.patch(`/leads/${props.id}/lost`, { reason: lostReason.value || undefined });
+    if (lead.value) (lead.value as any).status = 'LOST';
+    showLostDialog.value = false;
+    lostReason.value = '';
+    $q.notify({ type: 'positive', message: 'Lead marked as lost' });
+    loadExtras();
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to mark as lost' });
+  } finally {
+    markingStatus.value = false;
+  }
+}
+
+async function markAsCancelled() {
+  markingStatus.value = true;
+  try {
+    await api.patch(`/leads/${props.id}/cancel`, { reason: cancelledReason.value || undefined });
+    if (lead.value) (lead.value as any).status = 'CANCELLED';
+    showCancelledDialog.value = false;
+    cancelledReason.value = '';
+    $q.notify({ type: 'positive', message: 'Lead marked as cancelled' });
+    loadExtras();
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to mark as cancelled' });
+  } finally {
+    markingStatus.value = false;
   }
 }
 

@@ -108,12 +108,20 @@ const customerStore = useCustomerStore();
 const customer = computed(() => customerStore.currentCustomer);
 
 const STAGE_COLORS: Record<string, string> = {
-  new: 'blue',
-  contacted: 'orange',
-  qualified: 'purple',
-  proposal: 'cyan',
-  won: 'positive',
-  lost: 'negative',
+  // Closer
+  NEW_LEAD: 'positive', ALREADY_CALLED: 'light-green', CONNECTED: 'blue',
+  REQUEST_DESIGN: 'light-blue', DESIGN_IN_PROGRESS: 'orange', DESIGN_READY: 'purple', WON: 'teal',
+  // PM
+  SITE_AUDIT: 'deep-orange', PROGRESS_REVIEW: 'pink', NTP: 'purple', ENGINEERING: 'indigo',
+  PERMIT_AND_ICE: 'blue', FINAL_APPROVAL: 'cyan', INSTALL_READY: 'teal', INSTALL: 'positive',
+  COMMISSION: 'light-green', SITE_COMPLETE: 'lime', INITIAL_SUBMISSION_AND_INSPECTION: 'amber',
+  WAITING_FOR_PTO: 'orange', FINAL_SUBMISSION: 'deep-orange', CUSTOMER_SUCCESS: 'positive',
+  // Finance
+  FIN_TICKETS_OPEN: 'blue', FIN_IN_PROGRESS: 'orange', FIN_POST_INITIAL_NURTURE: 'purple', FIN_TICKETS_CLOSED: 'positive',
+  // Maintenance
+  MAINT_TICKETS_OPEN: 'blue', MAINT_IN_PROGRESS: 'orange', MAINT_POST_INSTALL_NURTURE: 'purple', MAINT_TICKETS_CLOSED: 'positive',
+  // Legacy lowercase (backwards compat)
+  new: 'blue', contacted: 'orange', qualified: 'purple', proposal: 'cyan', won: 'positive', lost: 'negative',
 };
 
 function stageColor(stage: string) {

@@ -129,7 +129,7 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
     pipelineId?: string,
     filters?: { search?: string; source?: string; dateFrom?: string; dateTo?: string },
   ): Promise<Record<string, any[]>> {
-    const where: Prisma.LeadWhereInput = { isActive: true };
+    const where: Prisma.LeadWhereInput = { isActive: true, status: 'ACTIVE' };
     if (pipelineId) {
       where.pipelineId = pipelineId;
     }

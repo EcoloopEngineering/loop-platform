@@ -118,6 +118,18 @@ export const useLeadStore = defineStore('lead', () => {
     return data;
   }
 
+  async function markAsLost(id: string, reason?: string) {
+    const { data } = await api.patch<Lead>(`/leads/${id}/lost`, { reason });
+    if (currentLead.value?.id === id) currentLead.value = data;
+    return data;
+  }
+
+  async function markAsCancelled(id: string, reason?: string) {
+    const { data } = await api.patch<Lead>(`/leads/${id}/cancel`, { reason });
+    if (currentLead.value?.id === id) currentLead.value = data;
+    return data;
+  }
+
   return {
     leads,
     currentLead,
@@ -128,5 +140,7 @@ export const useLeadStore = defineStore('lead', () => {
     createLead,
     updateLead,
     changeStage,
+    markAsLost,
+    markAsCancelled,
   };
 });
