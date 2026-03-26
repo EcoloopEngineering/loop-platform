@@ -4,6 +4,8 @@ const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   rootDir: 'src',
+  maxWorkers: 1,
+  workerIdleMemoryLimit: '256MB',
   testRegex: '.*\\.spec\\.ts$',
   moduleNameMapper: {
     '^@loop/shared(.*)$': '<rootDir>/../../../packages/shared/dist/cjs/index.js',
