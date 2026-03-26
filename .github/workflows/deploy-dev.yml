@@ -44,6 +44,12 @@ jobs:
           cd apps/web
           API_URL=http://44.202.51.163 npx quasar build
 
+      - name: Create standalone API bundle
+        run: |
+          pnpm --filter @loop/api deploy api-bundle --prod
+          cp -r apps/api/dist api-bundle/dist
+          cp -r apps/api/prisma api-bundle/prisma
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -57,20 +63,14 @@ jobs:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
           echo "=== Verifying builds ==="
-          test -f apps/api/dist/main.js || { echo "API build missing!"; exit 1; }
+          test -f api-bundle/dist/main.js || { echo "API build missing!"; exit 1; }
           test -f apps/web/dist/spa/index.html || { echo "Frontend build missing!"; exit 1; }
 
           echo "=== Packaging release ==="
-          tar czf release.tar.gz \
-            apps/api/dist/ \
-            apps/api/prisma/ \
-            apps/api/package.json \
-            apps/api/node_modules/ \
-            apps/web/dist/spa/ \
-            packages/shared/dist/ \
-            packages/shared/package.json \
-            package.json \
-            pnpm-workspace.yaml
+          mkdir -p release
+          mv api-bundle release/api
+          mv apps/web/dist/spa release/web
+          tar czf release.tar.gz -C release .
           ls -lh release.tar.gz
 
           echo "=== Uploading to EC2 ==="
@@ -81,33 +81,26 @@ jobs:
           echo "=== Deploying on EC2 ==="
           ssh -i ~/.ssh/deploy_key ubuntu@$HOST "bash -s" << ENDSCRIPT
           set -e
+          export PATH=/usr/local/bin:/usr/bin:/bin:\$PATH
 
           APP_DIR=/home/ubuntu/loop-platform
           RELEASES_DIR=\$APP_DIR/releases
           CURRENT_LINK=\$APP_DIR/current
           NEW_RELEASE=\$RELEASES_DIR/$TIMESTAMP
 
-          echo "--- Preparing directories ---"
-          mkdir -p \$NEW_RELEASE
-
           echo "--- Extracting release ---"
-          tar xzf /tmp/release.tar.gz -C \$NEW_RELEASE
+          mkdir -p \$NEW_RELEASE/apps
+          tar xzf /tmp/release.tar.gz -C \$NEW_RELEASE/apps
           rm -f /tmp/release.tar.gz
 
-          echo "--- Copying env files ---"
-          ENV_DIR=\$APP_DIR/envs
-          if [ ! -f "\$ENV_DIR/.env.api" ]; then
-            echo "ERROR: \$ENV_DIR/.env.api not found!"
-            exit 1
-          fi
-          cp \$ENV_DIR/.env.api \$NEW_RELEASE/apps/api/.env
-          cp \$ENV_DIR/.env.web \$NEW_RELEASE/apps/web/.env 2>/dev/null || true
+          echo "--- Copying env ---"
+          cp \$APP_DIR/envs/.env.api \$NEW_RELEASE/apps/api/.env
 
-          echo "--- Running Prisma db push ---"
+          echo "--- Prisma db push ---"
           cd \$NEW_RELEASE/apps/api
           prisma db push --accept-data-loss --skip-generate
 
-          echo "--- Switching release (atomic) ---"
+          echo "--- Switching release ---"
           ln -sfn \$NEW_RELEASE \$CURRENT_LINK
 
           echo "--- Restarting API ---"
@@ -118,25 +111,27 @@ jobs:
 
           echo "--- Deploying Frontend ---"
           sudo rm -rf /var/www/html/*
-          sudo cp -r \$CURRENT_LINK/apps/web/dist/spa/* /var/www/html/
+          sudo cp -r \$CURRENT_LINK/apps/web/* /var/www/html/
           sudo chown -R www-data:www-data /var/www/html/
 
           echo "--- Cleaning old releases ---"
           ls -dt \$RELEASES_DIR/* | tail -n +4 | xargs rm -rf 2>/dev/null || true
 
           echo "=== Deploy finished ==="
+          pm2 list
           ENDSCRIPT
 
       - name: Verify deployment
         env:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
-          sleep 5
+          sleep 8
           STATUS=$(ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/docs')
           echo "API returned: $STATUS"
           if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
             echo "Deploy verified!"
           else
-            echo "Deploy verification failed (status: $STATUS) — check PM2 logs on EC2"
+            echo "Deploy verification failed (status: $STATUS)"
+            ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'pm2 logs api --lines 15 --nostream'
             exit 1
           fi
