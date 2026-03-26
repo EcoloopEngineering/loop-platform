@@ -1,4 +1,4 @@
-import { LeadStage, LeadSource } from '@loop/shared';
+import { LeadStage, LeadSource, LeadStatus } from '@loop/shared';
 
 export class LeadEntity {
   id: string;
@@ -6,6 +6,7 @@ export class LeadEntity {
   propertyId: string;
   pipelineId: string;
   currentStage: LeadStage;
+  status: LeadStatus;
   source: LeadSource;
   kw: number | null;
   epc: number | null;
@@ -31,8 +32,6 @@ export class LeadEntity {
 
     if (newStage === LeadStage.WON) {
       this.wonAt = new Date();
-    } else if (newStage === LeadStage.LOST || newStage === LeadStage.CANCELLED) {
-      this.lostAt = new Date();
     }
 
     return { fromStage, toStage: newStage };
@@ -47,7 +46,14 @@ export class LeadEntity {
   }
 
   markAsLost(reason?: string): void {
-    this.currentStage = LeadStage.LOST;
+    this.status = LeadStatus.LOST;
+    this.lostAt = new Date();
+    this.lostReason = reason ?? null;
+    this.updatedAt = new Date();
+  }
+
+  markAsCancelled(reason?: string): void {
+    this.status = LeadStatus.CANCELLED;
     this.lostAt = new Date();
     this.lostReason = reason ?? null;
     this.updatedAt = new Date();

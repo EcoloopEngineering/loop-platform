@@ -101,7 +101,7 @@
     </q-drawer>
 
     <q-page-container>
-      <router-view />
+      <router-view :key="$route.fullPath" />
     </q-page-container>
   </q-layout>
 </template>
@@ -253,12 +253,16 @@ const userRole = computed(() => {
 const navItems = [
   { label: 'Dashboard', icon: 'dashboard', route: '/crm', exact: true },
   { label: 'Pipeline', icon: 'view_kanban', route: '/crm/pipeline', exact: false },
+  { label: 'Tasks', icon: 'task_alt', route: '/crm/tasks', exact: false },
   { label: 'Customers', icon: 'people', route: '/crm/customers', exact: false },
+  { label: 'Financiers', icon: 'account_balance', route: '/crm/financiers', exact: false },
 ];
 
 const allAdminItems = [
   { label: 'Scoreboard', icon: 'leaderboard', route: '/admin/scoreboard', roles: ['ADMIN', 'MANAGER'] },
+  { label: 'Rewards', icon: 'card_giftcard', route: '/admin/rewards', roles: ['ADMIN', 'MANAGER', 'SALES_REP'] },
   { label: 'Users', icon: 'manage_accounts', route: '/admin/users', roles: ['ADMIN'] },
+  { label: 'Commissions', icon: 'payments', route: '/admin/commissions', roles: ['ADMIN'] },
   { label: 'Live Chat', icon: 'forum', route: '/admin/live-chat', roles: ['ADMIN'] },
   { label: 'Notifications', icon: 'notifications', route: '/admin/notifications', roles: ['ADMIN', 'MANAGER'] },
   { label: 'Settings', icon: 'settings', route: '/admin/settings', roles: ['ADMIN', 'MANAGER'] },

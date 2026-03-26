@@ -47,7 +47,7 @@ export class GetDashboardHandler implements IQueryHandler<GetDashboardQuery> {
           where: { ...userLeadFilter, currentStage: 'WON' },
         }),
         this.prisma.lead.count({
-          where: { ...userLeadFilter, currentStage: 'LOST' },
+          where: { ...userLeadFilter, status: 'LOST' },
         }),
         this.prisma.commission.aggregate({
           where: { userId: query.userId, ...dateFilter },

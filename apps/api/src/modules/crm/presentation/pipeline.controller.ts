@@ -9,7 +9,13 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
-import { UserRole, CLOSER_PIPELINE_STAGES, PROJECT_MANAGER_PIPELINE_STAGES } from '@loop/shared';
+import {
+  UserRole,
+  CLOSER_PIPELINE_STAGES,
+  PM_PIPELINE_STAGES,
+  FINANCE_PIPELINE_STAGES,
+  MAINTENANCE_PIPELINE_STAGES,
+} from '@loop/shared';
 import { GetPipelineViewQuery } from '../application/queries/get-pipeline-view.handler';
 
 @ApiTags('Pipeline')
@@ -38,7 +44,9 @@ export class PipelineController {
   getStages(): any {
     return {
       closer: CLOSER_PIPELINE_STAGES,
-      projectManager: PROJECT_MANAGER_PIPELINE_STAGES,
+      projectManager: PM_PIPELINE_STAGES,
+      finance: FINANCE_PIPELINE_STAGES,
+      maintenance: MAINTENANCE_PIPELINE_STAGES,
     };
   }
 }

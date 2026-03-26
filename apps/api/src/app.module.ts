@@ -20,6 +20,8 @@ import { EmailModule } from './infrastructure/email/email.module';
 import { PdfModule } from './infrastructure/pdf/pdf.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { TaskModule } from './modules/task/task.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
 import { HealthModule } from './infrastructure/health/health.module';
 
 @Module({
@@ -47,6 +49,8 @@ import { HealthModule } from './infrastructure/health/health.module';
     DashboardModule,
     IntegrationsModule,
     ChatModule,
+    TaskModule,
+    GamificationModule,
     HealthModule,
   ],
   providers: [

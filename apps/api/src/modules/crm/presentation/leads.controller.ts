@@ -190,6 +190,94 @@ export class LeadsController {
     return updated;
   }
 
+  @Patch(':id/lost')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @ApiOperation({ summary: 'Mark lead as lost' })
+  async markAsLost(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('reason') reason: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<any> {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id },
+      include: { customer: { select: { firstName: true, lastName: true } } },
+    });
+    if (!lead) throw new NotFoundException('Lead not found');
+
+    const updated = await this.prisma.lead.update({
+      where: { id },
+      data: {
+        status: 'LOST',
+        lostAt: new Date(),
+        lostReason: reason ?? null,
+      },
+    });
+
+    await this.prisma.leadActivity.create({
+      data: {
+        leadId: id,
+        userId,
+        type: 'STAGE_CHANGE',
+        description: `Lead marked as LOST${reason ? `: ${reason}` : ''}`,
+        metadata: { status: 'LOST', stage: lead.currentStage, reason },
+      },
+    });
+
+    const customerName = `${lead.customer.firstName} ${lead.customer.lastName}`;
+    this.emitter.emit('lead.statusChanged', {
+      leadId: id,
+      customerName,
+      newStatus: 'LOST',
+      previousStage: lead.currentStage,
+    });
+
+    return updated;
+  }
+
+  @Patch(':id/cancel')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Mark lead as cancelled' })
+  async markAsCancelled(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('reason') reason: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<any> {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id },
+      include: { customer: { select: { firstName: true, lastName: true } } },
+    });
+    if (!lead) throw new NotFoundException('Lead not found');
+
+    const updated = await this.prisma.lead.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        lostAt: new Date(),
+        lostReason: reason ?? null,
+      },
+    });
+
+    await this.prisma.leadActivity.create({
+      data: {
+        leadId: id,
+        userId,
+        type: 'STAGE_CHANGE',
+        description: `Lead cancelled${reason ? `: ${reason}` : ''}`,
+        metadata: { status: 'CANCELLED', stage: lead.currentStage, reason },
+      },
+    });
+
+    const customerName = `${lead.customer.firstName} ${lead.customer.lastName}`;
+    this.emitter.emit('lead.statusChanged', {
+      leadId: id,
+      customerName,
+      newStatus: 'CANCELLED',
+      previousStage: lead.currentStage,
+    });
+
+    return updated;
+  }
+
   @Post(':id/score/recalculate')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Recalculate lead score' })

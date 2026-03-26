@@ -96,11 +96,6 @@ export class StageEmailListener {
         }
         break;
 
-      case 'LOST':
-      case 'CANCELLED':
-        // Don't email on lost/cancelled
-        break;
-
       default:
         // Generic stage change email to owner + PM
         const recipients = [ownerEmail, pmEmail].filter(Boolean) as string[];

@@ -31,6 +31,7 @@ export const usePipelineStore = defineStore('pipeline', () => {
   const loading = ref(false);
 
   async function fetchPipelineView(params?: {
+    pipelineId?: string;
     source?: string;
     assignedTo?: string;
     search?: string;

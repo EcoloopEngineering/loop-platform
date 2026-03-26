@@ -18,6 +18,23 @@
       <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" style="border-radius: 10px" />
     </div>
 
+    <!-- Pipeline type tabs -->
+    <q-tabs
+      v-model="pipelineTab"
+      dense
+      no-caps
+      align="left"
+      active-color="primary"
+      indicator-color="primary"
+      class="q-mb-md pipeline-tabs"
+      @update:model-value="onPipelineTabChange"
+    >
+      <q-tab name="closer" label="Closer" />
+      <q-tab name="pm" label="PM" />
+      <q-tab name="finance" label="Finance" />
+      <q-tab name="maintenance" label="Maintenance" />
+    </q-tabs>
+
     <PipelineFilters
       :source-options="sourceOptions"
       :user-options="userOptions"
@@ -157,6 +174,15 @@ import type { PipelineFilterValues } from '@/components/pipeline/PipelineFilters
 const router = useRouter();
 const pipelineStore = usePipelineStore();
 const viewMode = ref('list');
+const pipelineTab = ref('closer');
+
+const PIPELINE_IDS: Record<string, string> = {
+  closer: '00000000-0000-0000-0000-000000000001',
+  pm: '00000000-0000-0000-0000-000000000002',
+  finance: '00000000-0000-0000-0000-000000000003',
+  maintenance: '00000000-0000-0000-0000-000000000004',
+};
+
 const activeFilters = ref<PipelineFilterValues>({
   search: '',
   source: null,
@@ -257,8 +283,12 @@ const sourceOptions = [
 const userOptions = [{ label: 'Me', value: 'me' }];
 
 onMounted(() => {
-  pipelineStore.fetchPipelineView();
+  pipelineStore.fetchPipelineView({ pipelineId: PIPELINE_IDS[pipelineTab.value] });
 });
+
+function onPipelineTabChange(tab: string) {
+  pipelineStore.fetchPipelineView({ pipelineId: PIPELINE_IDS[tab] });
+}
 
 let debounceTimer: ReturnType<typeof setTimeout>;
 
@@ -269,6 +299,7 @@ function onFilterChange(filters: PipelineFilterValues) {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     pipelineStore.fetchPipelineView({
+      pipelineId: PIPELINE_IDS[pipelineTab.value],
       search: filters.search || undefined,
       source: filters.source ?? undefined,
       dateFrom: filters.dateFrom ?? undefined,
@@ -290,14 +321,18 @@ function onRowClick(_evt: Event, row: any) {
 }
 
 const STAGE_COLORS: Record<string, string> = {
-  NEW_LEAD: '#4CAF50',
-  REQUEST_DESIGN: '#2196F3',
-  DESIGN_IN_PROGRESS: '#FF9800',
-  DESIGN_READY: '#9C27B0',
-  PENDING_SIGNATURE: '#F44336',
-  SIT: '#607D8B',
-  WON: '#00897B',
-  LOST: '#EF4444',
+  // Closer
+  NEW_LEAD: '#4CAF50', ALREADY_CALLED: '#8BC34A', CONNECTED: '#2196F3',
+  REQUEST_DESIGN: '#03A9F4', DESIGN_IN_PROGRESS: '#FF9800', DESIGN_READY: '#9C27B0', WON: '#00897B',
+  // PM
+  SITE_AUDIT: '#FF5722', PROGRESS_REVIEW: '#E91E63', NTP: '#9C27B0', ENGINEERING: '#3F51B5',
+  PERMIT_AND_ICE: '#2196F3', FINAL_APPROVAL: '#00BCD4', INSTALL_READY: '#009688', INSTALL: '#4CAF50',
+  COMMISSION: '#8BC34A', SITE_COMPLETE: '#CDDC39', INITIAL_SUBMISSION_AND_INSPECTION: '#FFC107',
+  WAITING_FOR_PTO: '#FF9800', FINAL_SUBMISSION: '#FF5722', CUSTOMER_SUCCESS: '#4CAF50',
+  // Finance
+  FIN_TICKETS_OPEN: '#2196F3', FIN_IN_PROGRESS: '#FF9800', FIN_POST_INITIAL_NURTURE: '#9C27B0', FIN_TICKETS_CLOSED: '#4CAF50',
+  // Maintenance
+  MAINT_TICKETS_OPEN: '#2196F3', MAINT_IN_PROGRESS: '#FF9800', MAINT_POST_INSTALL_NURTURE: '#9C27B0', MAINT_TICKETS_CLOSED: '#4CAF50',
 };
 
 function stageColor(stage: string) {
@@ -362,5 +397,12 @@ function formatDate(iso: string) {
   padding: 3px 10px;
   font-size: 11px;
   font-weight: 600;
+}
+
+.pipeline-tabs {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  overflow: hidden;
 }
 </style>

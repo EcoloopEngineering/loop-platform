@@ -55,6 +55,12 @@ model User {
   documents         Document[]
   conversations    Conversation[] @relation("UserConversations")
   agentChats       Conversation[] @relation("AgentConversations")
+  commissionPayments CommissionPayment[] @relation("UserCommissionPayments")
+  assignedTasks    Task[]           @relation("TaskAssignee")
+  gamificationEvents GamificationEvent[] @relation("UserGamificationEvents")
+  coins            UserCoin[]       @relation("UserCoins")
+  rewardOrders     RewardOrder[]    @relation("UserRewardOrders")
+  monthlyRecords   MonthlyRecord[]  @relation("UserMonthlyRecords")
 
   @@index([email])
   @@index([invitationCode])
@@ -199,22 +205,56 @@ model Property {
   @@map("properties")
 }
 
+enum LeadStatus {
+  ACTIVE
+  LOST
+  CANCELLED
+}
+
+enum PipelineType {
+  CLOSER
+  PROJECT_MANAGER
+  FINANCE
+  MAINTENANCE
+}
+
 enum LeadStage {
+  // Closer Pipeline
   NEW_LEAD
+  ALREADY_CALLED
+  CONNECTED
   REQUEST_DESIGN
   DESIGN_IN_PROGRESS
   DESIGN_READY
-  PENDING_SIGNATURE
-  SIT
   WON
-  LOST
-  SITE_AUDIT_PENDING
-  ENGINEERING_DESIGN
-  PROPOSAL_REVIEW
+
+  // Project Manager Pipeline
+  SITE_AUDIT
+  PROGRESS_REVIEW
+  NTP
+  ENGINEERING
+  PERMIT_AND_ICE
+  FINAL_APPROVAL
   INSTALL_READY
-  INSTALL_SCHEDULED
-  INSTALL_COMPLETE
-  CANCELLED
+  INSTALL
+  COMMISSION
+  SITE_COMPLETE
+  INITIAL_SUBMISSION_AND_INSPECTION
+  WAITING_FOR_PTO
+  FINAL_SUBMISSION
+  CUSTOMER_SUCCESS
+
+  // Finance Pipeline
+  FIN_TICKETS_OPEN
+  FIN_IN_PROGRESS
+  FIN_POST_INITIAL_NURTURE
+  FIN_TICKETS_CLOSED
+
+  // Maintenance Pipeline
+  MAINT_TICKETS_OPEN
+  MAINT_IN_PROGRESS
+  MAINT_POST_INSTALL_NURTURE
+  MAINT_TICKETS_CLOSED
 }
 
 enum LeadSource {
@@ -230,6 +270,7 @@ enum LeadSource {
 model Pipeline {
   id        String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name      String
+  type      PipelineType    @default(CLOSER)
   isDefault Boolean         @default(false) @map("is_default")
   createdAt DateTime        @default(now()) @map("created_at")
   updatedAt DateTime        @updatedAt @map("updated_at")
@@ -262,6 +303,7 @@ model Lead {
   propertyId    String     @map("property_id") @db.Uuid
   pipelineId    String     @map("pipeline_id") @db.Uuid
   currentStage  LeadStage  @default(NEW_LEAD) @map("current_stage")
+  status        LeadStatus @default(ACTIVE)
   source        LeadSource @default(OTHER)
   kw            Decimal?   @db.Decimal(10, 3)
   epc           Decimal?   @db.Decimal(10, 4)
@@ -291,12 +333,16 @@ model Lead {
   appointments   Appointment[]
   documents      Document[]
   quotes         LeadQuote[]
+  commissionPayments CommissionPayment[]
+  tasks          Task[]
+  gamificationEvents GamificationEvent[]
   metadata       Json?          @default("{}")
 
   @@index([customerId])
   @@index([propertyId])
   @@index([pipelineId, currentStage])
   @@index([currentStage])
+  @@index([status])
   @@index([createdAt])
   @@map("leads")
 }
@@ -465,6 +511,183 @@ enum CommissionStatus {
   ACTIVE
   PAID
   VOIDED
+}
+
+// ============================
+// Commission Payments (M1/M2/M3 ticket workflow)
+// ============================
+
+model CommissionPayment {
+  id        String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId    String               @map("lead_id") @db.Uuid
+  userId    String               @map("user_id") @db.Uuid
+  type      CommissionType
+  amount    Decimal?             @db.Decimal(10, 2)
+  status    CommissionPaymentStatus @default(PENDING)
+  paidAt    DateTime?            @map("paid_at")
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User @relation("UserCommissionPayments", fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@index([userId, status])
+  @@map("commission_payments")
+}
+
+enum CommissionPaymentStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+// ============================
+// Task Management (replaces Asana)
+// ============================
+
+model Task {
+  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId        String?    @map("lead_id") @db.Uuid
+  title         String
+  description   String?
+  assigneeId    String?    @map("assignee_id") @db.Uuid
+  status        TaskStatus @default(OPEN)
+  priority      Int        @default(0)
+  parentTaskId  String?    @map("parent_task_id") @db.Uuid
+  templateKey   String?    @map("template_key")
+  dueDate       DateTime?  @map("due_date")
+  completedAt   DateTime?  @map("completed_at")
+  completedById String?    @map("completed_by_id") @db.Uuid
+  metadata      Json?
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  lead       Lead?  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignee   User?  @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  parentTask Task?  @relation("TaskSubtasks", fields: [parentTaskId], references: [id])
+  subtasks   Task[] @relation("TaskSubtasks")
+
+  @@index([leadId])
+  @@index([assigneeId, status])
+  @@index([parentTaskId])
+  @@map("tasks")
+}
+
+model TaskTemplate {
+  id                  String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  stage               String
+  title               String
+  description         String?
+  defaultAssigneeRole String? @map("default_assignee_role")
+  defaultAssigneeEmail String? @map("default_assignee_email")
+  subtasks            Json?
+  conditions          Json?
+  sortOrder           Int     @default(0) @map("sort_order")
+  isActive            Boolean @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([stage, isActive])
+  @@map("task_templates")
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ============================
+// Gamification (replaces Discord bot)
+// ============================
+
+model GamificationEvent {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  leadId       String?  @map("lead_id") @db.Uuid
+  eventType    String   @map("event_type")
+  points       Int      @default(0)
+  coins        Decimal  @default(0) @db.Decimal(10, 2)
+  minuteBucket Int?     @map("minute_bucket")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation("UserGamificationEvents", fields: [userId], references: [id])
+  lead Lead? @relation(fields: [leadId], references: [id])
+
+  @@unique([userId, eventType, minuteBucket])
+  @@index([userId])
+  @@map("gamification_events")
+}
+
+model UserCoin {
+  id                   String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId               String  @map("user_id") @db.Uuid
+  amount               Decimal @db.Decimal(10, 2)
+  reason               String
+  gamificationEventId  String? @map("gamification_event_id") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  user User @relation("UserCoins", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("user_coins")
+}
+
+model RewardProduct {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  price       Int
+  imageUrl    String?  @map("image_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  orders RewardOrder[]
+
+  @@map("reward_products")
+}
+
+model RewardOrder {
+  id         String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  productId  String            @map("product_id") @db.Uuid
+  coinsSpent Int               @map("coins_spent")
+  status     RewardOrderStatus @default(PENDING)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  user    User          @relation("UserRewardOrders", fields: [userId], references: [id])
+  product RewardProduct @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@map("reward_orders")
+}
+
+model MonthlyRecord {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  points    Int      @default(0)
+  coins     Decimal  @default(0) @db.Decimal(10, 2)
+  year      Int
+  month     Int
+  isMvp     Boolean  @default(false) @map("is_mvp")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation("UserMonthlyRecords", fields: [userId], references: [id])
+
+  @@unique([userId, year, month])
+  @@index([year, month])
+  @@map("monthly_records")
+}
+
+enum RewardOrderStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
 }
 
 model Commission {

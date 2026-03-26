@@ -1,4 +1,4 @@
-name: Deploy to Dev
+name: Deploy to Dev (Zero Downtime)
 
 on:
   push:
@@ -13,8 +13,7 @@ jobs:
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -27,47 +26,62 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Deploy to EC2
+      - name: Deploy with zero downtime
         env:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST 'bash -s' << 'DEPLOY'
-          cd /home/ubuntu/loop-platform || exit 1
+          ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'bash -s' << 'DEPLOY'
+          set -e
 
-          echo "=== Pulling latest code ==="
-          git fetch origin develop
-          git checkout develop
-          git reset --hard origin/develop
+          APP_DIR=/home/ubuntu/loop-platform
+          RELEASES_DIR=$APP_DIR/releases
+          CURRENT_LINK=$APP_DIR/current
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          NEW_RELEASE=$RELEASES_DIR/$TIMESTAMP
+
+          echo "=== Preparing directories ==="
+          mkdir -p $RELEASES_DIR
+          mkdir -p $NEW_RELEASE
+
+          echo "=== Cloning repo ==="
+          git clone -b develop --single-branch https://github.com/${{ github.repository }}.git $NEW_RELEASE
+
+          cd $NEW_RELEASE
 
           echo "=== Installing dependencies ==="
-          pnpm install || true
+          pnpm install
 
           echo "=== Building shared ==="
-          pnpm --filter @loop/shared build || true
+          pnpm --filter @loop/shared build
 
           echo "=== Building API ==="
           cd apps/api
-          npx prisma generate || true
-          npx prisma db push --accept-data-loss || true
-          npx nest build || { echo "API build failed!"; exit 1; }
-
-          echo "=== Restarting API ==="
-          pkill -f "node dist/main.js" || true
-          sleep 2
-          nohup node dist/main.js > /home/ubuntu/api.log 2>&1 &
-          sleep 5
+          npx prisma generate
+          npx prisma db push
+          npx nest build
 
           echo "=== Building Frontend ==="
           cd ../web
-          sed -i 's|API_URL=.*|API_URL=http://44.202.51.163|' .env
-          API_URL=http://44.202.51.163 npx quasar build || { echo "Frontend build failed!"; exit 1; }
+          API_URL=http://44.202.51.163 npx quasar build
+
+          echo "=== Switching release (atomic) ==="
+          ln -sfn $NEW_RELEASE $CURRENT_LINK
+
+          echo "=== Restarting API with PM2 ==="
+          cd $CURRENT_LINK/apps/api
+          pm2 delete api || true
+          pm2 start dist/main.js --name api
+          pm2 save
 
           echo "=== Deploying Frontend ==="
           sudo rm -rf /var/www/html/*
-          sudo cp -r dist/spa/* /var/www/html/
+          sudo cp -r $CURRENT_LINK/apps/web/dist/spa/* /var/www/html/
           sudo chown -R www-data:www-data /var/www/html/
 
-          echo "=== Deploy complete ==="
+          echo "=== Cleaning old releases ==="
+          ls -dt $RELEASES_DIR/* | tail -n +6 | xargs rm -rf
+
+          echo "=== Deploy finished ==="
           DEPLOY
 
       - name: Verify deployment
@@ -75,12 +89,29 @@ jobs:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
           sleep 5
-          STATUS=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@$HOST 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/docs')
+          STATUS=$(ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/docs')
           echo "API returned: $STATUS"
           if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
             echo "Deploy verified!"
           else
-            echo "Deploy check returned $STATUS — showing logs:"
-            ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'tail -20 /home/ubuntu/api.log' || true
+            echo "Deploy failed — rolling back..."
+
+            ssh -i ~/.ssh/deploy_key ubuntu@$HOST '
+              APP_DIR=/home/ubuntu/loop-platform
+              RELEASES_DIR=$APP_DIR/releases
+              CURRENT_LINK=$APP_DIR/current
+
+              PREVIOUS=$(ls -dt $RELEASES_DIR/* | sed -n 2p)
+              if [ -z "$PREVIOUS" ]; then
+                echo "No previous version to rollback"
+                exit 1
+              fi
+
+              ln -sfn $PREVIOUS $CURRENT_LINK
+              cd $CURRENT_LINK/apps/api
+              pm2 restart api
+              echo "Rollback done"
+            '
+
             exit 1
           fi

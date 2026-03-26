@@ -1,6 +1,7 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
+import { STAGE_COLORS, STAGE_LABELS } from '@loop/shared';
 
 export class GetPipelineViewQuery {
   constructor(
@@ -37,9 +38,9 @@ export class GetPipelineViewHandler implements IQueryHandler<GetPipelineViewQuer
 
     return Object.entries(grouped).map(([stage, leads]) => ({
       stage,
-      label: this.formatStageLabel(stage),
-      color: this.getStageColor(stage),
-      order: this.getStageOrder(stage),
+      label: STAGE_LABELS[stage] ?? this.formatStageLabel(stage),
+      color: STAGE_COLORS[stage] ?? '#757575',
+      order: 0,
       leads,
       count: leads.length,
     }));
@@ -47,38 +48,9 @@ export class GetPipelineViewHandler implements IQueryHandler<GetPipelineViewQuer
 
   private formatStageLabel(stage: string): string {
     return stage
+      .replace(/^(FIN_|MAINT_)/, '')
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
-  }
-
-  private getStageColor(stage: string): string {
-    const colors: Record<string, string> = {
-      NEW_LEAD: '#4CAF50',
-      REQUEST_DESIGN: '#2196F3',
-      DESIGN_IN_PROGRESS: '#FF9800',
-      DESIGN_READY: '#9C27B0',
-      PENDING_SIGNATURE: '#795548',
-      SIT: '#00BCD4',
-      WON: '#4CAF50',
-      LOST: '#F44336',
-      CANCELLED: '#9E9E9E',
-    };
-    return colors[stage] ?? '#757575';
-  }
-
-  private getStageOrder(stage: string): number {
-    const order: Record<string, number> = {
-      NEW_LEAD: 1,
-      REQUEST_DESIGN: 2,
-      DESIGN_IN_PROGRESS: 3,
-      DESIGN_READY: 4,
-      PENDING_SIGNATURE: 5,
-      SIT: 6,
-      WON: 7,
-      LOST: 8,
-      CANCELLED: 9,
-    };
-    return order[stage] ?? 99;
   }
 }
