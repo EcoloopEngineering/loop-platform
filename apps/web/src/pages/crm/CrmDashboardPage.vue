@@ -242,21 +242,21 @@ const metricCards = computed(() => [
     icon: 'emoji_events',
     bgColor: 'positive',
     value: String(wonLeads.value),
-    subtitle: lostLeads.value > 0 ? `${lostLeads.value} lost` : '',
+    subtitle: lostLeads.value > 0 ? `${lostLeads.value} lost` : '\u00A0',
   },
   {
     label: 'Conversion Rate',
     icon: 'trending_up',
     bgColor: 'orange-8',
     value: `${conversionRate.value}%`,
-    subtitle: totalLeads.value > 0 ? `${wonLeads.value} of ${totalLeads.value}` : '',
+    subtitle: totalLeads.value > 0 ? `${wonLeads.value} of ${totalLeads.value}` : '\u00A0',
   },
   {
     label: 'Avg Score',
     icon: 'speed',
     bgColor: 'blue',
     value: String(avgScore.value),
-    subtitle: avgScore.value > 0 ? 'out of 100' : '',
+    subtitle: 'out of 100',
   },
 ]);
 
