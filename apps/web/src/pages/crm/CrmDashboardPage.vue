@@ -23,7 +23,7 @@
                 </q-avatar>
                 <span class="text-caption text-grey-6 text-weight-medium">{{ card.label }}</span>
               </div>
-              <div class="text-h4 text-weight-bold" style="color: #1A1A2E">{{ card.value }}</div>
+              <div class="text-h4 text-weight-bold metric-value">{{ card.value }}</div>
               <div v-if="card.subtitle" class="text-caption text-grey-5 q-mt-xs">
                 {{ card.subtitle }}
               </div>

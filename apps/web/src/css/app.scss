@@ -674,6 +674,78 @@ a {
   // Labels & captions
   .text-caption { color: var(--text-secondary); }
   .q-item__label--caption { color: var(--text-tertiary) !important; }
+
+  // =============================================
+  // GLOBAL DARK TEXT FIX — override hardcoded dark text colors
+  // Covers scoped styles using #1A1A2E, #111827 etc.
+  // =============================================
+
+  // Inline styles with hardcoded dark text
+  [style*="color: #1A1A2E"],
+  [style*="color:#1A1A2E"],
+  [style*="color: #111827"],
+  [style*="color:#111827"] {
+    color: var(--text-primary) !important;
+  }
+
+  // Scoped CSS text overrides (these colors appear in many components)
+  .stat-value,
+  .stat-mini-value,
+  .greeting-text,
+  .customer-name,
+  .field-value,
+  .sidebar-field-value,
+  .step-section-title,
+  .signup-title,
+  .login-title {
+    color: var(--text-primary) !important;
+  }
+
+  .stat-label,
+  .stat-mini-label,
+  .greeting-sub,
+  .login-subtitle,
+  .signup-subtitle,
+  .field-label,
+  .sidebar-field-label {
+    color: var(--text-secondary) !important;
+  }
+
+  // Background overrides for hardcoded backgrounds
+  [style*="background: #F8FAFB"],
+  [style*="background:#F8FAFB"],
+  [style*="background: #F9FAFB"],
+  [style*="background: #fff"],
+  [style*="background: #FFF"],
+  [style*="background:#fff"],
+  [style*="background: #FFFFFF"],
+  [style*="background:#FFFFFF"],
+  [style*="background: white"],
+  [style*="background: rgb(248"],
+  [style*="background: rgb(249"],
+  [style*="background: rgb(255"] {
+    background: var(--bg-page) !important;
+  }
+
+  // Outline buttons in dark mode
+  .q-btn--outline {
+    border-color: var(--border-default) !important;
+    color: var(--text-primary) !important;
+
+    &:hover {
+      background: var(--bg-hover) !important;
+    }
+  }
+
+  // Quasar text utility overrides
+  .text-dark, .text-black { color: var(--text-primary) !important; }
+  .text-hint { color: var(--text-tertiary) !important; }
+
+  // Chat bubbles
+  .chat-bubble.USER {
+    background: var(--bg-elevated) !important;
+    color: var(--text-primary) !important;
+  }
 }
 
 // =============================================
