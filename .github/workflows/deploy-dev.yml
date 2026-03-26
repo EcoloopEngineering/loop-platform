@@ -44,7 +44,7 @@ jobs:
           cd apps/web
           API_URL=http://44.202.51.163 npx quasar build
 
-      - name: Setup SSH key
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
@@ -52,89 +52,82 @@ jobs:
           echo "StrictHostKeyChecking no" > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
-      - name: Package and upload release
+      - name: Package, upload and deploy
         env:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
-          echo "=== Packaging release ==="
-          ls -la apps/api/dist/main.js
-          ls -la apps/web/dist/spa/index.html
+          echo "=== Verifying builds ==="
+          test -f apps/api/dist/main.js || { echo "API build missing!"; exit 1; }
+          test -f apps/web/dist/spa/index.html || { echo "Frontend build missing!"; exit 1; }
 
+          echo "=== Packaging release ==="
           tar czf release.tar.gz \
             apps/api/dist/ \
             apps/api/prisma/ \
             apps/api/package.json \
+            apps/api/node_modules/ \
             apps/web/dist/spa/ \
             packages/shared/dist/ \
             packages/shared/package.json \
+            node_modules/.pnpm/@prisma+client*/ \
+            node_modules/@prisma/ \
             package.json \
-            pnpm-workspace.yaml \
-            pnpm-lock.yaml
+            pnpm-workspace.yaml
+          ls -lh release.tar.gz
 
           echo "=== Uploading to EC2 ==="
-          ls -lh release.tar.gz
           cat release.tar.gz | ssh -i ~/.ssh/deploy_key ubuntu@$HOST "cat > /tmp/release.tar.gz"
-          ssh -i ~/.ssh/deploy_key ubuntu@$HOST "ls -lh /tmp/release.tar.gz"
 
-      - name: Deploy on EC2
-        env:
-          HOST: ${{ secrets.EC2_HOST }}
-        run: |
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
-          ssh -i ~/.ssh/deploy_key ubuntu@$HOST "bash -s $TIMESTAMP" << 'DEPLOY'
+          echo "=== Deploying on EC2 ==="
+          ssh -i ~/.ssh/deploy_key ubuntu@$HOST "bash -s" << ENDSCRIPT
           set -e
-          TIMESTAMP=$1
 
           APP_DIR=/home/ubuntu/loop-platform
-          RELEASES_DIR=$APP_DIR/releases
-          CURRENT_LINK=$APP_DIR/current
-          NEW_RELEASE=$RELEASES_DIR/$TIMESTAMP
+          RELEASES_DIR=\$APP_DIR/releases
+          CURRENT_LINK=\$APP_DIR/current
+          NEW_RELEASE=\$RELEASES_DIR/$TIMESTAMP
 
-          echo "=== Preparing release directory ==="
-          mkdir -p $NEW_RELEASE
+          echo "--- Preparing directories ---"
+          mkdir -p \$NEW_RELEASE
 
-          echo "=== Extracting release ==="
-          tar xzf /tmp/release.tar.gz -C $NEW_RELEASE
-          rm /tmp/release.tar.gz
+          echo "--- Extracting release ---"
+          tar xzf /tmp/release.tar.gz -C \$NEW_RELEASE
+          rm -f /tmp/release.tar.gz
 
-          echo "=== Copying env files ==="
-          ENV_DIR=$APP_DIR/envs
-          if [ ! -f "$ENV_DIR/.env.api" ]; then
-            echo "ERROR: $ENV_DIR/.env.api not found!"
+          echo "--- Copying env files ---"
+          ENV_DIR=\$APP_DIR/envs
+          if [ ! -f "\$ENV_DIR/.env.api" ]; then
+            echo "ERROR: \$ENV_DIR/.env.api not found!"
             exit 1
           fi
-          cp $ENV_DIR/.env.api $NEW_RELEASE/apps/api/.env
-          cp $ENV_DIR/.env.web $NEW_RELEASE/apps/web/.env 2>/dev/null || true
+          cp \$ENV_DIR/.env.api \$NEW_RELEASE/apps/api/.env
+          cp \$ENV_DIR/.env.web \$NEW_RELEASE/apps/web/.env 2>/dev/null || true
 
-          echo "=== Installing production dependencies ==="
-          cd $NEW_RELEASE
-          pnpm install --prod
+          echo "--- Running Prisma db push ---"
+          cd \$NEW_RELEASE/apps/api
+          npx prisma db push --accept-data-loss --skip-generate
 
-          echo "=== Running Prisma migrations ==="
-          cd $NEW_RELEASE/apps/api
-          npx prisma generate
-          npx prisma db push --accept-data-loss
+          echo "--- Switching release (atomic) ---"
+          ln -sfn \$NEW_RELEASE \$CURRENT_LINK
 
-          echo "=== Switching release (atomic) ==="
-          ln -sfn $NEW_RELEASE $CURRENT_LINK
-
-          echo "=== Restarting API with PM2 ==="
-          cd $CURRENT_LINK/apps/api
-          pm2 delete api || true
+          echo "--- Restarting API ---"
+          cd \$CURRENT_LINK/apps/api
+          pm2 delete api 2>/dev/null || true
           pm2 start dist/main.js --name api
           pm2 save
 
-          echo "=== Deploying Frontend ==="
+          echo "--- Deploying Frontend ---"
           sudo rm -rf /var/www/html/*
-          sudo cp -r $CURRENT_LINK/apps/web/dist/spa/* /var/www/html/
+          sudo cp -r \$CURRENT_LINK/apps/web/dist/spa/* /var/www/html/
           sudo chown -R www-data:www-data /var/www/html/
 
-          echo "=== Cleaning old releases ==="
-          ls -dt $RELEASES_DIR/* | tail -n +6 | xargs rm -rf 2>/dev/null || true
+          echo "--- Cleaning old releases ---"
+          ls -dt \$RELEASES_DIR/* | tail -n +4 | xargs rm -rf 2>/dev/null || true
 
           echo "=== Deploy finished ==="
-          DEPLOY
+          ENDSCRIPT
 
       - name: Verify deployment
         env:
@@ -146,24 +139,6 @@ jobs:
           if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
             echo "Deploy verified!"
           else
-            echo "Deploy failed — rolling back..."
-
-            ssh -i ~/.ssh/deploy_key ubuntu@$HOST '
-              APP_DIR=/home/ubuntu/loop-platform
-              RELEASES_DIR=$APP_DIR/releases
-              CURRENT_LINK=$APP_DIR/current
-
-              PREVIOUS=$(ls -dt $RELEASES_DIR/* | sed -n 2p)
-              if [ -z "$PREVIOUS" ]; then
-                echo "No previous version to rollback"
-                exit 1
-              fi
-
-              ln -sfn $PREVIOUS $CURRENT_LINK
-              cd $CURRENT_LINK/apps/api
-              pm2 restart api
-              echo "Rollback done"
-            '
-
+            echo "Deploy verification failed (status: $STATUS) — check PM2 logs on EC2"
             exit 1
           fi
