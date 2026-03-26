@@ -144,11 +144,11 @@
                   <q-list dense style="min-width: 150px">
                     <q-item clickable v-close-popup @click="$router.push(`/crm/leads/${props.row.id}`)">
                       <q-item-section avatar><q-icon name="visibility" size="18px" /></q-item-section>
-                      <q-item-section>View</q-item-section>
+                      <q-item-section>View Details</q-item-section>
                     </q-item>
-                    <q-item clickable v-close-popup>
+                    <q-item clickable v-close-popup @click="$router.push(`/crm/leads/${props.row.id}`)">
                       <q-item-section avatar><q-icon name="edit" size="18px" /></q-item-section>
-                      <q-item-section>Edit</q-item-section>
+                      <q-item-section>Edit Lead</q-item-section>
                     </q-item>
                   </q-list>
                 </q-menu>

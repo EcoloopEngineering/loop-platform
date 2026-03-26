@@ -1782,6 +1782,7 @@ function initials(name: string) {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 6px 0;
   border-top: 1px solid #F3F4F6;
@@ -1791,6 +1792,12 @@ function initials(name: string) {
     border-radius: 8px;
     font-size: 12px;
     padding: 4px 8px;
+    min-height: 32px;
+
+    :deep(.q-btn__content) {
+      flex-wrap: nowrap;
+      gap: 4px;
+    }
 
     &:hover {
       background: #F3F4F6;
@@ -1818,7 +1825,7 @@ function initials(name: string) {
 
 .field-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   padding: 6px 0;
   border-bottom: 1px solid #F3F4F6;
@@ -1964,6 +1971,8 @@ function initials(name: string) {
   font-size: 13px;
   color: #1A1A2E;
   font-weight: 500;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .field-link {

@@ -71,8 +71,9 @@
         outlined
         type="date"
         label="To"
+        :min="filters.dateFrom || undefined"
         class="filter-input"
-        @update:model-value="emitChange"
+        @update:model-value="onDateToChange"
       />
     </div>
   </div>
@@ -108,6 +109,13 @@ const filters = reactive<PipelineFilterValues>({
 
 function emitChange() {
   emit('change', { ...filters });
+}
+
+function onDateToChange() {
+  if (filters.dateFrom && filters.dateTo && filters.dateTo < filters.dateFrom) {
+    filters.dateTo = filters.dateFrom;
+  }
+  emitChange();
 }
 </script>
 

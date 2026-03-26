@@ -174,6 +174,26 @@ export class UsersController {
     return this.queryBus.execute(new GetUserByIdQuery(id));
   }
 
+  @Put(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update user by ID (admin only)' })
+  async updateUserById(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto & { isActive?: boolean },
+  ) {
+    const data: Record<string, any> = {};
+    if (dto.firstName !== undefined) data.firstName = dto.firstName;
+    if (dto.lastName !== undefined) data.lastName = dto.lastName;
+    if (dto.phone !== undefined) data.phone = dto.phone;
+    if (dto.nickname !== undefined) data.nickname = dto.nickname;
+    if (dto.language !== undefined) data.language = dto.language;
+    if ((dto as any).isActive !== undefined) data.isActive = (dto as any).isActive;
+
+    const updated = await this.prisma.user.update({ where: { id }, data });
+    const { passwordHash, metadata, socialSecurityNumber, firebaseUid, ...safe } = updated as any;
+    return safe;
+  }
+
   @Patch(':id/role')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Change user role (admin only)' })

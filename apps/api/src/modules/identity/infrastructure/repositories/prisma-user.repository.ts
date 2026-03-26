@@ -81,6 +81,13 @@ export class PrismaUserRepository implements UserRepositoryPort {
         skip: params.skip,
         take: params.take,
         orderBy: { createdAt: 'desc' },
+        include: {
+          referralsReceived: {
+            take: 1,
+            include: { inviter: { select: { firstName: true, lastName: true } } },
+          },
+          _count: { select: { leadAssignments: true } },
+        },
       }),
       this.prisma.user.count({ where }),
     ]);

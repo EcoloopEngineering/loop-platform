@@ -224,7 +224,7 @@
           <q-input v-model="editForm.phone" label="Phone" outlined dense mask="(###) ###-####" unmasked-value />
           <q-select
             v-model="editForm.role"
-            :options="roleOptions"
+            :options="editRoleOptions"
             label="Role"
             emit-value
             map-options
@@ -272,12 +272,21 @@ const loading = ref(true);
 const search = ref('');
 const activeTab = ref('employees');
 
-const roleOptions = [
+const employeeRoleOptions = [
   { label: 'Admin', value: 'ADMIN' },
   { label: 'Manager (PM)', value: 'MANAGER' },
   { label: 'Sales Rep', value: 'SALES_REP' },
+];
+
+const partnerRoleOptions = [
+  { label: 'Sales Rep', value: 'SALES_REP' },
   { label: 'Referral', value: 'REFERRAL' },
 ];
+
+const roleOptions = computed(() => {
+  if (activeTab.value === 'partners') return partnerRoleOptions;
+  return employeeRoleOptions;
+});
 
 const employees = computed(() => allUsers.value.filter((u) => u.email.endsWith('@ecoloop.us')));
 const partners = computed(() => allUsers.value.filter((u) => !u.email.endsWith('@ecoloop.us')));
@@ -396,6 +405,10 @@ const editForm = reactive({
   email: '',
   phone: '',
   role: '',
+});
+
+const editRoleOptions = computed(() => {
+  return editForm.email.endsWith('@ecoloop.us') ? employeeRoleOptions : partnerRoleOptions;
 });
 
 function editUser(user: UserRow) {
