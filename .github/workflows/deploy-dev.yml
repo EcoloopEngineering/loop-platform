@@ -46,7 +46,7 @@ jobs:
 
       - name: Create standalone API bundle
         run: |
-          pnpm --filter @loop/api deploy api-bundle --prod
+          pnpm --filter @loop/api deploy api-bundle --prod --legacy
           cp -r apps/api/dist api-bundle/dist
           cp -r apps/api/prisma api-bundle/prisma
 
