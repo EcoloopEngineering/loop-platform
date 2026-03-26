@@ -40,7 +40,7 @@
           {{ myLeads.length }}
         </q-badge>
         <q-space />
-        <q-btn flat dense no-caps color="primary" label="View all" @click="$router.push('/leads')" size="sm" />
+        <q-btn v-if="myLeads.length > LEADS_PER_PAGE" flat dense no-caps color="primary" label="View all" @click="$router.push('/leads')" size="sm" />
       </div>
 
       <div v-if="loadingLeads" class="text-center q-pa-md">

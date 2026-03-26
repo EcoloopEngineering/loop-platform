@@ -58,7 +58,7 @@ export class UsersController {
   async getMe(@CurrentUser() user: any): Promise<any> {
     const fullUser = await this.queryBus.execute(new GetUserByIdQuery(user.id));
     // Never expose sensitive fields
-    const { passwordHash, metadata, socialSecurityNumber, ...safe } = fullUser as any;
+    const { passwordHash, metadata, socialSecurityNumber, firebaseUid, ...safe } = fullUser as any;
     return safe;
   }
 

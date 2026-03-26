@@ -98,11 +98,13 @@ async function handleLogin() {
   } catch (err: any) {
     const status = err?.response?.status;
     const apiMsg = err?.response?.data?.message;
-    if (status === 401) {
+    if (status === 401 || status === 403) {
       error.value = 'Invalid email or password. Please try again.';
     } else if (status === 429) {
       error.value = 'Too many login attempts. Please wait a moment.';
-    } else if (apiMsg && !apiMsg.includes('status code')) {
+    } else if (status === 409) {
+      error.value = apiMsg || 'Account conflict. Please contact support.';
+    } else if (apiMsg && !apiMsg.includes('status code') && !apiMsg.includes('Request failed')) {
       error.value = apiMsg;
     } else {
       error.value = 'Unable to connect. Please check your internet and try again.';

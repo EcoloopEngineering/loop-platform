@@ -15,10 +15,10 @@
       <!-- ============ LEFT SIDEBAR ============ -->
       <div class="col-12 col-md-3">
         <!-- Back link -->
-        <router-link to="/crm/pipeline" class="back-link q-mb-sm inline-block">
+        <a class="back-link q-mb-sm inline-block cursor-pointer" @click="$router.back()">
           <q-icon name="chevron_left" size="18px" />
-          <span>Deals</span>
-        </router-link>
+          <span>Back</span>
+        </a>
 
         <!-- Lead Header Card -->
         <q-card flat class="sidebar-card q-mb-md">

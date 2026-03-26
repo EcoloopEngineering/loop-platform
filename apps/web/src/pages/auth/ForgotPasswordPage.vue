@@ -23,7 +23,7 @@
     </q-form>
 
     <q-banner v-if="success" class="bg-positive text-white q-mt-md" rounded>
-      Reset link sent! Check your email.
+      If an account exists with that email, a reset link has been sent. Check your inbox.
     </q-banner>
 
     <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded>
