@@ -153,7 +153,14 @@
     <!-- 3. Integrations Status -->
     <q-card flat class="settings-card q-mb-lg">
       <q-card-section>
-        <div class="section-title q-mb-md">Integrations Status</div>
+        <div class="row items-center q-mb-md">
+          <div class="section-title">Integrations Status</div>
+          <q-space />
+          <q-btn flat dense no-caps icon="refresh" label="Refresh" size="sm" color="grey-6" :loading="loadingIntegrations" @click="loadIntegrations" />
+        </div>
+        <div v-if="loadingIntegrations && integrations.length === 0" class="row justify-center q-pa-lg">
+          <q-spinner-dots color="primary" size="32px" />
+        </div>
         <div class="row q-col-gutter-md">
           <div
             v-for="integration in integrations"
@@ -447,7 +454,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
 
@@ -616,44 +623,23 @@ async function savePipelineStages() {
 }
 
 // --- Integrations ---
-const integrations = ref([
-  {
-    name: 'HubSpot',
-    description: 'CRM sync',
-    icon: 'hub',
-    connected: true,
-  },
-  {
-    name: 'Jobber',
-    description: 'Job management',
-    icon: 'construction',
-    connected: true,
-  },
-  {
-    name: 'Stripe',
-    description: 'Payments',
-    icon: 'payments',
-    connected: true,
-  },
-  {
-    name: 'Aurora',
-    description: 'Solar design',
-    icon: 'solar_power',
-    connected: true,
-  },
-  {
-    name: 'Intercom',
-    description: 'Customer support',
-    icon: 'support_agent',
-    connected: true,
-  },
-  {
-    name: 'ZapSign',
-    description: 'E-signatures',
-    icon: 'draw',
-    connected: true,
-  },
-]);
+const integrations = ref<{ name: string; description: string; icon: string; connected: boolean }[]>([]);
+const loadingIntegrations = ref(true);
+
+async function loadIntegrations() {
+  loadingIntegrations.value = true;
+  try {
+    const { data } = await api.get('/settings/integrations-status');
+    integrations.value = Array.isArray(data) ? data : [];
+  } catch {
+    integrations.value = [];
+  } finally {
+    loadingIntegrations.value = false;
+  }
+}
+
+// Refresh integrations status every 10 minutes
+let integrationInterval: ReturnType<typeof setInterval>;
 
 // --- Notification Preferences ---
 const notificationEvents = reactive([
@@ -814,6 +800,8 @@ watch([notificationEvents, channels], () => {
 // --- Init ---
 onMounted(async () => {
   loadPipelineStages();
+  loadIntegrations();
+  integrationInterval = setInterval(loadIntegrations, 10 * 60 * 1000);
 
   // Load all settings from API
   try {
@@ -847,6 +835,10 @@ onMounted(async () => {
   } catch {
     // Use defaults
   }
+});
+
+onUnmounted(() => {
+  clearInterval(integrationInterval);
 });
 </script>
 

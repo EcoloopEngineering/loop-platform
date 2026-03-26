@@ -1,4 +1,5 @@
 import { Controller, Get, Put, Param, Body, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -12,7 +13,67 @@ import { PrismaService } from '../../../infrastructure/database/prisma.service';
 @UseGuards(FirebaseAuthGuard, RolesGuard)
 @Controller('settings')
 export class SettingsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  @Get('integrations-status')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Get integration health status' })
+  getIntegrationsStatus() {
+    const check = (vars: string[]) => vars.every((v) => !!this.config.get(v));
+    return [
+      {
+        name: 'Aurora Solar',
+        description: 'AI solar design',
+        icon: 'solar_power',
+        connected: check(['AURORA_SERVICE_URL', 'AURORA_SERVICE_TOKEN']),
+      },
+      {
+        name: 'Stripe',
+        description: 'Payment processing',
+        icon: 'payments',
+        connected: check(['STRIPE_SECRET_KEY']),
+      },
+      {
+        name: 'ZapSign',
+        description: 'E-signatures',
+        icon: 'draw',
+        connected: check(['ZAPSIGN_API_TOKEN']),
+      },
+      {
+        name: 'Nodemailer',
+        description: 'Transactional email (Gmail)',
+        icon: 'email',
+        connected: check(['NODEMAILER_USER', 'NODEMAILER_PASS']),
+      },
+      {
+        name: 'AWS S3',
+        description: 'File storage',
+        icon: 'cloud_upload',
+        connected: check(['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']),
+      },
+      {
+        name: 'Firebase',
+        description: 'Google Login + Push',
+        icon: 'firebase',
+        connected: check(['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL']),
+      },
+      {
+        name: 'Google Chat',
+        description: 'Team notifications',
+        icon: 'chat',
+        connected: check(['GOOGLE_ADMIN_CREDENTIALS']),
+      },
+      {
+        name: 'Jobber',
+        description: 'Field scheduling',
+        icon: 'construction',
+        connected: check(['JOBBER_SERVICE_URL', 'JOBBER_SERVICE_TOKEN']),
+      },
+    ];
+  }
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.MANAGER)

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { CqrsModule } from '@nestjs/cqrs';
 import { PrismaModule } from '../../infrastructure/database/prisma.module';
 import { DashboardController } from './presentation/dashboard.controller';
@@ -9,7 +10,7 @@ import { GetScoreboardHandler } from './application/queries/get-scoreboard.handl
 const QueryHandlers = [GetDashboardHandler, GetScoreboardHandler];
 
 @Module({
-  imports: [CqrsModule, PrismaModule],
+  imports: [CqrsModule, PrismaModule, ConfigModule],
   controllers: [DashboardController, SettingsController],
   providers: [...QueryHandlers],
 })
