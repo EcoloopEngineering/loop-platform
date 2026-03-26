@@ -556,9 +556,9 @@ a {
     color: var(--text-primary);
   }
 
-  // Section titles
+  // Section titles — high contrast in dark mode
   .section-title {
-    color: var(--text-tertiary);
+    color: var(--text-primary) !important;
   }
 
   // Auth layout
@@ -657,6 +657,19 @@ a {
   .greeting-text { color: var(--text-primary) !important; }
   .greeting-name { color: $primary !important; }
   .greeting-sub { color: var(--text-secondary) !important; }
+
+  // Page titles
+  h5, h4, h3, h2, h1 {
+    color: var(--text-primary) !important;
+  }
+
+  .page-title, .card-title {
+    color: var(--text-primary) !important;
+  }
+
+  // Labels & captions
+  .text-caption { color: var(--text-secondary); }
+  .q-item__label--caption { color: var(--text-tertiary) !important; }
 }
 
 // =============================================
