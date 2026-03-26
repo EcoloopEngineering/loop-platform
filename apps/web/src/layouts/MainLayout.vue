@@ -69,7 +69,7 @@
       >
         <q-tab name="home" icon="home" label="Home" @click="$router.push('/home')" />
         <q-tab name="leads" icon="add_circle" label="New Lead" @click="$router.push('/leads/new')" />
-        <q-tab name="referrals" icon="group_add" label="Referrals" @click="$router.push('/referrals')" />
+        <q-tab v-if="isEmployee" name="referrals" icon="group_add" label="Referrals" @click="$router.push('/referrals')" />
         <q-tab name="support" icon="chat" label="Support" @click="$router.push('/support')" />
       </q-tabs>
     </q-footer>
@@ -103,6 +103,8 @@ const activeTab = ref('home');
 const notifications = ref<AppNotification[]>([]);
 const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).length);
 const userName = ref('');
+const userEmail = ref('');
+const isEmployee = computed(() => userEmail.value.endsWith('@ecoloop.us'));
 provide('userName', userName);
 const userInitials = computed(() => {
   if (!userName.value) return 'U';
@@ -129,6 +131,7 @@ async function fetchUser() {
   try {
     const { data } = await api.get('/users/me');
     userName.value = data.nickname || data.firstName || `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim();
+    userEmail.value = data.email ?? '';
     // Persist for chat and other components
     localStorage.setItem('user', JSON.stringify({
       id: data.id,

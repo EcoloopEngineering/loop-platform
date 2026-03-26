@@ -23,10 +23,10 @@
     <div class="q-mb-lg">
       <div class="section-title q-mb-sm">Quick Actions</div>
       <div class="row q-col-gutter-sm">
-        <div class="col-6">
+        <div :class="isEmployee ? 'col-6' : 'col-12'">
           <q-btn unelevated no-caps color="primary" text-color="white" icon="add" label="New Lead" class="full-width action-btn" @click="$router.push('/leads/new')" />
         </div>
-        <div class="col-6">
+        <div v-if="isEmployee" class="col-6">
           <q-btn outline no-caps color="primary" icon="share" label="Invite" class="full-width action-btn" @click="$router.push('/referrals')" />
         </div>
       </div>
@@ -134,6 +134,10 @@ const activities = ref<any[]>([]);
 const currentUser = ref<any>(null);
 const injectedName = inject<Ref<string>>('userName', ref(''));
 const displayName = computed(() => injectedName?.value || '');
+
+const isEmployee = computed(() => {
+  return currentUser.value?.email?.endsWith('@ecoloop.us') ?? false;
+});
 
 const greeting = computed(() => {
   const hour = new Date().getHours();
