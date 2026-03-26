@@ -50,8 +50,14 @@ jobs:
           cd $NEW_RELEASE
 
           echo "=== Copying env files ==="
-          cp $APP_DIR/.env.api apps/api/.env 2>/dev/null || cp $APP_DIR/current/apps/api/.env apps/api/.env 2>/dev/null || true
-          cp $APP_DIR/.env.web apps/web/.env 2>/dev/null || cp $APP_DIR/current/apps/web/.env apps/web/.env 2>/dev/null || true
+          ENV_DIR=$APP_DIR/envs
+          if [ ! -f "$ENV_DIR/.env.api" ]; then
+            echo "ERROR: $ENV_DIR/.env.api not found!"
+            echo "Create it on the server: mkdir -p $ENV_DIR && nano $ENV_DIR/.env.api"
+            exit 1
+          fi
+          cp $ENV_DIR/.env.api apps/api/.env
+          cp $ENV_DIR/.env.web apps/web/.env 2>/dev/null || true
 
           echo "=== Installing dependencies ==="
           pnpm install
