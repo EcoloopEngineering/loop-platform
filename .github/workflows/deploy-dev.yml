@@ -49,6 +49,10 @@ jobs:
 
           cd $NEW_RELEASE
 
+          echo "=== Copying env files ==="
+          cp $APP_DIR/.env.api apps/api/.env 2>/dev/null || cp $APP_DIR/current/apps/api/.env apps/api/.env 2>/dev/null || true
+          cp $APP_DIR/.env.web apps/web/.env 2>/dev/null || cp $APP_DIR/current/apps/web/.env apps/web/.env 2>/dev/null || true
+
           echo "=== Installing dependencies ==="
           pnpm install
 
@@ -71,7 +75,7 @@ jobs:
           echo "=== Restarting API with PM2 ==="
           cd $CURRENT_LINK/apps/api
           pm2 delete api || true
-          pm2 start dist/main.js --name api
+          pm2 start dist/main.js --name api --env production
           pm2 save
 
           echo "=== Deploying Frontend ==="
