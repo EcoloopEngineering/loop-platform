@@ -58,14 +58,22 @@
           <q-space />
           <q-btn unelevated no-caps color="primary" icon="add" label="Add Stage" size="sm" style="border-radius: 8px" @click="openAddStage" />
         </div>
+
+        <q-tabs v-model="activePipelineTab" dense no-caps active-color="primary" indicator-color="primary" class="q-mb-md" align="left">
+          <q-tab name="closer" label="Closer" />
+          <q-tab name="pm" label="Project Manager" />
+          <q-tab name="finance" label="Finance" />
+          <q-tab name="maintenance" label="Maintenance" />
+        </q-tabs>
+
         <div v-if="loadingPipeline" class="row justify-center q-pa-lg">
           <q-spinner-dots color="primary" size="32px" />
         </div>
-        <div v-else-if="pipelineStages.length === 0" class="text-secondary-color text-body2">
+        <div v-else-if="activePipelineStages.length === 0" class="text-secondary-color text-body2">
           No pipeline stages configured.
         </div>
         <q-list v-else separator class="pipeline-list">
-          <q-item v-for="(stage, i) in pipelineStages" :key="stage.stage" class="pipeline-item">
+          <q-item v-for="(stage, i) in activePipelineStages" :key="stage.stage" class="pipeline-item">
             <q-item-section avatar style="min-width: 30px">
               <div class="text-caption text-grey-5 text-weight-bold">#{{ stage.order ?? (i + 1) }}</div>
             </q-item-section>
@@ -87,7 +95,7 @@
                 <q-btn flat round dense icon="arrow_upward" size="xs" color="grey-5" :disable="i === 0" @click="moveStage(i, -1)">
                   <q-tooltip>Move up</q-tooltip>
                 </q-btn>
-                <q-btn flat round dense icon="arrow_downward" size="xs" color="grey-5" :disable="i === pipelineStages.length - 1" @click="moveStage(i, 1)">
+                <q-btn flat round dense icon="arrow_downward" size="xs" color="grey-5" :disable="i === activePipelineStages.length - 1" @click="moveStage(i, 1)">
                   <q-tooltip>Move down</q-tooltip>
                 </q-btn>
                 <q-btn flat round dense icon="edit" size="xs" color="grey-6" @click="editStage(stage)">
@@ -439,7 +447,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
 
@@ -473,18 +481,32 @@ interface PipelineStage {
   color: string;
 }
 
-const pipelineStages = ref<PipelineStage[]>([]);
+const allPipelineStages = ref<Record<string, PipelineStage[]>>({
+  closer: [],
+  pm: [],
+  finance: [],
+  maintenance: [],
+});
+const activePipelineTab = ref('closer');
 const loadingPipeline = ref(false);
+
+const activePipelineStages = computed(() => allPipelineStages.value[activePipelineTab.value] ?? []);
+// Keep backward compat ref for move/delete/edit
+const pipelineStages = computed({
+  get: () => allPipelineStages.value[activePipelineTab.value] ?? [],
+  set: (val) => { allPipelineStages.value[activePipelineTab.value] = val; },
+});
 
 async function loadPipelineStages() {
   loadingPipeline.value = true;
   try {
     const { data } = await api.get('/pipeline/stages');
-    if (data.closer) {
-      pipelineStages.value = data.closer;
-    } else if (Array.isArray(data)) {
-      pipelineStages.value = data;
-    }
+    allPipelineStages.value = {
+      closer: data.closer ?? [],
+      pm: data.pm ?? data.projectManager ?? [],
+      finance: data.finance ?? [],
+      maintenance: data.maintenance ?? [],
+    };
   } catch {
     // Silently fail
   } finally {
