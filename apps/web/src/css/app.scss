@@ -440,7 +440,11 @@ a {
     .q-item {
       color: var(--text-secondary);
       &:hover { background: var(--bg-hover); color: var(--text-primary); }
-      &.q-router-link--active { color: $primary; background: rgba($primary, 0.08); }
+      &.q-router-link--active {
+        color: #00E5C8 !important;
+        background: rgba(0, 137, 123, 0.12) !important;
+        .q-icon { color: #00E5C8 !important; }
+      }
     }
   }
 
