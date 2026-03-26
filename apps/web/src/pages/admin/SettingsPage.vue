@@ -721,12 +721,14 @@ async function saveNotificationPrefs() {
 watch(() => preferences.darkMode, (val) => {
   $q.dark.set(val);
   localStorage.setItem('darkMode', val ? '1' : '0');
+  api.put('/users/me', { darkMode: val }).catch(() => {});
 });
 
 // --- Compact view ---
 watch(() => preferences.compactView, (val) => {
   document.body.classList.toggle('compact-view', val);
   localStorage.setItem('compactView', val ? '1' : '0');
+  api.put('/users/me', { compactView: val }).catch(() => {});
 }, { immediate: true });
 
 // --- Auto-save watchers (debounced) ---
