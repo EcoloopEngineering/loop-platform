@@ -37,6 +37,18 @@
 
       <q-separator class="q-my-md" />
 
+      <div class="text-subtitle2 text-weight-bold q-mb-sm">Display</div>
+      <q-item tag="label" class="q-px-none">
+        <q-item-section>
+          <q-item-label>Dark mode</q-item-label>
+        </q-item-section>
+        <q-item-section side>
+          <q-toggle v-model="darkMode" color="primary" @update:model-value="toggleDarkMode" />
+        </q-item-section>
+      </q-item>
+
+      <q-separator class="q-my-md" />
+
       <div class="text-subtitle2 text-weight-bold q-mb-sm">Bank Information</div>
       <EInput v-model="form.bankName" label="Bank Name" />
       <EInput v-model="form.accountNumber" label="Account Number" />
@@ -63,6 +75,7 @@ import { useQuasar } from 'quasar';
 const userStore = useUserStore();
 const $q = useQuasar();
 const saving = ref(false);
+const darkMode = ref($q.dark.isActive);
 
 const form = ref({
   name: '',
@@ -131,6 +144,12 @@ async function save() {
   } finally {
     saving.value = false;
   }
+}
+
+function toggleDarkMode(val: boolean) {
+  $q.dark.set(val);
+  localStorage.setItem('darkMode', val ? '1' : '0');
+  api.put('/users/me', { darkMode: val }).catch(() => {});
 }
 
 function uploadAvatar() {
