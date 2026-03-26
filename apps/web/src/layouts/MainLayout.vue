@@ -145,6 +145,11 @@ async function fetchUser() {
     // Update avatar URL
     const img = data.profileImage;
     userAvatarUrl.value = img?.startsWith('/api/') ? `${apiBase}${img}` : img || null;
+    // Restore dark mode preference from user profile
+    if (data.darkMode !== undefined) {
+      localStorage.setItem('darkMode', data.darkMode ? '1' : '0');
+      $q.dark.set(!!data.darkMode);
+    }
   } catch { /* ignore */ }
 }
 

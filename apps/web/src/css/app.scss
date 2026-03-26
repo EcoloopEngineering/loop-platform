@@ -746,6 +746,91 @@ a {
     background: var(--bg-elevated) !important;
     color: var(--text-primary) !important;
   }
+
+  // =============================================
+  // WIZARD / LEAD CREATE
+  // =============================================
+  .lead-create-page {
+    background: var(--bg-page) !important;
+  }
+
+  .wizard-stepper {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  .wizard-footer {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  .wizard-step-indicator {
+    span { color: var(--text-secondary); }
+    &.is-active span { color: $primary; }
+    &.is-done span { color: $primary; }
+  }
+
+  .step-section-title {
+    color: var(--text-primary) !important;
+  }
+
+  // Lead source buttons
+  .q-btn--outline.q-btn--flat {
+    border-color: var(--border-default);
+    color: var(--text-secondary);
+  }
+
+  // =============================================
+  // SUPPORT CHAT PAGE
+  // =============================================
+  .support-header {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .chat-container, .chat-page {
+    background: var(--bg-page) !important;
+  }
+
+  .chat-input-bar {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  .faq-item, .common-question {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+    color: var(--text-primary) !important;
+
+    &:hover { background: var(--bg-hover) !important; }
+  }
+
+  // =============================================
+  // PROFILE PAGE
+  // =============================================
+  .q-page {
+    color: var(--text-primary);
+  }
+
+  // =============================================
+  // MOBILE FOOTER TABS
+  // =============================================
+  .q-footer {
+    .q-tabs {
+      background: var(--bg-card) !important;
+
+      .q-tab {
+        color: var(--text-tertiary) !important;
+        &.q-tab--active { color: $primary !important; }
+      }
+    }
+  }
+
+  .footer-tabs {
+    background: var(--bg-card) !important;
+    border-top: 1px solid var(--border-light) !important;
+  }
 }
 
 // =============================================

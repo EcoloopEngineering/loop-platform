@@ -59,7 +59,8 @@ export class UsersController {
     const fullUser = await this.queryBus.execute(new GetUserByIdQuery(user.id));
     // Never expose sensitive fields
     const { passwordHash, metadata, socialSecurityNumber, firebaseUid, ...safe } = fullUser as any;
-    return safe;
+    const meta = (metadata as Record<string, any>) ?? {};
+    return { ...safe, darkMode: meta.darkMode ?? false, compactView: meta.compactView ?? false };
   }
 
   @Put('me')
@@ -68,6 +69,17 @@ export class UsersController {
     @CurrentUser() user: UserEntity,
     @Body() dto: UpdateUserDto,
   ) {
+    // Handle metadata prefs (darkMode, compactView)
+    const body = dto as any;
+    let metadataUpdate = undefined;
+    if (body.darkMode !== undefined || body.compactView !== undefined) {
+      const current = await this.prisma.user.findUnique({ where: { id: user.id }, select: { metadata: true } });
+      const meta = ((current?.metadata as any) ?? {});
+      if (body.darkMode !== undefined) meta.darkMode = body.darkMode;
+      if (body.compactView !== undefined) meta.compactView = body.compactView;
+      metadataUpdate = meta;
+    }
+
     const updated = await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -78,6 +90,7 @@ export class UsersController {
         ...(dto.nickname !== undefined && { nickname: dto.nickname }),
         ...(dto.closedDealEmoji !== undefined && { closedDealEmoji: dto.closedDealEmoji }),
         ...(dto.language !== undefined && { language: dto.language }),
+        ...(metadataUpdate !== undefined && { metadata: metadataUpdate }),
       },
     });
     const { passwordHash, metadata, socialSecurityNumber, firebaseUid, ...safe } = updated as any;
