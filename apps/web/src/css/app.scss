@@ -111,20 +111,23 @@ $duration-slow: 300ms;
 }
 
 .body--dark {
-  --bg-page: #0F1117;
-  --bg-card: #1A1D27;
-  --bg-elevated: #22262F;
-  --bg-hover: #262A34;
-  --bg-input: #1A1D27;
-  --text-primary: #F1F3F5;
-  --text-secondary: #9CA3AF;
-  --text-tertiary: #6B7280;
-  --border-light: #2D3140;
-  --border-default: #374151;
-  --border-strong: #4B5563;
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --bg-page: #0A0E14;
+  --bg-card: #131820;
+  --bg-elevated: #1A2028;
+  --bg-hover: #1E2530;
+  --bg-input: #131820;
+  --text-primary: #E8ECF1;
+  --text-secondary: #8B95A5;
+  --text-tertiary: #5A6578;
+  --border-light: #1E2530;
+  --border-default: #263040;
+  --border-strong: #334155;
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+  // Teal accent glow for primary elements
+  --accent-glow: 0 0 20px rgba(0, 137, 123, 0.15);
 }
 
 // =============================================
@@ -424,6 +427,7 @@ a {
 // =============================================
 
 .body--dark {
+  // Layout shells
   .q-header, .q-footer {
     background: var(--bg-card) !important;
     border-color: var(--border-light) !important;
@@ -432,25 +436,54 @@ a {
   .q-drawer {
     background: var(--bg-card) !important;
     border-color: var(--border-light) !important;
+
+    .q-item {
+      color: var(--text-secondary);
+      &:hover { background: var(--bg-hover); color: var(--text-primary); }
+      &.q-router-link--active { color: $primary; background: rgba($primary, 0.08); }
+    }
   }
 
   .q-page {
     background: var(--bg-page) !important;
   }
 
+  .q-toolbar {
+    color: var(--text-primary);
+  }
+
+  .q-toolbar__title {
+    color: var(--text-primary) !important;
+  }
+
+  // Cards & elevated surfaces
+  .q-card {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  .q-dialog__inner > .q-card {
+    background: var(--bg-elevated) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  }
+
+  // Lists
   .q-item:hover {
     background: var(--bg-hover);
   }
 
+  .q-list--separator > .q-item-type + .q-item-type {
+    border-color: var(--border-light);
+  }
+
+  // Menus
   .q-menu {
-    background: var(--bg-elevated);
+    background: var(--bg-elevated) !important;
     border: 1px solid var(--border-default);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
 
-  .q-dialog__inner > .q-card {
-    background: var(--bg-elevated);
-  }
-
+  // Tabs
   .q-tab-panel {
     background: transparent;
   }
@@ -460,20 +493,170 @@ a {
       color: var(--text-secondary);
       &.q-tab--active { color: $primary; }
     }
+    .q-tabs__content {
+      border-bottom-color: var(--border-light);
+    }
   }
 
+  // Forms
+  .q-field--outlined .q-field__control {
+    background: var(--bg-input) !important;
+    border-color: var(--border-default) !important;
+
+    &:hover { border-color: var(--border-strong) !important; }
+    &:focus-within { border-color: $primary !important; }
+  }
+
+  .q-field__label { color: var(--text-tertiary) !important; }
+  .q-field__native { color: var(--text-primary) !important; }
+  .q-field--borderless .q-field__control { background: transparent !important; }
+
+  // Toggles
   .q-toggle__inner--falsy .q-toggle__track {
     background: var(--border-strong) !important;
   }
 
+  // Badges & chips
+  .q-badge { border: none; }
+
+  .q-chip--dense {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+  }
+
+  // Banners
   .q-banner {
     background: var(--bg-elevated);
     color: var(--text-primary);
   }
 
+  // Notifications
+  .q-notification {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+  }
+
+  // Selects
   .q-select__dropdown-icon {
     color: var(--text-tertiary);
   }
+
+  // Scrollbar
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    &:hover { background: #4B5563; }
+  }
+
+  // Text overrides for common patterns
+  .text-grey-5, .text-grey-6, .text-grey-7 {
+    color: var(--text-secondary) !important;
+  }
+
+  .text-weight-bold, .text-weight-medium {
+    color: var(--text-primary);
+  }
+
+  // Section titles
+  .section-title {
+    color: var(--text-tertiary);
+  }
+
+  // Auth layout
+  .auth-layout {
+    background: linear-gradient(135deg, #0A0E14 0%, #0D1A17 50%, #0A0E14 100%) !important;
+  }
+
+  .auth-card {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-light);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  // Inline styles override (common hardcoded backgrounds)
+  [style*="background: #F8FAFB"],
+  [style*="background:#F8FAFB"],
+  [style*="background: #fff"],
+  [style*="background:#fff"],
+  [style*="background: #FFFFFF"],
+  [style*="background:#FFFFFF"],
+  [style*="background: rgb(255, 255, 255)"] {
+    background: var(--bg-page) !important;
+  }
+
+  // Pages with inline bg
+  .home-page, .settings-page {
+    background: var(--bg-page) !important;
+  }
+
+  // Stat & metric cards
+  .stat-card, .metric-card, .stat-mini, .dashboard-card,
+  .invite-card, .referral-card, .leads-card, .table-card,
+  .settings-card, .integration-card, .sidebar-card {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  // Lead cards
+  .lead-card {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+
+    &:hover {
+      border-color: $primary !important;
+      box-shadow: var(--accent-glow);
+    }
+  }
+
+  // Pipeline cards
+  .pipeline-column {
+    background: var(--bg-card) !important;
+  }
+
+  // Table specific
+  .q-table {
+    background: var(--bg-card);
+
+    thead th {
+      background: var(--bg-elevated) !important;
+      color: var(--text-tertiary) !important;
+      border-color: var(--border-default) !important;
+    }
+
+    tbody td {
+      color: var(--text-primary) !important;
+      border-color: var(--border-light) !important;
+    }
+
+    .q-table__bottom {
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      border-color: var(--border-light);
+    }
+  }
+
+  // Pipeline list in settings
+  .pipeline-list {
+    border-color: var(--border-light) !important;
+
+    .pipeline-item {
+      border-color: var(--border-light) !important;
+    }
+  }
+
+  // Primary text color references
+  .primary-text { color: var(--text-primary) !important; }
+  .secondary-text { color: var(--text-secondary) !important; }
+
+  // Danger zone
+  .danger-card {
+    border-color: rgba(239, 68, 68, 0.3) !important;
+    background: rgba(239, 68, 68, 0.05) !important;
+  }
+
+  // Greeting
+  .greeting-text { color: var(--text-primary) !important; }
+  .greeting-name { color: $primary !important; }
+  .greeting-sub { color: var(--text-secondary) !important; }
 }
 
 // =============================================
