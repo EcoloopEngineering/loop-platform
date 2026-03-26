@@ -38,6 +38,7 @@
       placeholder="email@example.com"
       type="email"
       class="q-mb-lg"
+      :rules="[(v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'Enter a valid email']"
     >
       <template #prepend>
         <q-icon name="email" color="grey-6" />

@@ -187,7 +187,19 @@ onMounted(async () => {
 
 async function copyLink() {
   try {
-    await navigator.clipboard.writeText(inviteLink.value);
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(inviteLink.value);
+    } else {
+      // Fallback for HTTP
+      const ta = document.createElement('textarea');
+      ta.value = inviteLink.value;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
     copied.value = true;
     setTimeout(() => (copied.value = false), 2000);
   } catch { /* ignore */ }

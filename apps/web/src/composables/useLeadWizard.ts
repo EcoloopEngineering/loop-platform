@@ -251,6 +251,10 @@ export function useLeadWizard() {
       const lead = await leadStore.createLead(payload);
       router.push(`/crm/leads/${lead.id}`);
       return lead;
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      const errorMsg = Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create lead. Please check the data and try again.');
+      throw new Error(errorMsg);
     } finally {
       submitting.value = false;
     }

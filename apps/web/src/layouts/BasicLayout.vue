@@ -2,7 +2,7 @@
   <q-layout view="hHh lpR fFf">
     <q-header bordered class="basic-header">
       <q-toolbar>
-        <q-btn flat round dense icon="arrow_back" color="dark" @click="goBack" />
+        <q-btn v-if="!hideBackButton" flat round dense icon="arrow_back" color="dark" @click="goBack" />
         <q-toolbar-title class="text-weight-bold" style="color: #1A1A2E">{{ title }}</q-toolbar-title>
         <slot name="header-right" />
       </q-toolbar>
@@ -27,6 +27,10 @@ const router = useRouter();
 
 const title = computed(() => {
   return (route.meta.title as string) ?? '';
+});
+
+const hideBackButton = computed(() => {
+  return route.meta.hideLayoutBack === true;
 });
 
 function goBack() {

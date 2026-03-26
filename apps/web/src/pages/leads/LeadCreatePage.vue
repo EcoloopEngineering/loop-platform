@@ -1,7 +1,7 @@
 <template>
   <q-page class="lead-create-page">
     <!-- Stepper -->
-    <wizard-stepper v-model="currentStep" />
+    <wizard-stepper :model-value="currentStep" @update:model-value="onStepClick" />
 
     <!-- Step Content -->
     <div class="step-content">
@@ -57,7 +57,7 @@
         size="lg"
         :loading="submitting"
         :disable="!canSubmit"
-        @click="submitLead"
+        @click="handleSubmit"
       >
         <q-icon name="check" size="18px" class="q-mr-xs" />
         Submit Lead
@@ -67,7 +67,6 @@
 </template>
 
 <script setup lang="ts">
-import EHeader from '@/components/common/EHeader.vue';
 import EBtn from '@/components/common/EBtn.vue';
 import WizardStepper from '@/components/wizard/WizardStepper.vue';
 import StepContact from '@/components/wizard/StepContact.vue';
@@ -76,6 +75,7 @@ import StepEnergy from '@/components/wizard/StepEnergy.vue';
 import StepDesign from '@/components/wizard/StepDesign.vue';
 import StepReview from '@/components/wizard/StepReview.vue';
 import { useLeadWizard } from '@/composables/useLeadWizard';
+import { useQuasar } from 'quasar';
 
 const {
   currentStep,
@@ -97,6 +97,22 @@ const {
   submitLead,
   STEP_NAMES,
 } = useLeadWizard();
+
+const $q = useQuasar();
+
+async function handleSubmit() {
+  try {
+    await submitLead();
+  } catch (err: any) {
+    $q.notify({ type: 'negative', message: err.message || 'Failed to create lead.' });
+  }
+}
+
+function onStepClick(step: number) {
+  if (step < currentStep.value) {
+    currentStep.value = step;
+  }
+}
 </script>
 
 <style lang="scss" scoped>

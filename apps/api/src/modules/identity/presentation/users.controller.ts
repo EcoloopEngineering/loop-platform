@@ -67,12 +67,21 @@ export class UsersController {
   async updateMe(
     @CurrentUser() user: UserEntity,
     @Body() dto: UpdateUserDto,
-  ): Promise<UserEntity> {
-    const currentUser = new UserEntity(user);
-    currentUser.updateProfile(dto);
-
-    // Re-fetch via query to return updated data
-    return this.queryBus.execute(new GetUserByIdQuery(user.id));
+  ) {
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+        ...(dto.phone !== undefined && { phone: dto.phone }),
+        ...(dto.profileImage !== undefined && { profileImage: dto.profileImage }),
+        ...(dto.nickname !== undefined && { nickname: dto.nickname }),
+        ...(dto.closedDealEmoji !== undefined && { closedDealEmoji: dto.closedDealEmoji }),
+        ...(dto.language !== undefined && { language: dto.language }),
+      },
+    });
+    const { passwordHash, metadata, socialSecurityNumber, firebaseUid, ...safe } = updated as any;
+    return safe;
   }
 
   @Post('me/avatar')

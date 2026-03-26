@@ -89,6 +89,7 @@ const routes: RouteRecordRaw[] = [
         path: 'leads/new',
         name: 'lead-new',
         component: () => import('@/pages/leads/LeadCreatePage.vue'),
+        meta: { hideLayoutBack: true },
       },
       {
         path: 'leads/:id',

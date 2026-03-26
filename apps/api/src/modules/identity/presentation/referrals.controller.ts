@@ -63,7 +63,7 @@ export class ReferralsController {
     @Query() pagination: PaginationDto,
   ): Promise<PaginatedResponse<ReferralEntity>> {
     const where = {
-      OR: [{ inviterId: user.id }, { inviteeId: user.id }],
+      inviterId: user.id,
     };
 
     const [referrals, total] = await Promise.all([
