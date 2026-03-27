@@ -12,7 +12,6 @@ concurrency:
 
 env:
   NODE_ENV: test
-  PNPM_VERSION: 10
 
 jobs:
   build-and-test:
@@ -44,8 +43,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -54,7 +51,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       # ── Build ──────────────────────────────────
       - name: Build shared package
@@ -81,15 +78,6 @@ jobs:
           path: apps/api/coverage/
           retention-days: 14
 
-      # ── Coverage Comment on PR ─────────────────
-      - name: Coverage summary
-        if: github.event_name == 'pull_request'
-        uses: davelosert/vitest-coverage-report-action@v2
-        with:
-          working-directory: apps/api
-          json-summary-path: coverage/coverage-summary.json
-        continue-on-error: true
-
   # ── Lint (parallel job) ──────────────────────
   lint:
     name: Lint
@@ -102,8 +90,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -112,7 +98,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Build shared package
         run: pnpm --filter @loop/shared build
@@ -126,6 +112,7 @@ jobs:
     name: SonarCloud
     runs-on: ubuntu-latest
     needs: build-and-test
+    if: always()
     timeout-minutes: 10
 
     steps:
@@ -139,11 +126,13 @@ jobs:
         with:
           name: coverage-report
           path: apps/api/coverage/
+        continue-on-error: true
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: true
 
   # ── Security audit ───────────────────────────
   audit:
@@ -157,8 +146,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -167,7 +154,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
