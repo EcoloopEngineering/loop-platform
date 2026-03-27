@@ -515,6 +515,22 @@ a {
   .q-field__native { color: var(--text-primary) !important; }
   .q-field--borderless .q-field__control { background: transparent !important; }
 
+  // Fix autofill white background
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    caret-color: var(--text-primary) !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  // Fix filled inputs
+  .q-field--filled .q-field__control {
+    background: var(--bg-input) !important;
+  }
+
   // Toggles
   .q-toggle__inner--falsy .q-toggle__track {
     background: var(--border-strong) !important;
@@ -737,9 +753,11 @@ a {
     }
   }
 
-  // Quasar text utility overrides
+  // Quasar color utility overrides
   .text-dark, .text-black { color: var(--text-primary) !important; }
   .text-hint { color: var(--text-tertiary) !important; }
+  .text-grey-7, .text-grey-8 { color: #D1D5DB !important; }
+  .bg-grey-2, .bg-grey-3, .bg-grey-4 { background: #3A4050 !important; }
 
   // Chat bubbles
   .chat-bubble.USER {
@@ -768,6 +786,14 @@ a {
     span { color: var(--text-secondary); }
     &.is-active span { color: $primary; }
     &.is-done span { color: $primary; }
+
+    // Inactive step circles — more visible in dark mode
+    .q-avatar.bg-grey-4 {
+      background: #3A4050 !important;
+    }
+    .q-avatar .text-grey-7 {
+      color: #D1D5DB !important;
+    }
   }
 
   .step-section-title {
