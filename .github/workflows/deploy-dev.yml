@@ -1,4 +1,4 @@
-name: Deploy to Dev (Zero Downtime)
+name: Deploy to Develop 
 
 on:
   workflow_run:

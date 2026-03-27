@@ -16,11 +16,6 @@ describe('CommissionCalculatorDomainService', () => {
       splitPct: 1.0,
     };
 
-    // grossMargin = 4.0 - 2.5 = 1.5
-    // grossRevenue = 1.5 * 10 * 1000 = 15000
-    // netBeforeSplit = (15000 - 1000) * 0.7 = 9800
-    // calculatedAmount = 9800 * 1.0 = 9800
-
     const result = service.calculate(input);
 
     expect(result.grossMargin).toBe(1.5);
@@ -37,11 +32,6 @@ describe('CommissionCalculatorDomainService', () => {
       quoteDeductions: 0,
       splitPct: 0.6, // 60% split (M1 tier)
     };
-
-    // grossMargin = 1.0
-    // grossRevenue = 1.0 * 8 * 1000 = 8000
-    // netBeforeSplit = (8000 - 0) * 0.7 = 5600
-    // calculatedAmount = 5600 * 0.6 = 3360
 
     const result = service.calculate(input);
 
@@ -105,6 +95,6 @@ describe('CommissionCalculatorDomainService', () => {
 
     const result = service.calculate(input);
     expect(result.calculatedAmount).toBe(0);
-    expect(result.netBeforeSplit).toBe(14000); // still calculated
+    expect(result.netBeforeSplit).toBe(14000);
   });
 });

@@ -1,11 +1,12 @@
 import type { Config } from 'jest';
 
+const isCI = process.env.CI === 'true';
+
 const config: Config = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   rootDir: 'src',
-  maxWorkers: 1,
-  workerIdleMemoryLimit: '256MB',
+  maxWorkers: isCI ? '50%' : 1,
+  workerIdleMemoryLimit: isCI ? '512MB' : '256MB',
   testRegex: '.*\\.spec\\.ts$',
   moduleNameMapper: {
     '^@loop/shared(.*)$': '<rootDir>/../../../packages/shared/dist/cjs/index.js',
@@ -27,9 +28,18 @@ const config: Config = {
       statements: 50,
     },
   },
+  // SWC is 10-20x faster than ts-jest for compilation
   transform: {
-    '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
+    '^.+\\.ts$': ['@swc/jest', {
+      jsc: {
+        parser: { syntax: 'typescript', decorators: true },
+        transform: { legacyDecorator: true, decoratorMetadata: true },
+        target: 'es2022',
+      },
+    }],
   },
+  // Silence NestJS logger noise in tests
+  silent: !isCI,
 };
 
 export default config;
