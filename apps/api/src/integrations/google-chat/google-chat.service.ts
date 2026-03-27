@@ -137,7 +137,7 @@ export class GoogleChatService {
     title: string,
     subtitle: string,
     fields: { label: string; value: string }[],
-    color?: string,
+    _color?: string,
   ): Promise<void> {
     if (!this.isConfigured() || !spaceName) return;
 

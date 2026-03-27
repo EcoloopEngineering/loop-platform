@@ -185,12 +185,12 @@ async function fetchUser() {
     // Update avatar reactively
     const img = data.profileImage;
     userAvatar.value = img?.startsWith('/api/') ? `${apiBase}${img}` : img || null;
-    // Restore dark mode from user profile
-    if (data.darkMode !== undefined) {
+    // Sync dark mode from API only if not already set locally
+    if (data.darkMode !== undefined && localStorage.getItem('darkMode') === null) {
       localStorage.setItem('darkMode', data.darkMode ? '1' : '0');
       $q.dark.set(!!data.darkMode);
     }
-    if (data.compactView !== undefined) {
+    if (data.compactView !== undefined && localStorage.getItem('compactView') === null) {
       localStorage.setItem('compactView', data.compactView ? '1' : '0');
       document.body.classList.toggle('compact-view', !!data.compactView);
     }

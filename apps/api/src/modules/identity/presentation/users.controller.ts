@@ -58,7 +58,7 @@ export class UsersController {
   async getMe(@CurrentUser() user: any): Promise<any> {
     const fullUser = await this.queryBus.execute(new GetUserByIdQuery(user.id));
     // Never expose sensitive fields
-    const { passwordHash, metadata, socialSecurityNumber, firebaseUid, ...safe } = fullUser as any;
+    const { passwordHash: _passwordHash, metadata, socialSecurityNumber: _socialSecurityNumber, firebaseUid: _firebaseUid, ...safe } = fullUser as any;
     const meta = (metadata as Record<string, any>) ?? {};
     return { ...safe, darkMode: meta.darkMode ?? false, compactView: meta.compactView ?? false };
   }
@@ -93,7 +93,7 @@ export class UsersController {
         ...(metadataUpdate !== undefined && { metadata: metadataUpdate }),
       },
     });
-    const { passwordHash, metadata, socialSecurityNumber, firebaseUid, ...safe } = updated as any;
+    const { passwordHash: _passwordHash, metadata: _metadata, socialSecurityNumber: _socialSecurityNumber, firebaseUid: _firebaseUid, ...safe } = updated as any;
     return safe;
   }
 
@@ -203,7 +203,7 @@ export class UsersController {
     if ((dto as any).isActive !== undefined) data.isActive = (dto as any).isActive;
 
     const updated = await this.prisma.user.update({ where: { id }, data });
-    const { passwordHash, metadata, socialSecurityNumber, firebaseUid, ...safe } = updated as any;
+    const { passwordHash: _passwordHash, metadata: _metadata, socialSecurityNumber: _socialSecurityNumber, firebaseUid: _firebaseUid, ...safe } = updated as any;
     return safe;
   }
 

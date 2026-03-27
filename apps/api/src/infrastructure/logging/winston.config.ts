@@ -55,7 +55,7 @@ export function createWinstonLogger() {
 
   if (awsAccessKey && awsSecretKey) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const WinstonCloudWatch = require('winston-cloudwatch');
 
       // Combined logs → CloudWatch

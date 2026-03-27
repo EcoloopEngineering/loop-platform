@@ -105,7 +105,6 @@ jobs:
 
       - name: Lint API
         run: pnpm --filter @loop/api lint
-        continue-on-error: true
 
   # ── SonarCloud Analysis ─────────────────────
   sonar:

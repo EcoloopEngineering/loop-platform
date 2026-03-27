@@ -53,7 +53,7 @@ export class SchedulingController {
       duration?: number;
       notes?: string;
     },
-    @CurrentUser() user: any,
+    @CurrentUser() _user: any,
   ) {
     return this.commandBus.execute(
       new BookAppointmentCommand(

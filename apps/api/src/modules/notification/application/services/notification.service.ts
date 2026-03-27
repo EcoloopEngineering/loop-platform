@@ -70,8 +70,8 @@ export class NotificationService {
   private async sendPush(
     userId: string,
     title: string,
-    body: string,
-    data?: Record<string, any>,
+    _body: string,
+    _data?: Record<string, any>,
   ): Promise<void> {
     // Look up the user's FCM token
     const device = await this.prisma.userDevice.findUnique({

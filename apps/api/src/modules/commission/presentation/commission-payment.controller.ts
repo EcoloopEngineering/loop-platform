@@ -54,7 +54,7 @@ export class CommissionPaymentController {
   @ApiOperation({ summary: 'Get commission payments for a specific lead' })
   async getPaymentsByLead(
     @Param('leadId') leadId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() _user: any,
   ) {
     return this.prisma.commissionPayment.findMany({
       where: { leadId },
@@ -117,7 +117,7 @@ export class CommissionPaymentController {
   @ApiOperation({ summary: 'Cancel a commission payment' })
   async cancelPayment(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() _user: any,
   ) {
     const payment = await this.prisma.commissionPayment.findUnique({
       where: { id },
