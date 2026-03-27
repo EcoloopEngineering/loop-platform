@@ -1,8 +1,10 @@
 name: Deploy to Dev (Zero Downtime)
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
     branches: [develop]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -12,6 +14,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to EC2
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

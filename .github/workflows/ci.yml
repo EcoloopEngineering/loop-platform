@@ -65,7 +65,7 @@ jobs:
 
       # ── Test ───────────────────────────────────
       - name: Run API tests with coverage
-        run: cd apps/api && ./node_modules/.bin/jest --coverage --ci --forceExit --passWithNoTests --maxWorkers=2
+        run: cd apps/api && ./node_modules/.bin/jest --coverage --ci --forceExit --passWithNoTests --maxWorkers=4
         env:
           DATABASE_URL: postgresql://loop:loop_test@localhost:5432/loop_test?schema=public
 
