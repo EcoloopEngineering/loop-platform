@@ -4,7 +4,7 @@ import { PipelineController } from './pipeline.controller';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { GetPipelineViewQuery } from '../application/queries/get-pipeline-view.handler';
-import { CLOSER_PIPELINE_STAGES, PROJECT_MANAGER_PIPELINE_STAGES } from '@loop/shared';
+import { CLOSER_PIPELINE_STAGES, PM_PIPELINE_STAGES, FINANCE_PIPELINE_STAGES, MAINTENANCE_PIPELINE_STAGES } from '@loop/shared';
 
 describe('PipelineController', () => {
   let controller: PipelineController;
@@ -61,20 +61,24 @@ describe('PipelineController', () => {
   });
 
   describe('getStages', () => {
-    it('should return closer and projectManager stage definitions', () => {
+    it('should return all pipeline stage definitions', () => {
       const result = controller.getStages();
 
       expect(result).toEqual({
         closer: CLOSER_PIPELINE_STAGES,
-        projectManager: PROJECT_MANAGER_PIPELINE_STAGES,
+        projectManager: PM_PIPELINE_STAGES,
+        finance: FINANCE_PIPELINE_STAGES,
+        maintenance: MAINTENANCE_PIPELINE_STAGES,
       });
     });
 
-    it('should return an object with closer and projectManager keys', () => {
+    it('should return an object with all pipeline keys', () => {
       const result = controller.getStages();
 
       expect(result).toHaveProperty('closer');
       expect(result).toHaveProperty('projectManager');
+      expect(result).toHaveProperty('finance');
+      expect(result).toHaveProperty('maintenance');
     });
   });
 });
