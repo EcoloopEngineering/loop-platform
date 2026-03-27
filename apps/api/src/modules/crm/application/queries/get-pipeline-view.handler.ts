@@ -1,7 +1,7 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
-import { STAGE_COLORS, STAGE_LABELS } from '@loop/shared';
+import { STAGE_COLORS, STAGE_LABELS, PIPELINE_STAGES } from '@loop/shared';
 
 export class GetPipelineViewQuery {
   constructor(
@@ -36,14 +36,26 @@ export class GetPipelineViewHandler implements IQueryHandler<GetPipelineViewQuer
       dateTo: query.dateTo,
     });
 
+    const stageOrderMap = this.buildStageOrderMap();
+
     return Object.entries(grouped).map(([stage, leads]) => ({
       stage,
       label: STAGE_LABELS[stage] ?? this.formatStageLabel(stage),
       color: STAGE_COLORS[stage] ?? '#757575',
-      order: 0,
+      order: stageOrderMap[stage] ?? 99,
       leads,
       count: leads.length,
     }));
+  }
+
+  private buildStageOrderMap(): Record<string, number> {
+    const map: Record<string, number> = {};
+    for (const stages of Object.values(PIPELINE_STAGES)) {
+      for (const s of stages) {
+        map[s.stage] = s.order;
+      }
+    }
+    return map;
   }
 
   private formatStageLabel(stage: string): string {
