@@ -10,12 +10,11 @@
       >
         <q-avatar
           :size="'32px'"
-          :color="modelValue >= idx + 1 ? 'teal' : 'grey-4'"
-          :text-color="modelValue >= idx + 1 ? 'white' : 'grey-7'"
-          class="q-mb-xs"
+          :class="stepCircleClass(idx)"
+          class="q-mb-xs step-circle"
         >
           <q-icon v-if="modelValue > idx + 1" name="check" size="16px" />
-          <span v-else class="text-caption text-weight-bold">{{ idx + 1 }}</span>
+          <span v-else class="step-number">{{ idx + 1 }}</span>
         </q-avatar>
         <span
           class="text-caption"
@@ -35,13 +34,19 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   modelValue: number;
 }>();
 
 defineEmits<{
   'update:modelValue': [step: number];
 }>();
+
+function stepCircleClass(idx: number) {
+  if (props.modelValue > idx + 1) return 'step-done';
+  if (props.modelValue === idx + 1) return 'step-active';
+  return 'step-inactive';
+}
 
 const steps = [
   { label: 'Contact', icon: 'person' },
@@ -72,6 +77,37 @@ const steps = [
   span {
     font-size: 11px;
     letter-spacing: 0.02em;
+  }
+}
+
+.step-circle {
+  font-weight: 700;
+}
+
+.step-number {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.step-active {
+  background: #00897B !important;
+  color: #FFFFFF !important;
+}
+
+.step-done {
+  background: #00897B !important;
+  color: #FFFFFF !important;
+}
+
+.step-inactive {
+  background: #D1D5DB !important;
+  color: #4B5563 !important;
+}
+
+.body--dark {
+  .step-inactive {
+    background: #3A4050 !important;
+    color: #E8ECF1 !important;
   }
 }
 </style>

@@ -128,6 +128,9 @@ function onStepClick(step: number) {
   flex: 1;
   overflow-y: auto;
   padding: 0 16px;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .wizard-footer {
@@ -137,6 +140,9 @@ function onStepClick(step: number) {
   bottom: 0;
   padding: 12px 16px;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
 
   .back-btn {
     font-size: 13px;

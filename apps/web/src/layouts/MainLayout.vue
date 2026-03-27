@@ -233,6 +233,9 @@ watch(
 }
 
 .footer-tabs {
+  max-width: 480px;
+  margin: 0 auto;
+
   :deep(.q-tab) {
     font-size: 11px;
     min-height: 56px;
