@@ -22,6 +22,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/auth/ForgotPasswordPage.vue'),
       },
       {
+        path: 'reset-password',
+        name: 'reset-password',
+        component: () => import('@/pages/auth/ResetPasswordPage.vue'),
+      },
+      {
         path: 'invite/:code?',
         name: 'invite',
         component: () => import('@/pages/auth/SignUpPage.vue'),
@@ -222,6 +227,49 @@ const routes: RouteRecordRaw[] = [
     name: 'public-form',
     component: () => import('@/pages/home/HomePage.vue'),
     props: true,
+  },
+
+  // ── Customer Portal ─────────────────────────
+  {
+    path: '/portal/login',
+    name: 'portal-login',
+    component: () => import('@/pages/portal/PortalLoginPage.vue'),
+  },
+  {
+    path: '/portal/reset-password',
+    name: 'portal-reset-password',
+    component: () => import('@/pages/portal/PortalResetPasswordPage.vue'),
+  },
+  {
+    path: '/portal',
+    component: () => import('@/layouts/PortalLayout.vue'),
+    children: [
+      {
+        path: '',
+        name: 'portal-dashboard',
+        component: () => import('@/pages/portal/PortalDashboardPage.vue'),
+      },
+      {
+        path: 'project',
+        name: 'portal-project',
+        component: () => import('@/pages/portal/PortalProjectPage.vue'),
+      },
+      {
+        path: 'notifications',
+        name: 'portal-notifications',
+        component: () => import('@/pages/portal/PortalNotificationsPage.vue'),
+      },
+      {
+        path: 'faq',
+        name: 'portal-faq',
+        component: () => import('@/pages/portal/PortalFAQPage.vue'),
+      },
+      {
+        path: 'profile',
+        name: 'portal-profile',
+        component: () => import('@/pages/portal/PortalProfilePage.vue'),
+      },
+    ],
   },
 
   // Catch-all

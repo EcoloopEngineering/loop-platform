@@ -42,8 +42,8 @@ export default route(function () {
   });
 
   Router.beforeEach(async (to, _from, next) => {
-    // Auth pages are always accessible
-    if (to.path.startsWith('/auth')) return next();
+    // Auth and portal pages are always accessible (portal has its own auth)
+    if (to.path.startsWith('/auth') || to.path.startsWith('/portal')) return next();
 
     // Public pages (no auth required)
     const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);

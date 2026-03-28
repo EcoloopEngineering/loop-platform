@@ -13,6 +13,7 @@ jobs:
     name: AI Code Review
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    continue-on-error: true  # API overload (529) should never block a PR
 
     steps:
       - name: Checkout
@@ -24,16 +25,17 @@ jobs:
         id: diff
         run: |
           git fetch origin ${{ github.base_ref }}
-          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- '*.ts' '*.vue' '*.scss' | head -5000)
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- '*.ts' '*.vue' '*.scss' | head -3000)
           echo "diff<<ENDDIFF" >> $GITHUB_OUTPUT
           echo "$DIFF" >> $GITHUB_OUTPUT
           echo "ENDDIFF" >> $GITHUB_OUTPUT
 
       - name: Claude Code Review
         uses: anthropics/claude-code-action@v1
+        continue-on-error: true
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-sonnet-4-20250514
+          model: claude-haiku-4-5-20251001
           direct_prompt: |
             Review this pull request for the Loop Platform (NestJS + Vue 3 + Quasar).
 

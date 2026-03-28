@@ -126,7 +126,6 @@ $duration-slow: 300ms;
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
 
-  // Teal accent glow for primary elements
   --accent-glow: 0 0 20px rgba(0, 137, 123, 0.15);
 }
 
@@ -442,7 +441,7 @@ a {
       &:hover { background: var(--bg-hover); color: var(--text-primary); }
       &.q-router-link--active {
         color: #00E5C8 !important;
-        background: rgba(0, 137, 123, 0.12) !important;
+        background: rgba(0, 229, 200, 0.08) !important;
         .q-icon { color: #00E5C8 !important; }
       }
     }
@@ -495,7 +494,7 @@ a {
   .q-tabs {
     .q-tab {
       color: var(--text-secondary);
-      &.q-tab--active { color: $primary; }
+      &.q-tab--active { color: #00E5C8; }
     }
     .q-tabs__content {
       border-bottom-color: var(--border-light);
@@ -581,9 +580,65 @@ a {
     color: var(--text-primary) !important;
   }
 
-  // Auth layout
-  .auth-layout {
-    background: linear-gradient(135deg, #0A0E14 0%, #0D1A17 50%, #0A0E14 100%) !important;
+  // ── Auth layout — IMUNE ao dark mode (sempre branco) ──────────────────
+  .auth-split {
+    // Lado direito (form) permanece sempre branco — override CSS vars at root
+    .form-side {
+      --bg-input: #FFFFFF;
+      --bg-card: #FFFFFF;
+      --bg-elevated: #FFFFFF;
+      --bg-page: #FFFFFF;
+      --text-primary: #111827;
+      --text-secondary: #6B7280;
+      --text-tertiary: #9CA3AF;
+      --border-default: #E5E7EB;
+      --border-light: #F3F4F6;
+      background: #FFFFFF !important;
+      color: #111827 !important;
+
+      // Textos forçados de volta ao claro
+      .form-title, h5 { color: #111827 !important; }
+      .form-subtitle, .text-hint { color: #9CA3AF !important; }
+      .forgot-link { color: #00897B !important; }
+      .form-footer { color: #9CA3AF !important; }
+
+      // Inputs brancos
+      .q-field--outlined .q-field__control {
+        background: #FFFFFF !important;
+        border-color: #E5E7EB !important;
+        &:hover { border-color: #D1D5DB !important; }
+        &:focus-within { border-color: #00897B !important; }
+        &::before { border-color: #E5E7EB !important; }
+      }
+      .q-field__label { color: #6B7280 !important; }
+      .q-field__native,
+      .q-field__input,
+      .q-field__suffix,
+      .q-field__prefix { color: #111827 !important; }
+      .q-icon { color: #9CA3AF !important; }
+
+      // Autofill branco
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      input:-webkit-autofill:active,
+      textarea:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+        -webkit-text-fill-color: #111827 !important;
+        caret-color: #111827 !important;
+      }
+
+      // Botão Google
+      .google-btn {
+        border-color: #E5E7EB !important;
+        background: #FFFFFF !important;
+        color: #374151 !important;
+      }
+
+      // Divider
+      .divider-line { background: #E5E7EB !important; }
+      .divider-text { color: #9CA3AF !important; }
+    }
   }
 
   .auth-card {
@@ -757,7 +812,91 @@ a {
   .text-dark, .text-black { color: var(--text-primary) !important; }
   .text-hint { color: var(--text-tertiary) !important; }
   .text-grey-7, .text-grey-8 { color: #D1D5DB !important; }
-  .bg-grey-2, .bg-grey-3, .bg-grey-4 { background: #3A4050 !important; }
+  .bg-grey-2, .bg-grey-3, .bg-grey-4 { background: #0a2d36 !important; }
+
+  // ── Portal login form — IMUNE ao dark mode ─────────────────────────────
+  // Override CSS variables at the form-side level so all children inherit white
+  .portal-login .form-side {
+    --bg-input: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --bg-elevated: #FFFFFF;
+    --bg-page: #FFFFFF;
+    --text-primary: #111827;
+    --text-secondary: #6B7280;
+    --text-tertiary: #9CA3AF;
+    --border-default: #E5E7EB;
+    --border-light: #F3F4F6;
+    background: #FFFFFF !important;
+    color: #111827 !important;
+
+    .form-title { color: #111827 !important; }
+    .form-subtitle { color: #9CA3AF !important; }
+    .form-footer { color: #9CA3AF !important; }
+    .form-header h2, .form-header p { color: inherit !important; }
+
+    // Labels and text inside fields
+    .q-field__label { color: #6B7280 !important; }
+    .q-field__native,
+    .q-field__input,
+    .q-field__suffix,
+    .q-field__prefix { color: #111827 !important; }
+
+    // Outlined field borders and background
+    .q-field--outlined .q-field__control {
+      background: #FFFFFF !important;
+      border-color: #E5E7EB !important;
+      &:hover { border-color: #D1D5DB !important; }
+      &:focus-within { border-color: #00897B !important; }
+      &::before { border-color: #E5E7EB !important; }
+    }
+
+    // Icon colors inside inputs
+    .q-icon { color: #9CA3AF !important; }
+
+    // Tab labels
+    .q-tab__label { color: #374151; }
+    .q-tab--active .q-tab__label { color: #00897B !important; }
+
+    // Autofill immunity
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active,
+    textarea:-webkit-autofill {
+      -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+      -webkit-text-fill-color: #111827 !important;
+      caret-color: #111827 !important;
+    }
+  }
+
+  // Portal
+  .portal-login {
+    background: linear-gradient(145deg, #042F1E 0%, #064E32 35%, #00897B 100%) !important;
+  }
+
+  .login-card {
+    background: var(--bg-card) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .login-title { color: #00E5C8 !important; }
+
+  .portal-dashboard, .portal-project, .portal-faq, .portal-profile, .portal-notifications {
+    background: var(--bg-page) !important;
+  }
+
+  .faq-item {
+    background: var(--bg-card) !important;
+    border-color: var(--border-light) !important;
+  }
+
+  .contact-card {
+    background: rgba(0, 137, 123, 0.08) !important;
+  }
+
+  .stage-info {
+    background: rgba(0, 137, 123, 0.08) !important;
+  }
 
   // Chat bubbles
   .chat-bubble.USER {
@@ -848,7 +987,7 @@ a {
 
       .q-tab {
         color: var(--text-tertiary) !important;
-        &.q-tab--active { color: $primary !important; }
+        &.q-tab--active { color: #00E5C8 !important; }
       }
     }
   }

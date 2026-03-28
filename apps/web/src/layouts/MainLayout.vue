@@ -59,6 +59,7 @@
     </q-page-container>
 
     <q-footer class="main-footer" bordered>
+      <div class="footer-gradient-bar" />
       <q-tabs
         v-model="activeTab"
         active-color="primary"
@@ -145,8 +146,8 @@ async function fetchUser() {
     // Update avatar URL
     const img = data.profileImage;
     userAvatarUrl.value = img?.startsWith('/api/') ? `${apiBase}${img}` : img || null;
-    // Sync dark mode from API only if not already set locally
-    if (data.darkMode !== undefined && localStorage.getItem('darkMode') === null) {
+    // Always sync dark mode from API — API is source of truth
+    if (data.darkMode !== undefined) {
       localStorage.setItem('darkMode', data.darkMode ? '1' : '0');
       $q.dark.set(!!data.darkMode);
     }
@@ -228,8 +229,13 @@ watch(
 
 .main-footer {
   background: #FFFFFF;
-  border-top: 1px solid #F3F4F6;
-  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.02);
+  border: none;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.footer-gradient-bar {
+  height: 2px;
+  background: linear-gradient(90deg, #042F1E 0%, #00897B 60%, #34D399 100%);
 }
 
 .footer-tabs {
@@ -241,11 +247,15 @@ watch(
     min-height: 56px;
     color: #9CA3AF;
     font-weight: 500;
-    transition: color 150ms;
+    transition: color 150ms, transform 150ms;
 
     &.q-tab--active {
       color: #00897B;
       font-weight: 600;
+    }
+
+    &:active {
+      transform: scale(0.92);
     }
   }
 }

@@ -35,7 +35,7 @@
             </q-list>
           </q-menu>
         </q-btn>
-        <q-avatar size="36px" color="primary" text-color="white" class="q-ml-sm cursor-pointer">
+        <q-avatar size="36px" color="primary" text-color="white" class="q-ml-sm cursor-pointer admin-avatar">
           <q-img v-if="userAvatar" :src="userAvatar" />
           <span v-else style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
           <q-menu anchor="bottom right" self="top right" style="min-width: 180px; border-radius: 12px">
@@ -185,8 +185,8 @@ async function fetchUser() {
     // Update avatar reactively
     const img = data.profileImage;
     userAvatar.value = img?.startsWith('/api/') ? `${apiBase}${img}` : img || null;
-    // Sync dark mode from API only if not already set locally
-    if (data.darkMode !== undefined && localStorage.getItem('darkMode') === null) {
+    // Always sync dark mode from API — API is source of truth
+    if (data.darkMode !== undefined) {
       localStorage.setItem('darkMode', data.darkMode ? '1' : '0');
       $q.dark.set(!!data.darkMode);
     }
@@ -288,6 +288,7 @@ const adminItems = computed(() =>
   border-bottom: 1px solid #F3F4F6;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+
 
 .admin-drawer {
   background: #FAFBFC;

@@ -1,42 +1,25 @@
 <template>
-  <div class="login-form">
-    <h5 class="login-title">Welcome Back</h5>
-    <p class="login-subtitle">Sign in to your account</p>
+  <div>
+    <h5 class="form-title">Welcome Back</h5>
+    <p class="form-subtitle">Sign in to your account</p>
 
-    <q-form @submit.prevent="handleLogin">
-      <div class="form-fields">
-        <e-input
-          v-model="email"
-          label="Email"
-          type="email"
-          :rules="[(v: string) => !!v || 'Email is required']"
-        />
+    <q-form @submit.prevent="handleLogin" class="form-fields">
+      <q-input v-model="email" label="Email" type="email" outlined dense class="auth-input" :rules="[(v: string) => !!v || 'Email is required']">
+        <template #prepend><q-icon name="email" color="grey-5" size="18px" /></template>
+      </q-input>
 
-        <e-input
-          v-model="password"
-          label="Password"
-          :type="showPassword ? 'text' : 'password'"
-          :rules="[(v: string) => !!v || 'Password is required']"
-        >
-          <template #append>
-            <q-icon
-              :name="showPassword ? 'visibility_off' : 'visibility'"
-              class="cursor-pointer"
-              color="grey-5"
-              size="20px"
-              @click="showPassword = !showPassword"
-            />
-          </template>
-        </e-input>
+      <q-input v-model="password" label="Password" :type="showPassword ? 'text' : 'password'" outlined dense class="auth-input" :rules="[(v: string) => !!v || 'Password is required']">
+        <template #prepend><q-icon name="lock" color="grey-5" size="18px" /></template>
+        <template #append>
+          <q-icon :name="showPassword ? 'visibility_off' : 'visibility'" class="cursor-pointer" color="grey-4" size="18px" @click="showPassword = !showPassword" />
+        </template>
+      </q-input>
+
+      <div class="text-right q-mt-xs">
+        <router-link to="/auth/forgot-password" class="forgot-link">Forgot Password?</router-link>
       </div>
 
-      <div class="text-right q-mt-xs q-mb-md">
-        <router-link to="/auth/forgot-password" class="forgot-link">
-          Forgot Password?
-        </router-link>
-      </div>
-
-      <e-btn type="submit" label="Log In" :loading="loading" class="full-width" size="lg" />
+      <q-btn unelevated no-caps color="primary" label="Sign In" type="submit" :loading="loading" class="full-width submit-btn" />
 
       <div class="divider-row">
         <div class="divider-line" />
@@ -55,13 +38,13 @@
         no-caps
       />
 
-      <div class="text-center q-mt-lg">
+      <div class="text-center q-mt-md">
         <span class="text-hint">Don't have an account? </span>
         <router-link to="/auth/signup" class="text-primary text-weight-medium">Sign Up</router-link>
       </div>
     </q-form>
 
-    <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded>
+    <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded dense style="font-size: 13px">
       {{ error }}
     </q-banner>
   </div>
@@ -72,8 +55,6 @@ import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
-import EBtn from '@/components/common/EBtn.vue';
-import EInput from '@/components/common/EInput.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -102,8 +83,6 @@ async function handleLogin() {
       error.value = 'Invalid email or password. Please try again.';
     } else if (status === 429) {
       error.value = 'Too many login attempts. Please wait a moment.';
-    } else if (status === 409) {
-      error.value = apiMsg || 'Account conflict. Please contact support.';
     } else if (apiMsg && !apiMsg.includes('status code') && !apiMsg.includes('Request failed')) {
       error.value = apiMsg;
     } else {
@@ -134,21 +113,17 @@ async function handleGoogleLogin() {
 </script>
 
 <style lang="scss" scoped>
-.login-form {
-  max-width: 100%;
-}
-
-.login-title {
-  margin: 0 0 4px 0;
-  font-size: 24px;
+.form-title {
+  margin: 0 0 4px;
+  font-size: 26px;
   font-weight: 700;
   color: #111827;
   text-align: center;
   letter-spacing: -0.02em;
 }
 
-.login-subtitle {
-  margin: 0 0 28px 0;
+.form-subtitle {
+  margin: 0 0 24px;
   font-size: 14px;
   color: #9CA3AF;
   text-align: center;
@@ -157,7 +132,21 @@ async function handleGoogleLogin() {
 .form-fields {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+}
+
+.auth-input {
+  :deep(.q-field__control) {
+    border-radius: 10px;
+    min-height: 44px;
+  }
+}
+
+.submit-btn {
+  border-radius: 10px;
+  font-weight: 600;
+  min-height: 46px;
+  font-size: 15px;
 }
 
 .forgot-link {
@@ -172,7 +161,6 @@ async function handleGoogleLogin() {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 20px 0;
 }
 
 .divider-line {
@@ -186,7 +174,6 @@ async function handleGoogleLogin() {
   color: #9CA3AF;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .text-hint {
@@ -197,14 +184,8 @@ async function handleGoogleLogin() {
 .google-btn {
   border: 1px solid #E5E7EB;
   border-radius: 10px;
-  padding: 10px 16px;
   font-weight: 500;
   min-height: 44px;
-  transition: all 150ms ease;
-
-  &:hover {
-    border-color: #D1D5DB;
-    background: #F9FAFB;
-  }
+  &:hover { border-color: #D1D5DB; background: #F9FAFB; }
 }
 </style>

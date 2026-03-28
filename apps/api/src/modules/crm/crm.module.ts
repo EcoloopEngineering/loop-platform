@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 
@@ -31,6 +32,7 @@ import { LeadsController } from './presentation/leads.controller';
 import { CustomersController } from './presentation/customers.controller';
 import { PipelineController } from './presentation/pipeline.controller';
 import { SalesRabbitWebhookController } from './presentation/salesrabbit-webhook.controller';
+import { PortalController } from './presentation/portal.controller';
 
 const CommandHandlers = [CreateLeadHandler];
 const QueryHandlers = [ListLeadsHandler, GetPipelineViewHandler];
@@ -38,8 +40,8 @@ const CronHandlers = [AutoAdvanceInstallsHandler];
 const Listeners = [StageAdvanceListener, LeadTransitionService];
 
 @Module({
-  imports: [CqrsModule, ScheduleModule.forRoot()],
-  controllers: [LeadsController, CustomersController, PipelineController, SalesRabbitWebhookController],
+  imports: [CqrsModule, ConfigModule, ScheduleModule.forRoot()],
+  controllers: [LeadsController, CustomersController, PipelineController, SalesRabbitWebhookController, PortalController],
   providers: [
     PrismaService,
     LeadScoringDomainService,

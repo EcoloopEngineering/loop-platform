@@ -1,33 +1,28 @@
 <template>
   <div>
-    <h5 class="signup-title">Create Account</h5>
-    <p class="signup-subtitle">Join the ecoLoop platform</p>
+    <h5 class="form-title">Create Account</h5>
+    <p class="form-subtitle">Join the ecoLoop platform</p>
 
-    <q-form @submit.prevent="handleSignUp" class="signup-form">
-      <e-input
-        v-model="name"
-        label="Full Name"
-        :rules="[(v: string) => !!v || 'Name is required']"
-      />
+    <q-form @submit.prevent="handleSignUp" class="form-fields">
+      <q-input v-model="name" label="Full Name" outlined dense class="auth-input" :rules="[(v: string) => !!v || 'Name is required']">
+        <template #prepend><q-icon name="person" color="grey-5" size="18px" /></template>
+      </q-input>
 
-      <e-input
-        v-model="email"
-        label="Email"
-        type="email"
-        :rules="[(v: string) => !!v || 'Email is required']"
-      />
+      <q-input v-model="email" label="Email" type="email" outlined dense class="auth-input" :rules="[(v: string) => !!v || 'Email is required']">
+        <template #prepend><q-icon name="email" color="grey-5" size="18px" /></template>
+      </q-input>
 
       <!-- Referral info for external users -->
       <q-slide-transition>
         <div v-if="!isEcoloopEmail && email">
           <q-banner class="bg-blue-1 text-blue-9" rounded dense style="font-size: 12px">
             <template #avatar><q-icon name="group_add" color="blue-6" /></template>
-            You're signing up as a <strong>Sales Partner</strong>. Leads you create will be linked to the ecoLoop rep who invited you.
+            You're signing up as a <strong>Sales Partner</strong>.
           </q-banner>
         </div>
       </q-slide-transition>
 
-      <e-input
+      <q-input
         v-model="phone"
         label="Phone (optional)"
         type="tel"
@@ -35,53 +30,52 @@
         unmasked-value
         inputmode="numeric"
         @keypress="onlyNumbers"
-        :rules="[
-          (v: string) => !v || /^\d{10,15}$/.test(v) || 'Enter a valid phone number',
-        ]"
-      />
+        outlined
+        dense
+        class="auth-input"
+      >
+        <template #prepend><q-icon name="phone" color="grey-5" size="18px" /></template>
+      </q-input>
 
-      <e-input
+      <q-input
         v-model="password"
         label="Password"
         :type="showPassword ? 'text' : 'password'"
-        :rules="[
-          (v: string) => !!v || 'Password is required',
-          (v: string) => v.length >= 8 || 'Minimum 8 characters',
-        ]"
+        outlined
+        dense
+        class="auth-input"
+        :rules="[(v: string) => !!v || 'Required', (v: string) => v.length >= 8 || 'Min 8 characters']"
       >
+        <template #prepend><q-icon name="lock" color="grey-5" size="18px" /></template>
         <template #append>
-          <q-icon
-            :name="showPassword ? 'visibility_off' : 'visibility'"
-            class="cursor-pointer" color="grey-5" size="20px"
-            @click="showPassword = !showPassword"
-          />
+          <q-icon :name="showPassword ? 'visibility_off' : 'visibility'" class="cursor-pointer" color="grey-4" size="18px" @click="showPassword = !showPassword" />
         </template>
-      </e-input>
+      </q-input>
 
-      <e-input
+      <q-input
         v-model="confirmPassword"
         label="Confirm Password"
         :type="showConfirmPassword ? 'text' : 'password'"
+        outlined
+        dense
+        class="auth-input"
         :rules="[(v: string) => v === password || 'Passwords do not match']"
       >
+        <template #prepend><q-icon name="lock" color="grey-5" size="18px" /></template>
         <template #append>
-          <q-icon
-            :name="showConfirmPassword ? 'visibility_off' : 'visibility'"
-            class="cursor-pointer" color="grey-5" size="20px"
-            @click="showConfirmPassword = !showConfirmPassword"
-          />
+          <q-icon :name="showConfirmPassword ? 'visibility_off' : 'visibility'" class="cursor-pointer" color="grey-4" size="18px" @click="showConfirmPassword = !showConfirmPassword" />
         </template>
-      </e-input>
+      </q-input>
 
-      <e-btn type="submit" label="Sign Up" :loading="loading" class="full-width" />
+      <q-btn unelevated no-caps color="primary" label="Create Account" type="submit" :loading="loading" class="full-width submit-btn" />
 
       <div class="text-center q-mt-md">
         <span class="text-hint">Already have an account? </span>
-        <router-link to="/auth/login" class="text-primary text-weight-medium">Log In</router-link>
+        <router-link to="/auth/login" class="text-primary text-weight-medium">Sign In</router-link>
       </div>
     </q-form>
 
-    <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded>
+    <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded dense style="font-size: 13px">
       {{ error }}
     </q-banner>
   </div>
@@ -91,8 +85,6 @@
 import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
-import EBtn from '@/components/common/EBtn.vue';
-import EInput from '@/components/common/EInput.vue';
 
 const props = defineProps<{ code?: string }>();
 
@@ -110,9 +102,7 @@ const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 const error = ref('');
 
-const isEcoloopEmail = computed(() => {
-  return email.value.toLowerCase().endsWith('@ecoloop.us');
-});
+const isEcoloopEmail = computed(() => email.value.toLowerCase().endsWith('@ecoloop.us'));
 
 function onlyNumbers(evt: KeyboardEvent) {
   if (!/\d/.test(evt.key)) evt.preventDefault();
@@ -144,31 +134,45 @@ async function handleSignUp() {
 </script>
 
 <style lang="scss" scoped>
-.signup-title {
-  margin: 0 0 4px 0;
-  font-size: 24px;
+.form-title {
+  margin: 0 0 4px;
+  font-size: 26px;
   font-weight: 700;
   color: #111827;
   text-align: center;
   letter-spacing: -0.02em;
 }
 
-.signup-subtitle {
-  margin: 0 0 24px 0;
+.form-subtitle {
+  margin: 0 0 24px;
   font-size: 14px;
   color: #9CA3AF;
   text-align: center;
 }
 
-.signup-form {
+.form-fields {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.auth-input {
+  :deep(.q-field__control) {
+    border-radius: 10px;
+    min-height: 44px;
+  }
+}
+
+.submit-btn {
+  border-radius: 10px;
+  font-weight: 600;
+  min-height: 46px;
+  font-size: 15px;
+  margin-top: 4px;
 }
 
 .text-hint {
   color: #9CA3AF;
   font-size: 14px;
 }
-
 </style>

@@ -1,0 +1,192 @@
+// =============================================
+// LOGIN PAGE — Solar Energy Animations
+// Shared by AuthLayout + PortalLoginPage
+// =============================================
+
+// ── Energy pulse rings ──────────────────────
+.pulse-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 212, 170, 0.3);
+  animation: pulse-expand 4s ease-out infinite;
+}
+.pr1 { width: 80px; height: 80px; bottom: 15%; right: 20%; animation-delay: 0s; }
+.pr2 { width: 80px; height: 80px; bottom: 15%; right: 20%; animation-delay: 2s; }
+
+@keyframes pulse-expand {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(5); opacity: 0; }
+}
+
+// ── Floating solar particles ─────────────────
+.particle {
+  position: absolute;
+  opacity: 0;
+  animation: float-up 8s ease-in infinite;
+  filter: drop-shadow(0 0 4px rgba(0, 212, 170, 0.6));
+  user-select: none;
+  pointer-events: none;
+}
+
+.p1 { left: 8%;  bottom: 10%; animation-delay: 0s;   font-size: 16px; color: #00D4AA; }
+.p2 { left: 18%; bottom: 5%;  animation-delay: 1.2s; font-size: 12px; color: #7EFF4A; }
+.p3 { left: 30%; bottom: 8%;  animation-delay: 2.4s; font-size: 18px; color: #00D4AA; }
+.p4 { left: 50%; bottom: 3%;  animation-delay: 0.8s; font-size: 12px; color: #7EFF4A; }
+.p5 { left: 65%; bottom: 12%; animation-delay: 3.2s; font-size: 14px; color: #00D4AA; }
+.p6 { left: 78%; bottom: 6%;  animation-delay: 1.8s; font-size: 10px; color: #7EFF4A; }
+
+@keyframes float-up {
+  0%   { opacity: 0;   transform: translateY(0) rotate(0deg); }
+  10%  { opacity: 0.7; }
+  80%  { opacity: 0.3; }
+  100% { opacity: 0;   transform: translateY(-280px) rotate(20deg); }
+}
+
+// ── Solar panel grid ─────────────────────────
+.solar-grid {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  opacity: 0.18;
+  animation: solar-glow 3s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.solar-cell {
+  width: 22px;
+  height: 16px;
+  border: 1px solid rgba(0, 212, 170, 0.8);
+  border-radius: 2px;
+  background: rgba(0, 212, 170, 0.12);
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: linear-gradient(135deg, rgba(0,212,170,0.3) 0%, transparent 100%);
+  }
+}
+
+@keyframes solar-glow {
+  from { opacity: 0.12; }
+  to   { opacity: 0.28; }
+}
+
+// ── Energy flow SVG lines ────────────────────
+.energy-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.eline {
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: draw-line 6s ease-in-out infinite;
+}
+.e1 { animation-delay: 0s; }
+.e2 { animation-delay: 2s; }
+.e3 { animation-delay: 4s; }
+
+@keyframes draw-line {
+  0%   { stroke-dashoffset: 300;  opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { stroke-dashoffset: 0;    opacity: 1; }
+  100% { stroke-dashoffset: -300; opacity: 0; }
+}
+
+// ── Mobile brand header ───────────────────────
+.mobile-brand-header {
+  display: none;
+  background: linear-gradient(145deg, #042F1E 0%, #064E32 35%, #00897B 100%);
+  padding: 32px 24px 40px;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+
+  @media (max-width: 900px) {
+    display: block;
+  }
+
+  .mb-logo {
+    height: 32px;
+    margin-bottom: 12px;
+  }
+
+  .mb-tagline {
+    font-size: 22px;
+    font-weight: 800;
+    color: #FFFFFF;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+
+    span {
+      background: linear-gradient(90deg, #00D4AA, #7EFF4A);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+  }
+
+  .mb-sub {
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    margin: 0;
+  }
+
+  // Mini solar grid bottom-right
+  .mb-solar {
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+    opacity: 0.2;
+    animation: solar-glow 3s ease-in-out infinite alternate;
+
+    .mb-cell {
+      width: 18px;
+      height: 13px;
+      border: 1px solid rgba(0,212,170,0.8);
+      border-radius: 2px;
+      background: rgba(0,212,170,0.1);
+    }
+  }
+
+  // Mini pulse rings
+  .mb-pulse {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(0,212,170,0.3);
+    width: 40px;
+    height: 40px;
+    bottom: 20px;
+    left: 24px;
+    animation: pulse-expand 3s ease-out infinite;
+
+    &:nth-child(2) { animation-delay: 1.5s; }
+  }
+
+  // Floating particles (mobile — simpler, horizontal)
+  .mb-particle {
+    position: absolute;
+    font-size: 12px;
+    opacity: 0;
+    animation: float-up 6s ease-in infinite;
+    filter: drop-shadow(0 0 3px rgba(0,212,170,0.6));
+    pointer-events: none;
+
+    &:nth-child(1) { left: 5%;  bottom: 0; animation-delay: 0s;   color: #00D4AA; }
+    &:nth-child(2) { left: 20%; bottom: 0; animation-delay: 1.5s; color: #7EFF4A; font-size: 10px; }
+    &:nth-child(3) { left: 75%; bottom: 0; animation-delay: 0.8s; color: #00D4AA; }
+    &:nth-child(4) { left: 88%; bottom: 0; animation-delay: 2.2s; color: #7EFF4A; font-size: 10px; }
+  }
+}

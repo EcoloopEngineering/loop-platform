@@ -13,21 +13,21 @@
           <q-card flat bordered class="rounded-card text-center q-pa-md">
             <q-icon name="monetization_on" color="amber-8" size="32px" />
             <div class="text-h5 text-weight-bold q-mt-sm">{{ balance.coins ?? 0 }}</div>
-            <div class="text-caption text-grey-6">Coin Balance</div>
+            <div class="text-caption" style="color: var(--text-secondary)">Coin Balance</div>
           </q-card>
         </div>
         <div class="col-12 col-sm-4">
           <q-card flat bordered class="rounded-card text-center q-pa-md">
             <q-icon name="trending_up" color="primary" size="32px" />
             <div class="text-h5 text-weight-bold q-mt-sm">{{ weeklyPoints }}</div>
-            <div class="text-caption text-grey-6">Points This Week</div>
+            <div class="text-caption" style="color: var(--text-secondary)">Points This Week</div>
           </q-card>
         </div>
         <div class="col-12 col-sm-4">
           <q-card flat bordered class="rounded-card text-center q-pa-md">
             <q-icon name="emoji_events" color="amber" size="32px" />
             <div class="text-h5 text-weight-bold q-mt-sm">#{{ myRank || '--' }}</div>
-            <div class="text-caption text-grey-6">Rank</div>
+            <div class="text-caption" style="color: var(--text-secondary)">Rank</div>
           </q-card>
         </div>
       </div>
@@ -53,7 +53,7 @@
             hide-bottom
           >
             <template #body="props">
-              <q-tr :props="props" :class="{ 'bg-teal-1': props.row.userId === currentUserId }">
+              <q-tr :props="props" :class="{ 'my-row': props.row.userId === currentUserId }">
                 <q-td key="rank" :props="props">
                   <q-badge
                     v-if="props.row.rank <= 3"
@@ -73,10 +73,6 @@
                 <q-td key="points" :props="props">
                   <span class="text-weight-bold">{{ props.row.points }}</span>
                 </q-td>
-                <q-td key="coins" :props="props">
-                  <q-icon name="monetization_on" color="amber-8" size="16px" class="q-mr-xs" />
-                  {{ props.row.coins }}
-                </q-td>
               </q-tr>
             </template>
           </q-table>
@@ -93,8 +89,8 @@
               <div class="row items-center no-wrap">
                 <q-icon name="emoji_events" color="amber" size="24px" class="q-mr-sm" />
                 <div class="col">
-                  <div class="text-body2 text-weight-medium">{{ m.description }}</div>
-                  <div class="text-caption text-grey-5">{{ timeAgo(m.createdAt) }}</div>
+                  <div class="text-body2 text-weight-medium">{{ milestoneDescription(m) }}</div>
+                  <div class="text-caption" style="color: var(--text-tertiary)">{{ timeAgo(m.createdAt) }}</div>
                 </div>
               </div>
             </q-card-section>
@@ -121,14 +117,16 @@ interface LeaderboardEntry {
   userId: string;
   name: string;
   points: number;
-  coins: number;
   rank: number;
 }
 
-interface Milestone {
+interface MilestoneEvent {
   id: string;
-  description: string;
+  eventType: string;
+  points: number;
   createdAt: string;
+  user: { firstName: string; lastName: string; closedDealEmoji?: string };
+  lead?: { customer?: { firstName: string; lastName: string }; kw?: number } | null;
 }
 
 const userStore = useUserStore();
@@ -138,7 +136,7 @@ const loading = ref(false);
 const balance = ref<Balance>({ coins: 0, points: 0 });
 const period = ref<'weekly' | 'monthly'>('weekly');
 const leaderboard = ref<LeaderboardEntry[]>([]);
-const milestones = ref<Milestone[]>([]);
+const milestones = ref<MilestoneEvent[]>([]);
 
 const weeklyPoints = computed(() => {
   const me = leaderboard.value.find((e) => e.userId === currentUserId.value);
@@ -154,7 +152,6 @@ const leaderColumns = [
   { name: 'rank', label: '#', field: 'rank', align: 'center' as const, style: 'width: 60px' },
   { name: 'user', label: 'Name', field: 'name', align: 'left' as const },
   { name: 'points', label: 'Points', field: 'points', align: 'center' as const, sortable: true },
-  { name: 'coins', label: 'Coins', field: 'coins', align: 'center' as const, sortable: true },
 ];
 
 async function fetchBalance() {
@@ -168,14 +165,38 @@ async function fetchBalance() {
 
 async function fetchLeaderboard() {
   try {
-    const { data } = await api.get<LeaderboardEntry[]>('/gamification/leaderboard', {
+    const { data } = await api.get('/gamification/leaderboard', {
       params: { period: period.value },
     });
-    leaderboard.value = Array.isArray(data)
-      ? data.map((e, i) => ({ ...e, rank: e.rank ?? i + 1 }))
-      : [];
+    const raw = Array.isArray(data) ? data : [];
+    leaderboard.value = raw.map((e: any, i: number) => ({
+      userId: e.userId,
+      name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || 'Unknown',
+      points: e.totalPoints ?? e.points ?? 0,
+      rank: i + 1,
+    }));
   } catch {
     leaderboard.value = [];
+  }
+}
+
+function milestoneDescription(m: MilestoneEvent): string {
+  const userName = `${m.user?.firstName ?? ''} ${m.user?.lastName ?? ''}`.trim();
+  const emoji = m.user?.closedDealEmoji ?? '';
+  const kw = m.lead?.kw;
+  const customer = m.lead?.customer
+    ? `${m.lead.customer.firstName} ${m.lead.customer.lastName}`.trim()
+    : null;
+
+  switch (m.eventType) {
+    case 'SALE':
+      return `${emoji} ${userName} closed a ${kw ? kw + 'kW ' : ''}deal${customer ? ' with ' + customer : ''}!`;
+    case 'CONNECTED':
+      return `${userName} connected with a customer${customer ? ': ' + customer : ''}.`;
+    case 'CUSTOMER_SUCCESS':
+      return `${userName} completed a project${customer ? ' for ' + customer : ''}! 🎉`;
+    default:
+      return `${userName} earned ${m.points} points.`;
   }
 }
 
@@ -202,10 +223,39 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .page-bg {
-  background: #F8FAFB;
+  background: var(--bg-page, #F8FAFB);
 }
 .rounded-card {
   border-radius: 12px;
-  border-color: #E5E7EB;
+  border-color: var(--border-default, #E5E7EB);
+  background: var(--bg-card, #FFFFFF);
+}
+
+// Linha do usuário logado — funciona em light e dark mode
+.my-row {
+  background: rgba(0, 137, 123, 0.08) !important;
+
+  .body--dark & {
+    background: rgba(0, 229, 200, 0.1) !important;
+  }
+}
+
+:deep(.q-table thead tr th) {
+  color: var(--text-tertiary, #9CA3AF);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom-color: var(--border-light, #F3F4F6);
+}
+
+:deep(.q-table tbody tr td) {
+  border-bottom-color: var(--border-light, #F3F4F6);
+  color: var(--text-primary, #111827);
+}
+
+:deep(.q-table) {
+  background: transparent;
+  color: var(--text-primary, #111827);
 }
 </style>
