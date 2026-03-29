@@ -9,14 +9,19 @@ export const useLeadStore = defineStore('lead', () => {
   const leads = ref<Lead[]>([]);
   const currentLead = ref<Lead | null>(null);
   const loading = ref(false);
+  const error = ref<string | null>(null);
   const total = ref(0);
 
   async function fetchLeads(params?: { page?: number; limit?: number; stage?: string }) {
     loading.value = true;
+    error.value = null;
     try {
       const { data } = await api.get<{ data: Lead[]; total: number }>('/leads', { params });
       leads.value = data.data;
       total.value = data.total;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to fetch leads';
+      console.error('[LeadStore] fetchLeads failed:', err);
     } finally {
       loading.value = false;
     }
@@ -24,9 +29,13 @@ export const useLeadStore = defineStore('lead', () => {
 
   async function fetchLead(id: string) {
     loading.value = true;
+    error.value = null;
     try {
       const { data } = await api.get<Lead>(`/leads/${id}`);
       currentLead.value = data;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to fetch lead';
+      console.error('[LeadStore] fetchLead failed:', err);
     } finally {
       loading.value = false;
     }
@@ -47,27 +56,58 @@ export const useLeadStore = defineStore('lead', () => {
   }
 
   async function changeStage(id: string, stage: string) {
-    const { data } = await api.patch<Lead>(`/leads/${id}/stage`, { stage });
-    if (currentLead.value?.id === id) currentLead.value = data;
-    return data;
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data } = await api.patch<Lead>(`/leads/${id}/stage`, { stage });
+      if (currentLead.value?.id === id) currentLead.value = data;
+      return data;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to change stage';
+      console.error('[LeadStore] changeStage failed:', err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
   }
 
   async function markAsLost(id: string, reason?: string) {
-    const { data } = await api.patch<Lead>(`/leads/${id}/lost`, { reason });
-    if (currentLead.value?.id === id) currentLead.value = data;
-    return data;
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data } = await api.patch<Lead>(`/leads/${id}/lost`, { reason });
+      if (currentLead.value?.id === id) currentLead.value = data;
+      return data;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to mark as lost';
+      console.error('[LeadStore] markAsLost failed:', err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
   }
 
   async function markAsCancelled(id: string, reason?: string) {
-    const { data } = await api.patch<Lead>(`/leads/${id}/cancel`, { reason });
-    if (currentLead.value?.id === id) currentLead.value = data;
-    return data;
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data } = await api.patch<Lead>(`/leads/${id}/cancel`, { reason });
+      if (currentLead.value?.id === id) currentLead.value = data;
+      return data;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to mark as cancelled';
+      console.error('[LeadStore] markAsCancelled failed:', err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
   }
 
   return {
     leads,
     currentLead,
     loading,
+    error,
     total,
     fetchLeads,
     fetchLead,

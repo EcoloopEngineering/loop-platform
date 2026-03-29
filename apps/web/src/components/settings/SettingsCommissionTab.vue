@@ -81,7 +81,11 @@ async function saveCommission() {
   }
 }
 
-function loadData(data: any) {
+interface CommissionPayload {
+  commission?: { m1?: number; m2?: number; m3?: number };
+}
+
+function loadData(data: CommissionPayload) {
   if (data?.commission) {
     commission.m1 = data.commission.m1 ?? commission.m1;
     commission.m2 = data.commission.m2 ?? commission.m2;

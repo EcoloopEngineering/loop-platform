@@ -4,6 +4,8 @@ import {
   AppointmentRepositoryPort,
   ActiveAppointment,
   LeadWithStakeholders,
+  AppointmentRecord,
+  LeadWithRelationsForBooking,
 } from '../../application/ports/appointment.repository.port';
 
 @Injectable()
@@ -55,5 +57,53 @@ export class PrismaAppointmentRepository implements AppointmentRepositoryPort {
     metadata?: Record<string, unknown>;
   }): Promise<any> {
     return this.prisma.leadActivity.create({ data: data as any });
+  }
+
+  // ── Used by BookAppointmentHandler ─────────────────────────────────────
+
+  async findConflictingAppointment(leadId: string, endAt: Date): Promise<{ id: string } | null> {
+    return this.prisma.appointment.findFirst({
+      where: {
+        leadId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        scheduledAt: { lt: endAt },
+      },
+      select: { id: true },
+    });
+  }
+
+  async findLeadWithRelationsForBooking(leadId: string): Promise<LeadWithRelationsForBooking | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      include: { customer: true, property: true },
+    }) as any;
+  }
+
+  async createAppointment(data: {
+    leadId: string;
+    type: string;
+    status: string;
+    scheduledAt: Date;
+    duration: number;
+    notes: string | null;
+  }): Promise<AppointmentRecord> {
+    return this.prisma.appointment.create({ data: data as any }) as any;
+  }
+
+  // ── Used by GetAvailabilityHandler ─────────────────────────────────────
+
+  async findAppointmentsInRange(dateStart: Date, dateEnd: Date): Promise<Array<{
+    id: string;
+    scheduledAt: Date;
+    duration: number;
+    status: string;
+  }>> {
+    return this.prisma.appointment.findMany({
+      where: {
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        scheduledAt: { gte: dateStart, lt: dateEnd },
+      },
+      orderBy: { scheduledAt: 'asc' },
+    }) as any;
   }
 }

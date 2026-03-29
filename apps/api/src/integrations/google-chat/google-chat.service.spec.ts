@@ -52,4 +52,41 @@ describe('GoogleChatService', () => {
   it('deleteSpace does nothing when not configured', async () => {
     await expect(service.deleteSpace('space/123')).resolves.toBeUndefined();
   });
+
+  describe('configured service', () => {
+    it('should report isConfigured true when valid credentials provided', async () => {
+      const creds = Buffer.from(JSON.stringify({ type: 'service_account' })).toString('base64');
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          GoogleChatService,
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn().mockReturnValue(creds),
+            },
+          },
+        ],
+      }).compile();
+
+      const configuredService = module.get(GoogleChatService);
+      expect(configuredService.isConfigured()).toBe(true);
+    });
+
+    it('should handle invalid base64 credentials gracefully', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          GoogleChatService,
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn().mockReturnValue('not-valid-json-base64'),
+            },
+          },
+        ],
+      }).compile();
+
+      const svc = module.get(GoogleChatService);
+      expect(svc.isConfigured()).toBe(false);
+    });
+  });
 });

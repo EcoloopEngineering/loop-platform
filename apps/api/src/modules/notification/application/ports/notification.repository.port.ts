@@ -51,4 +51,7 @@ export interface NotificationRepositoryPort {
 
   // ── Settings ──────────────────────────────────────────────────────────
   findNotificationSetting(): Promise<Record<string, boolean> | null>;
+
+  // ── Stakeholder lookups (for notification listeners) ──────────────────
+  findLeadStakeholderIds(leadId: string, excludeIds?: string[]): Promise<string[]>;
 }

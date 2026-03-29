@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationService } from '../services/notification.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { NOTIFICATION_REPOSITORY, NotificationRepositoryPort } from '../ports/notification.repository.port';
 
 interface LeadCreatedPayload {
   leadId: string;
@@ -15,14 +15,13 @@ export class LeadCreatedNotificationListener {
 
   constructor(
     private readonly notificationService: NotificationService,
-    private readonly prisma: PrismaService,
+    @Inject(NOTIFICATION_REPOSITORY) private readonly repo: NotificationRepositoryPort,
   ) {}
 
   private async isEnabled(eventKey: string): Promise<boolean> {
     try {
-      const setting = await this.prisma.appSetting.findUnique({ where: { key: 'notifications' } });
-      if (!setting?.value) return true;
-      const prefs = setting.value as Record<string, boolean>;
+      const prefs = await this.repo.findNotificationSetting();
+      if (!prefs) return true;
       return prefs[eventKey] !== false;
     } catch {
       return true;

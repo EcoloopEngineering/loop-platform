@@ -92,7 +92,13 @@ const projectDetails = ref([
   { label: 'Project Manager', value: '--' },
 ]);
 
-const documents = ref<any[]>([]);
+interface PortalDocument {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+}
+const documents = ref<PortalDocument[]>([]);
 
 function docIcon(type: string) {
   if (type === 'pdf') return 'picture_as_pdf';

@@ -1,23 +1,36 @@
 import { Test } from '@nestjs/testing';
 import { LeadCreatedNotificationListener } from './lead-created-notification.listener';
 import { NotificationService } from '../services/notification.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { NOTIFICATION_REPOSITORY } from '../ports/notification.repository.port';
 
 describe('LeadCreatedNotificationListener', () => {
   let listener: LeadCreatedNotificationListener;
   let notificationService: { create: jest.Mock };
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findNotificationSetting: jest.fn().mockResolvedValue(null),
+      findLeadStakeholderIds: jest.fn(),
+      create: jest.fn(),
+      markRead: jest.fn(),
+      markAllRead: jest.fn(),
+      findByUser: jest.fn(),
+      countByUser: jest.fn(),
+      countUnread: jest.fn(),
+      findDeviceToken: jest.fn(),
+      findLeadWithStakeholders: jest.fn(),
+      findLeadMetadata: jest.fn(),
+      findLeadWithPrimaryAssignment: jest.fn(),
+      updateLeadMetadata: jest.fn(),
+    };
     notificationService = { create: jest.fn().mockResolvedValue({}) };
 
     const module = await Test.createTestingModule({
       providers: [
         LeadCreatedNotificationListener,
         { provide: NotificationService, useValue: notificationService },
-        { provide: PrismaService, useValue: prisma },
+        { provide: NOTIFICATION_REPOSITORY, useValue: repo },
       ],
     }).compile();
 
@@ -45,10 +58,7 @@ describe('LeadCreatedNotificationListener', () => {
   });
 
   it('should skip when lead_assigned notification is disabled', async () => {
-    prisma.appSetting.findUnique.mockResolvedValue({
-      key: 'notifications',
-      value: { lead_assigned: false },
-    });
+    repo.findNotificationSetting.mockResolvedValue({ lead_assigned: false });
 
     await listener.handleLeadCreated({
       leadId: 'l1',

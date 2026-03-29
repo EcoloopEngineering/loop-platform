@@ -1,6 +1,6 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable } from '@nestjs/common';
+import { DASHBOARD_REPOSITORY, DashboardRepositoryPort } from '../ports/dashboard.repository.port';
 
 export class GetScoreboardQuery {
   constructor(
@@ -20,7 +20,9 @@ interface ScoreboardEntry {
 @QueryHandler(GetScoreboardQuery)
 @Injectable()
 export class GetScoreboardHandler implements IQueryHandler<GetScoreboardQuery> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DASHBOARD_REPOSITORY) private readonly repo: DashboardRepositoryPort,
+  ) {}
 
   async execute(query: GetScoreboardQuery): Promise<ScoreboardEntry[]> {
     const dateFilter = {
@@ -29,41 +31,19 @@ export class GetScoreboardHandler implements IQueryHandler<GetScoreboardQuery> {
     };
 
     // Get won deals count per user via lead assignments
-    const wonAssignments = await this.prisma.leadAssignment.groupBy({
-      by: ['userId'],
-      where: {
-        lead: {
-          currentStage: 'WON',
-          createdAt: dateFilter,
-        },
-      },
-      _count: true,
-      orderBy: { _count: { userId: 'desc' } },
-      take: query.limit,
-    });
+    const wonAssignments = await this.repo.groupWonDealsByUser(dateFilter, query.limit);
 
     const userIds = wonAssignments.map((d) => d.userId);
 
     // Get total commission per user
-    const commissionsPerUser = await this.prisma.commission.groupBy({
-      by: ['userId'],
-      where: {
-        userId: { in: userIds },
-        status: 'ACTIVE',
-        createdAt: dateFilter,
-      },
-      _sum: { amount: true },
-    });
+    const commissionsPerUser = await this.repo.groupCommissionsByUsers(userIds, dateFilter);
 
     const commissionMap = new Map(
-      commissionsPerUser.map((c) => [c.userId, c._sum?.amount ?? 0]),
+      commissionsPerUser.map((c) => [c.userId, c.totalAmount]),
     );
 
     // Get user names
-    const users = await this.prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, firstName: true, lastName: true },
-    });
+    const users = await this.repo.findUserNamesByIds(userIds);
 
     const userNameMap = new Map(
       users.map((u) => [u.id, `${u.firstName} ${u.lastName}`]),

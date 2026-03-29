@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { PrismaService } from '../../infrastructure/database/prisma.service';
-
 // Sub-modules
 import { PortalModule } from './portal.module';
 import { SalesRabbitModule } from './salesrabbit.module';
@@ -74,7 +72,6 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
     PipelineController,
   ],
   providers: [
-    PrismaService,
     LeadScoringDomainService,
     LeadNoteService,
     LeadAssignmentService,

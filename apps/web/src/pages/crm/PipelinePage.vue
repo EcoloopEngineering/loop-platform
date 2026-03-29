@@ -14,8 +14,9 @@
           { label: 'Board', value: 'board', icon: 'view_kanban' },
         ]"
         class="q-mr-sm"
+        aria-label="Switch between list and board view"
       />
-      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" style="border-radius: 10px" />
+      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" style="border-radius: 10px" aria-label="Create a new lead" />
     </div>
 
     <!-- Pipeline type tabs -->
@@ -29,10 +30,10 @@
       class="q-mb-md pipeline-tabs"
       @update:model-value="onPipelineTabChange"
     >
-      <q-tab name="closer" label="Closer" />
-      <q-tab name="pm" label="PM" />
-      <q-tab name="finance" label="Finance" />
-      <q-tab name="maintenance" label="Maintenance" />
+      <q-tab name="closer" label="Closer" aria-label="Closer pipeline" />
+      <q-tab name="pm" label="PM" aria-label="Project Manager pipeline" />
+      <q-tab name="finance" label="Finance" aria-label="Finance pipeline" />
+      <q-tab name="maintenance" label="Maintenance" aria-label="Maintenance pipeline" />
     </q-tabs>
 
     <PipelineFilters
@@ -139,7 +140,7 @@
 
           <template #body-cell-actions="props">
             <q-td :props="props" auto-width>
-              <q-btn flat dense round icon="more_vert" size="sm" color="grey-6">
+              <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="Lead actions menu">
                 <q-menu>
                   <q-list dense style="min-width: 150px">
                     <q-item clickable v-close-popup @click="$router.push(`/crm/leads/${props.row.id}`)">
@@ -319,7 +320,7 @@ async function onStageChange(payload: { leadId: string; toStage: string }) {
   }
 }
 
-function onRowClick(_evt: Event, row: any) {
+function onRowClick(_evt: Event, row: { id: string }) {
   router.push(`/crm/leads/${row.id}`);
 }
 

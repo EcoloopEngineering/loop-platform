@@ -120,7 +120,7 @@ const expandedId = ref<string | null>(null);
 onMounted(async () => {
   try {
     const { data } = await api.get<Notification[]>('/notifications');
-    notifications.value = Array.isArray(data) ? data : (data as any).data ?? [];
+    notifications.value = Array.isArray(data) ? data : (data as { data?: Notification[] }).data ?? [];
   } catch {
     // API may not return notifications yet
   } finally {

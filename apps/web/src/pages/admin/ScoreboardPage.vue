@@ -171,7 +171,8 @@ async function fetchLeaderboard() {
       params: { period: period.value },
     });
     const raw = Array.isArray(data) ? data : [];
-    leaderboard.value = raw.map((e: any, i: number) => ({
+    interface RawLeaderEntry { userId: string; firstName?: string; lastName?: string; totalPoints?: number; points?: number }
+    leaderboard.value = (raw as RawLeaderEntry[]).map((e, i: number) => ({
       userId: e.userId,
       name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || 'Unknown',
       points: e.totalPoints ?? e.points ?? 0,
@@ -205,7 +206,7 @@ function milestoneDescription(m: MilestoneEvent): string {
 async function fetchScoreboard() {
   try {
     const { data } = await api.get('/gamification/scoreboard');
-    milestones.value = Array.isArray(data) ? data : (data as any).data ?? [];
+    milestones.value = Array.isArray(data) ? data : (data as { data?: typeof milestones.value }).data ?? [];
   } catch {
     milestones.value = [];
   }

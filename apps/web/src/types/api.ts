@@ -1,5 +1,18 @@
 // ─── Shared / Utility ───────────────────────────────────────────────
 
+/** Shape of an Axios error's nested response. Use with `unknown` catch blocks. */
+export interface AxiosErrorLike {
+  response?: { status?: number; data?: { message?: string | string[] } };
+}
+
+export function extractApiMessage(err: unknown, fallback: string): string {
+  const axErr = err as AxiosErrorLike;
+  const msg = axErr?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(', ');
+  if (typeof msg === 'string' && !msg.includes('status code') && !msg.includes('Request failed')) return msg;
+  return fallback;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

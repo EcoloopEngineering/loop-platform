@@ -282,8 +282,9 @@ async function handleLogin() {
     localStorage.setItem('portalToken', data.token);
     localStorage.setItem('portalCustomer', JSON.stringify(data.customer));
     router.push('/portal');
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || 'Invalid email or password.';
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    error.value = axErr?.response?.data?.message || 'Invalid email or password.';
   } finally {
     loading.value = false;
   }
@@ -320,8 +321,9 @@ async function handleRegister() {
     localStorage.setItem('portalToken', data.token);
     localStorage.setItem('portalCustomer', JSON.stringify(data.customer));
     router.push('/portal');
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || 'Registration failed.';
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    error.value = axErr?.response?.data?.message || 'Registration failed.';
   } finally {
     loading.value = false;
   }

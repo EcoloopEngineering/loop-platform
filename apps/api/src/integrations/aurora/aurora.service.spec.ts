@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AuroraService } from './aurora.service';
 
 describe('AuroraService', () => {
@@ -70,5 +70,59 @@ describe('AuroraService', () => {
     const result = await service.getDesignStatus('p1');
 
     expect(result).toEqual({ projectId: 'p1', status: 'processing', progressPct: 50 });
+  });
+
+  it('should report isConfigured as true when env vars present', () => {
+    expect(service.isConfigured()).toBe(true);
+  });
+
+  it('should report isConfigured as false when env vars missing', async () => {
+    const module = await Test.createTestingModule({
+      providers: [
+        AuroraService,
+        { provide: HttpService, useValue: http },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((_key: string, fallback?: string) => fallback) },
+        },
+      ],
+    }).compile();
+
+    const unconfigured = module.get(AuroraService);
+    expect(unconfigured.isConfigured()).toBe(false);
+  });
+
+  it('should throw when not configured', async () => {
+    const module = await Test.createTestingModule({
+      providers: [
+        AuroraService,
+        { provide: HttpService, useValue: http },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((_key: string, fallback?: string) => fallback) },
+        },
+      ],
+    }).compile();
+
+    const unconfigured = module.get(AuroraService);
+    await expect(
+      unconfigured.createProject({ name: 'X', address: { street: '', city: '', state: '', zip: '' }, latitude: 0, longitude: 0 }),
+    ).rejects.toThrow('Aurora integration is not configured');
+  });
+
+  it('should retry on transient failure then succeed', async () => {
+    http.post
+      .mockReturnValueOnce(throwError(() => new Error('timeout')))
+      .mockReturnValue(of({ data: { project_id: 'p2', name: 'Retry', status: 'active', created_at: '2026-01-01T00:00:00Z' } }));
+
+    const result = await service.createProject({
+      name: 'Retry',
+      address: { street: '1 St', city: 'C', state: 'TX', zip: '00000' },
+      latitude: 0,
+      longitude: 0,
+    });
+
+    expect(result.projectId).toBe('p2');
+    expect(http.post).toHaveBeenCalledTimes(2);
   });
 });

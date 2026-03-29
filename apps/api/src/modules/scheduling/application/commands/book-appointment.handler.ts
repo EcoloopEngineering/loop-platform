@@ -1,15 +1,9 @@
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
-import { Injectable, Logger, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable, Logger, ConflictException } from '@nestjs/common';
+import { APPOINTMENT_REPOSITORY, AppointmentRepositoryPort, AppointmentRecord, LeadWithRelationsForBooking } from '../ports/appointment.repository.port';
 import { JobberService } from '../../../../integrations/jobber/jobber.service';
-import { Appointment, Lead, Customer, Property } from '@prisma/client';
 import { AppointmentBookedEvent } from '../../domain/events/appointment-booked.event';
 import { AppointmentType } from '../../domain/entities/appointment.entity';
-
-type LeadWithRelations = Lead & {
-  customer: Customer | null;
-  property: Property | null;
-};
 
 export class BookAppointmentCommand {
   constructor(
@@ -27,7 +21,7 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
   private readonly logger = new Logger(BookAppointmentHandler.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(APPOINTMENT_REPOSITORY) private readonly repo: AppointmentRepositoryPort,
     private readonly eventBus: EventBus,
     private readonly jobberService: JobberService,
   ) {}
@@ -37,20 +31,15 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
 
     await this.checkConflicts(command.leadId, endAt);
 
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: command.leadId },
-      include: { customer: true, property: true },
-    });
+    const lead = await this.repo.findLeadWithRelationsForBooking(command.leadId);
 
-    const appointment = await this.prisma.appointment.create({
-      data: {
-        leadId: command.leadId,
-        type: command.type as any,
-        status: 'PENDING',
-        scheduledAt: command.scheduledAt,
-        duration: command.duration,
-        notes: command.notes,
-      },
+    const appointment = await this.repo.createAppointment({
+      leadId: command.leadId,
+      type: command.type as string,
+      status: 'PENDING',
+      scheduledAt: command.scheduledAt,
+      duration: command.duration,
+      notes: command.notes,
     });
 
     this.syncWithJobber(appointment, lead, endAt);
@@ -69,13 +58,7 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
   }
 
   private async checkConflicts(leadId: string, endAt: Date): Promise<void> {
-    const conflict = await this.prisma.appointment.findFirst({
-      where: {
-        leadId,
-        status: { in: ['PENDING', 'CONFIRMED'] },
-        scheduledAt: { lt: endAt },
-      },
-    });
+    const conflict = await this.repo.findConflictingAppointment(leadId, endAt);
 
     if (conflict) {
       throw new ConflictException('Time slot conflicts with an existing appointment');
@@ -83,8 +66,8 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
   }
 
   private syncWithJobber(
-    appointment: Appointment,
-    lead: LeadWithRelations | null,
+    appointment: AppointmentRecord,
+    lead: LeadWithRelationsForBooking | null,
     endAt: Date,
   ): void {
     this.syncToJobber(appointment, lead, endAt).catch((err) =>
@@ -94,27 +77,25 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
 
   private async logActivity(
     leadId: string,
-    appointment: Appointment,
+    appointment: AppointmentRecord,
     userId: string,
     command: BookAppointmentCommand,
   ): Promise<void> {
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId,
-        type: 'APPOINTMENT_BOOKED',
-        description: `${command.type} appointment booked for ${command.scheduledAt.toLocaleDateString()}`,
-        metadata: {
-          appointmentId: appointment.id,
-          type: command.type,
-          scheduledAt: command.scheduledAt.toISOString(),
-          duration: command.duration,
-        },
+    await this.repo.createLeadActivity({
+      leadId,
+      userId,
+      type: 'APPOINTMENT_BOOKED',
+      description: `${command.type} appointment booked for ${command.scheduledAt.toLocaleDateString()}`,
+      metadata: {
+        appointmentId: appointment.id,
+        type: command.type,
+        scheduledAt: command.scheduledAt.toISOString(),
+        duration: command.duration,
       },
     }).catch(() => {});
   }
 
-  private async syncToJobber(appointment: Appointment, lead: LeadWithRelations | null, endAt: Date): Promise<void> {
+  private async syncToJobber(appointment: AppointmentRecord, lead: LeadWithRelationsForBooking | null, endAt: Date): Promise<void> {
     if (!lead?.customer || !lead?.property) {
       this.logger.debug('Skipping Jobber sync — missing customer or property data');
       return;
@@ -136,12 +117,9 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
       });
 
       // Save Jobber reference
-      await this.prisma.appointment.update({
-        where: { id: appointment.id },
-        data: {
-          status: 'CONFIRMED',
-          jobberVisitId: jobberBooking.visitId ?? null,
-        },
+      await this.repo.update(appointment.id, {
+        status: 'CONFIRMED',
+        jobberVisitId: jobberBooking.visitId ?? null,
       });
 
       this.logger.log(`Jobber booking created for appointment ${appointment.id}`);

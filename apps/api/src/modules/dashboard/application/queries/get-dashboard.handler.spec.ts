@@ -3,26 +3,28 @@ import {
   GetDashboardHandler,
   GetDashboardQuery,
 } from './get-dashboard.handler';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
+import { DASHBOARD_REPOSITORY } from '../ports/dashboard.repository.port';
 
 describe('GetDashboardHandler', () => {
   let handler: GetDashboardHandler;
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
-
-    // Add groupBy mock since it's not in the standard helper
-    (prisma.lead as any).groupBy = jest.fn();
+    repo = {
+      countLeads: jest.fn(),
+      aggregateCommission: jest.fn(),
+      countActiveUsers: jest.fn(),
+      groupLeadsByStage: jest.fn(),
+      aggregatePendingCommission: jest.fn(),
+      groupWonDealsByUser: jest.fn(),
+      groupCommissionsByUsers: jest.fn(),
+      findUserNamesByIds: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         GetDashboardHandler,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DASHBOARD_REPOSITORY, useValue: repo },
       ],
     }).compile();
 
@@ -32,20 +34,20 @@ describe('GetDashboardHandler', () => {
   const query = new GetDashboardQuery('user-1', '2026-01-01', '2026-03-31');
 
   it('should return dashboard metrics with data', async () => {
-    prisma.lead.count
+    repo.countLeads
       .mockResolvedValueOnce(20) // totalLeads
       .mockResolvedValueOnce(5)  // wonLeads
       .mockResolvedValueOnce(3); // lostLeads
 
-    prisma.commission.aggregate
-      .mockResolvedValueOnce({ _sum: { amount: 15000 } }) // total
-      .mockResolvedValueOnce({ _sum: { amount: 3000 } }); // pending
+    repo.aggregateCommission.mockResolvedValue(15000);
 
-    (prisma.lead as any).groupBy.mockResolvedValue([
+    repo.groupLeadsByStage.mockResolvedValue([
       { currentStage: 'NEW_LEAD', _count: 8 },
       { currentStage: 'DESIGN_READY', _count: 7 },
       { currentStage: 'WON', _count: 5 },
     ]);
+
+    repo.aggregatePendingCommission.mockResolvedValue(3000);
 
     const result = await handler.execute(query);
 
@@ -63,16 +65,14 @@ describe('GetDashboardHandler', () => {
   });
 
   it('should return zero conversion rate when no leads', async () => {
-    prisma.lead.count
-      .mockResolvedValueOnce(0) // totalLeads
-      .mockResolvedValueOnce(0) // wonLeads
-      .mockResolvedValueOnce(0); // lostLeads
+    repo.countLeads
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
 
-    prisma.commission.aggregate
-      .mockResolvedValueOnce({ _sum: { amount: null } })
-      .mockResolvedValueOnce({ _sum: { amount: null } });
-
-    (prisma.lead as any).groupBy.mockResolvedValue([]);
+    repo.aggregateCommission.mockResolvedValue(0);
+    repo.groupLeadsByStage.mockResolvedValue([]);
+    repo.aggregatePendingCommission.mockResolvedValue(0);
 
     const result = await handler.execute(query);
 
@@ -83,16 +83,14 @@ describe('GetDashboardHandler', () => {
   });
 
   it('should handle null commission sums gracefully', async () => {
-    prisma.lead.count
+    repo.countLeads
       .mockResolvedValueOnce(5)
       .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(1);
 
-    prisma.commission.aggregate
-      .mockResolvedValueOnce({ _sum: { amount: null } })
-      .mockResolvedValueOnce({ _sum: { amount: null } });
-
-    (prisma.lead as any).groupBy.mockResolvedValue([]);
+    repo.aggregateCommission.mockResolvedValue(0);
+    repo.groupLeadsByStage.mockResolvedValue([]);
+    repo.aggregatePendingCommission.mockResolvedValue(0);
 
     const result = await handler.execute(query);
 
@@ -101,19 +99,20 @@ describe('GetDashboardHandler', () => {
   });
 
   it('should apply date filters to queries', async () => {
-    prisma.lead.count.mockResolvedValue(0);
-    prisma.commission.aggregate.mockResolvedValue({ _sum: { amount: null } });
-    (prisma.lead as any).groupBy.mockResolvedValue([]);
+    repo.countLeads.mockResolvedValue(0);
+    repo.aggregateCommission.mockResolvedValue(0);
+    repo.groupLeadsByStage.mockResolvedValue([]);
+    repo.aggregatePendingCommission.mockResolvedValue(0);
 
     await handler.execute(query);
 
-    expect(prisma.lead.count).toHaveBeenCalledWith({
-      where: expect.objectContaining({
+    expect(repo.countLeads).toHaveBeenCalledWith(
+      expect.objectContaining({
         createdAt: {
           gte: new Date('2026-01-01'),
           lte: new Date('2026-03-31'),
         },
       }),
-    });
+    );
   });
 });

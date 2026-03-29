@@ -1,20 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { UpdateLeadMetadataCommand, UpdateLeadMetadataHandler } from './update-lead-metadata.command';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
 
 describe('UpdateLeadMetadataHandler', () => {
   let handler: UpdateLeadMetadataHandler;
-  let prisma: MockPrismaService;
+  let leadRepo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    leadRepo = {
+      findLeadMetadata: jest.fn(),
+      updateMetadata: jest.fn(),
+      createActivity: jest.fn().mockResolvedValue({}),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UpdateLeadMetadataHandler,
-        { provide: PrismaService, useValue: prisma },
+        { provide: LEAD_REPOSITORY, useValue: leadRepo },
       ],
     }).compile();
 
@@ -22,38 +25,30 @@ describe('UpdateLeadMetadataHandler', () => {
   });
 
   it('should merge new data with existing metadata and save', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
+    leadRepo.findLeadMetadata.mockResolvedValue({
       id: 'lead-1',
       metadata: { existingKey: 'existingValue' },
     });
-    prisma.lead.update.mockResolvedValue({ id: 'lead-1', metadata: { existingKey: 'existingValue', newKey: 'newValue' } });
-    prisma.leadActivity.create.mockResolvedValue({});
+    leadRepo.updateMetadata.mockResolvedValue({ id: 'lead-1', metadata: { existingKey: 'existingValue', newKey: 'newValue' } });
 
     const command = new UpdateLeadMetadataCommand('lead-1', { newKey: 'newValue' }, 'user-1');
     await handler.execute(command);
 
-    expect(prisma.lead.update).toHaveBeenCalledWith({
-      where: { id: 'lead-1' },
-      data: { metadata: { existingKey: 'existingValue', newKey: 'newValue' } },
-    });
+    expect(leadRepo.updateMetadata).toHaveBeenCalledWith('lead-1', { existingKey: 'existingValue', newKey: 'newValue' });
   });
 
   it('should handle lead with null metadata', async () => {
-    prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1', metadata: null });
-    prisma.lead.update.mockResolvedValue({ id: 'lead-1', metadata: { key: 'value' } });
-    prisma.leadActivity.create.mockResolvedValue({});
+    leadRepo.findLeadMetadata.mockResolvedValue({ id: 'lead-1', metadata: null });
+    leadRepo.updateMetadata.mockResolvedValue({ id: 'lead-1', metadata: { key: 'value' } });
 
     const command = new UpdateLeadMetadataCommand('lead-1', { key: 'value' }, 'user-1');
     await handler.execute(command);
 
-    expect(prisma.lead.update).toHaveBeenCalledWith({
-      where: { id: 'lead-1' },
-      data: { metadata: { key: 'value' } },
-    });
+    expect(leadRepo.updateMetadata).toHaveBeenCalledWith('lead-1', { key: 'value' });
   });
 
   it('should throw NotFoundException when lead not found', async () => {
-    prisma.lead.findUnique.mockResolvedValue(null);
+    leadRepo.findLeadMetadata.mockResolvedValue(null);
 
     const command = new UpdateLeadMetadataCommand('bad-id', { key: 'value' }, 'user-1');
     await expect(handler.execute(command)).rejects.toThrow(NotFoundException);

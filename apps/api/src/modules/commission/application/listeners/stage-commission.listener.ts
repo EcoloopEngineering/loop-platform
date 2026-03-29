@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Queue } from 'bullmq';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { COMMISSION_PAYMENT_REPOSITORY, CommissionPaymentRepositoryPort } from '../ports/commission-payment.repository.port';
 import { QUEUE_COMMISSION } from '../../../../infrastructure/queue/queue.module';
 import { QueueFallbackService } from '../../../../infrastructure/queue/queue-fallback.service';
 import { CommissionJobData } from '../../../../infrastructure/queue/processors/commission.processor';
@@ -32,7 +32,7 @@ export class StageCommissionListener {
   private readonly tierCache = new TtlCache<{ M1: number; M2: number; M3: number }>(10 * 60 * 1000); // 10 min
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(COMMISSION_PAYMENT_REPOSITORY) private readonly repo: CommissionPaymentRepositoryPort,
     private readonly queueFallback: QueueFallbackService,
     @Optional() @Inject(`BullQueue_${QUEUE_COMMISSION}`) private readonly commissionQueue: Queue<CommissionJobData> | null,
   ) {}
@@ -42,7 +42,7 @@ export class StageCommissionListener {
     if (cached) return cached;
 
     try {
-      const setting = await this.prisma.appSetting.findUnique({ where: { key: 'commission' } });
+      const setting = await this.repo.findSettingByKey('commission');
       if (setting?.value) {
         const v = setting.value as Record<string, number>;
         const tiers = {
@@ -101,13 +101,7 @@ export class StageCommissionListener {
    */
   private async enqueueM3IfEligible(leadId: string): Promise<void> {
     try {
-      const m2Paid = await this.prisma.commissionPayment.findFirst({
-        where: {
-          leadId,
-          type: 'M2',
-          status: 'PAID',
-        },
-      });
+      const m2Paid = await this.repo.findPaidCommissionPayment(leadId, 'M2');
 
       if (m2Paid) {
         this.logger.log(

@@ -75,6 +75,27 @@ export interface TaskRepositoryPort {
   createTemplate(data: Record<string, unknown>): Promise<TaskTemplateRecord>;
   updateTemplate(id: string, data: Record<string, unknown>): Promise<TaskTemplateRecord>;
   deleteTemplate(id: string): Promise<TaskTemplateRecord>;
+
+  /* ── Used by StageTaskListener ── */
+  findActiveTemplatesByStage(stage: string): Promise<TaskTemplateRecord[]>;
+
+  findLeadWithMetadataAndState(leadId: string): Promise<{
+    id: string;
+    metadata: unknown;
+    property: { state: string } | null;
+  } | null>;
+
+  createLeadActivity(data: {
+    leadId: string;
+    type: string;
+    description: string;
+    userId?: string;
+  }): Promise<any>;
+
+  findLeadMetadataOnly(leadId: string): Promise<{ metadata: unknown } | null>;
+
+  /* ── Used by TaskCompletedListener ── */
+  findSiblingTasks(leadId: string, templateKey: string): Promise<Array<{ id: string; status: string }>>;
 }
 
 export const TASK_REPOSITORY = Symbol('TASK_REPOSITORY');

@@ -373,4 +373,185 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
       orderBy: { createdAt: 'desc' },
     }) as unknown as Promise<ActivityWithUser[]>;
   }
+
+  // ── Status changes ─────────────────────────────────────────────────────
+
+  async findByIdWithCustomerName(id: string): Promise<{
+    id: string;
+    currentStage: string;
+    status: string;
+    metadata: unknown;
+    createdById: string | null;
+    customer: { firstName: string; lastName: string };
+  } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id },
+      include: { customer: { select: { firstName: true, lastName: true } } },
+    }) as any;
+  }
+
+  async updateStatus(id: string, data: {
+    status: string;
+    lostAt?: Date | null;
+    lostReason?: string | null;
+    currentStage?: string;
+  }): Promise<unknown> {
+    return this.prisma.lead.update({ where: { id }, data: data as any });
+  }
+
+  // ── Metadata ───────────────────────────────────────────────────────────
+
+  async findLeadMetadata(id: string): Promise<{ id: string; metadata: unknown } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id },
+      select: { id: true, metadata: true },
+    });
+  }
+
+  async updateMetadata(id: string, metadata: Record<string, unknown>): Promise<unknown> {
+    return this.prisma.lead.update({
+      where: { id },
+      data: { metadata: metadata as Prisma.InputJsonValue },
+    });
+  }
+
+  // ── Batch queries ──────────────────────────────────────────────────────
+
+  async findByStageWithCustomer(stage: string, take = 500): Promise<Array<{
+    id: string;
+    currentStage: string;
+    createdById: string | null;
+    metadata: unknown;
+    customer: { firstName: string; lastName: string } | null;
+  }>> {
+    return this.prisma.lead.findMany({
+      where: { currentStage: stage as any },
+      include: { customer: { select: { firstName: true, lastName: true } } },
+      take,
+    }) as any;
+  }
+
+  // ── Owner resolution ──────────────────────────────────────────────────
+
+  async findUserEmailById(userId: string): Promise<{ id: string; email: string } | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+  }
+
+  async findReferralByInvitee(inviteeId: string): Promise<{ inviterId: string } | null> {
+    return this.prisma.referral.findFirst({
+      where: { inviteeId },
+      orderBy: { createdAt: 'desc' },
+      select: { inviterId: true },
+    });
+  }
+
+  // ── Transaction-based lead creation helpers ───────────────────────────
+
+  async createScoreAndAssignments(data: {
+    leadId: string;
+    score: { totalScore: number; roofScore: number; energyScore: number; contactScore: number; propertyScore: number };
+    primaryOwnerId: string;
+    creatorId: string;
+    designType?: string;
+    designNotes?: string;
+    initialStage: string;
+    source: string;
+  }): Promise<{ designRequest: { id: string } | null }> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.leadScore.create({
+        data: {
+          leadId: data.leadId,
+          totalScore: data.score.totalScore,
+          roofScore: data.score.roofScore,
+          energyScore: data.score.energyScore,
+          contactScore: data.score.contactScore,
+          propertyScore: data.score.propertyScore,
+        },
+      });
+
+      await tx.leadAssignment.create({
+        data: { leadId: data.leadId, userId: data.primaryOwnerId, splitPct: 100, isPrimary: true },
+      });
+
+      if (data.primaryOwnerId !== data.creatorId) {
+        await tx.leadAssignment.create({
+          data: { leadId: data.leadId, userId: data.creatorId, splitPct: 0, isPrimary: false },
+        });
+      }
+
+      let designRequest: { id: string } | null = null;
+      if (data.designType) {
+        const isAiDesign = data.designType === 'AI_DESIGN';
+        designRequest = await tx.designRequest.create({
+          data: {
+            leadId: data.leadId,
+            designType: data.designType as any,
+            notes: data.designNotes,
+            status: isAiDesign ? 'COMPLETED' : 'PENDING',
+            completedAt: isAiDesign ? new Date() : null,
+          },
+        });
+      }
+
+      await tx.leadActivity.create({
+        data: {
+          leadId: data.leadId,
+          userId: data.creatorId,
+          type: 'STAGE_CHANGE',
+          description: `Lead created via wizard${data.designType === 'AI_DESIGN' ? ' (AI Design → Design Ready)' : ''}`,
+          metadata: { stage: data.initialStage, source: data.source, designType: data.designType },
+        },
+      });
+
+      return { designRequest };
+    });
+  }
+
+  // ── Stakeholder lookups ────────────────────────────────────────────────
+
+  async findLeadStakeholderIds(leadId: string, excludeIds: string[] = []): Promise<string[]> {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: {
+        createdById: true,
+        projectManagerId: true,
+        assignments: { select: { userId: true } },
+      },
+    });
+
+    if (!lead) return [];
+
+    const userIds = new Set<string>();
+    for (const assignment of lead.assignments) {
+      userIds.add(assignment.userId);
+    }
+    if (lead.projectManagerId) userIds.add(lead.projectManagerId);
+    if (lead.createdById) userIds.add(lead.createdById);
+
+    for (const id of excludeIds) {
+      userIds.delete(id);
+    }
+
+    return Array.from(userIds);
+  }
+
+  // ── Lead metadata for task listeners ──────────────────────────────────
+
+  async findLeadWithMetadataAndState(leadId: string): Promise<{
+    id: string;
+    metadata: unknown;
+    property: { state: string } | null;
+  } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: {
+        id: true,
+        metadata: true,
+        property: { select: { state: true } },
+      },
+    }) as any;
+  }
 }

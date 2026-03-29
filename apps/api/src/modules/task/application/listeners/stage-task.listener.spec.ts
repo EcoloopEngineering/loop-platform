@@ -1,18 +1,39 @@
 import { Test } from '@nestjs/testing';
 import { StageTaskListener } from './stage-task.listener';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { TASK_REPOSITORY } from '../ports/task.repository.port';
 import { GoogleChatService } from '../../../../integrations/google-chat/google-chat.service';
 import { TaskCreationService } from '../services/task-creation.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('StageTaskListener', () => {
   let listener: StageTaskListener;
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
   let googleChat: { isConfigured: jest.Mock; sendMessage: jest.Mock };
   let taskCreationService: { createTasksFromTemplates: jest.Mock; evaluateConditions: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findActiveTemplatesByStage: jest.fn(),
+      findLeadWithMetadataAndState: jest.fn(),
+      createLeadActivity: jest.fn().mockResolvedValue({}),
+      findLeadMetadataOnly: jest.fn().mockResolvedValue(null),
+      findAll: jest.fn(),
+      findById: jest.fn(),
+      findByIdSimple: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      complete: jest.fn(),
+      cancel: jest.fn(),
+      createTask: jest.fn(),
+      findActiveUserByEmail: jest.fn(),
+      findActiveUserByRole: jest.fn(),
+      findLeadProjectManagerId: jest.fn(),
+      findTemplates: jest.fn(),
+      findTemplateById: jest.fn(),
+      createTemplate: jest.fn(),
+      updateTemplate: jest.fn(),
+      deleteTemplate: jest.fn(),
+      findSiblingTasks: jest.fn(),
+    };
     googleChat = {
       isConfigured: jest.fn().mockReturnValue(false),
       sendMessage: jest.fn().mockResolvedValue(undefined),
@@ -25,7 +46,7 @@ describe('StageTaskListener', () => {
     const module = await Test.createTestingModule({
       providers: [
         StageTaskListener,
-        { provide: PrismaService, useValue: prisma },
+        { provide: TASK_REPOSITORY, useValue: repo },
         { provide: GoogleChatService, useValue: googleChat },
         { provide: TaskCreationService, useValue: taskCreationService },
       ],
@@ -35,7 +56,7 @@ describe('StageTaskListener', () => {
   });
 
   it('should create tasks from templates when stage changes', async () => {
-    prisma.taskTemplate.findMany.mockResolvedValue([
+    repo.findActiveTemplatesByStage.mockResolvedValue([
       {
         id: 'tmpl-1',
         title: 'Review design',
@@ -47,13 +68,12 @@ describe('StageTaskListener', () => {
         sortOrder: 0,
       },
     ]);
-    prisma.lead.findUnique.mockResolvedValue({
+    repo.findLeadWithMetadataAndState.mockResolvedValue({
       id: 'lead-1',
       metadata: {},
       property: { state: 'CT' },
     });
     taskCreationService.createTasksFromTemplates.mockResolvedValue(['task-1']);
-    prisma.leadActivity.create.mockResolvedValue({});
 
     await listener.handleStageChanged({
       leadId: 'lead-1',
@@ -62,24 +82,18 @@ describe('StageTaskListener', () => {
       newStage: 'DESIGN_READY',
     });
 
-    expect(prisma.taskTemplate.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { stage: 'DESIGN_READY', isActive: true },
-      }),
-    );
+    expect(repo.findActiveTemplatesByStage).toHaveBeenCalledWith('DESIGN_READY');
     expect(taskCreationService.createTasksFromTemplates).toHaveBeenCalledTimes(1);
-    expect(prisma.leadActivity.create).toHaveBeenCalledWith(
+    expect(repo.createLeadActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          leadId: 'lead-1',
-          type: 'STAGE_CHANGE',
-        }),
+        leadId: 'lead-1',
+        type: 'STAGE_CHANGE',
       }),
     );
   });
 
   it('should skip when no templates exist for stage', async () => {
-    prisma.taskTemplate.findMany.mockResolvedValue([]);
+    repo.findActiveTemplatesByStage.mockResolvedValue([]);
 
     await listener.handleStageChanged({
       leadId: 'lead-1',
@@ -89,12 +103,12 @@ describe('StageTaskListener', () => {
     });
 
     expect(taskCreationService.createTasksFromTemplates).not.toHaveBeenCalled();
-    expect(prisma.leadActivity.create).not.toHaveBeenCalled();
+    expect(repo.createLeadActivity).not.toHaveBeenCalled();
   });
 
   it('should skip when lead is not found', async () => {
-    prisma.taskTemplate.findMany.mockResolvedValue([{ id: 'tmpl-1' }]);
-    prisma.lead.findUnique.mockResolvedValue(null);
+    repo.findActiveTemplatesByStage.mockResolvedValue([{ id: 'tmpl-1' }]);
+    repo.findLeadWithMetadataAndState.mockResolvedValue(null);
 
     await listener.handleStageChanged({
       leadId: 'lead-1',
@@ -107,8 +121,8 @@ describe('StageTaskListener', () => {
   });
 
   it('should not log activity when no tasks were created', async () => {
-    prisma.taskTemplate.findMany.mockResolvedValue([{ id: 'tmpl-1' }]);
-    prisma.lead.findUnique.mockResolvedValue({
+    repo.findActiveTemplatesByStage.mockResolvedValue([{ id: 'tmpl-1' }]);
+    repo.findLeadWithMetadataAndState.mockResolvedValue({
       id: 'lead-1',
       metadata: {},
       property: { state: 'CT' },
@@ -122,7 +136,7 @@ describe('StageTaskListener', () => {
       newStage: 'DESIGN_READY',
     });
 
-    expect(prisma.leadActivity.create).not.toHaveBeenCalled();
+    expect(repo.createLeadActivity).not.toHaveBeenCalled();
   });
 
   describe('evaluateConditions', () => {

@@ -1,25 +1,25 @@
 import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AutoAdvanceInstallsHandler } from './auto-advance-installs.handler';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
+import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
 
 describe('AutoAdvanceInstallsHandler', () => {
   let handler: AutoAdvanceInstallsHandler;
-  let prisma: MockPrismaService;
+  let leadRepo: Record<string, jest.Mock>;
   let emitter: { emit: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    leadRepo = {
+      findByStageWithCustomer: jest.fn(),
+      updateStage: jest.fn().mockResolvedValue({}),
+      createActivity: jest.fn().mockResolvedValue({}),
+    };
     emitter = { emit: jest.fn() };
 
     const module = await Test.createTestingModule({
       providers: [
         AutoAdvanceInstallsHandler,
-        { provide: PrismaService, useValue: prisma },
+        { provide: LEAD_REPOSITORY, useValue: leadRepo },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
@@ -30,7 +30,7 @@ describe('AutoAdvanceInstallsHandler', () => {
   it('should advance leads with matching scheduleDate to COMMISSION', async () => {
     const today = new Date().toISOString().split('T')[0];
 
-    prisma.lead.findMany.mockResolvedValue([
+    leadRepo.findByStageWithCustomer.mockResolvedValue([
       {
         id: 'lead-1',
         currentStage: 'INSTALL',
@@ -39,16 +39,11 @@ describe('AutoAdvanceInstallsHandler', () => {
         customer: { firstName: 'John', lastName: 'Doe' },
       },
     ]);
-    prisma.lead.update.mockResolvedValue({});
-    prisma.leadActivity.create.mockResolvedValue({});
 
     const count = await handler.advanceInstalls();
 
     expect(count).toBe(1);
-    expect(prisma.lead.update).toHaveBeenCalledWith({
-      where: { id: 'lead-1' },
-      data: { currentStage: 'COMMISSION' },
-    });
+    expect(leadRepo.updateStage).toHaveBeenCalledWith('lead-1', 'COMMISSION');
     expect(emitter.emit).toHaveBeenCalledWith(
       'lead.stageChanged',
       expect.objectContaining({
@@ -60,7 +55,7 @@ describe('AutoAdvanceInstallsHandler', () => {
   });
 
   it('should not advance leads whose scheduleDate does not match today', async () => {
-    prisma.lead.findMany.mockResolvedValue([
+    leadRepo.findByStageWithCustomer.mockResolvedValue([
       {
         id: 'lead-2',
         currentStage: 'INSTALL',
@@ -73,12 +68,12 @@ describe('AutoAdvanceInstallsHandler', () => {
     const count = await handler.advanceInstalls();
 
     expect(count).toBe(0);
-    expect(prisma.lead.update).not.toHaveBeenCalled();
+    expect(leadRepo.updateStage).not.toHaveBeenCalled();
     expect(emitter.emit).not.toHaveBeenCalled();
   });
 
   it('should not advance leads without metadata.scheduleDate', async () => {
-    prisma.lead.findMany.mockResolvedValue([
+    leadRepo.findByStageWithCustomer.mockResolvedValue([
       {
         id: 'lead-3',
         currentStage: 'INSTALL',
@@ -91,13 +86,13 @@ describe('AutoAdvanceInstallsHandler', () => {
     const count = await handler.advanceInstalls();
 
     expect(count).toBe(0);
-    expect(prisma.lead.update).not.toHaveBeenCalled();
+    expect(leadRepo.updateStage).not.toHaveBeenCalled();
   });
 
   it('should handle multiple leads and advance only matching ones', async () => {
     const today = new Date().toISOString().split('T')[0];
 
-    prisma.lead.findMany.mockResolvedValue([
+    leadRepo.findByStageWithCustomer.mockResolvedValue([
       {
         id: 'lead-a',
         currentStage: 'INSTALL',
@@ -120,18 +115,16 @@ describe('AutoAdvanceInstallsHandler', () => {
         customer: { firstName: 'C', lastName: 'User' },
       },
     ]);
-    prisma.lead.update.mockResolvedValue({});
-    prisma.leadActivity.create.mockResolvedValue({});
 
     const count = await handler.advanceInstalls();
 
     expect(count).toBe(2);
-    expect(prisma.lead.update).toHaveBeenCalledTimes(2);
+    expect(leadRepo.updateStage).toHaveBeenCalledTimes(2);
     expect(emitter.emit).toHaveBeenCalledTimes(2);
   });
 
   it('should return 0 when no leads match', async () => {
-    prisma.lead.findMany.mockResolvedValue([]);
+    leadRepo.findByStageWithCustomer.mockResolvedValue([]);
 
     const count = await handler.advanceInstalls();
 

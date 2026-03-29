@@ -1,7 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CommissionStatus } from '@prisma/client';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { COMMISSION_PAYMENT_REPOSITORY, CommissionPaymentRepositoryPort } from '../ports/commission-payment.repository.port';
 import { CommissionCalculatorDomainService } from '../../domain/services/commission-calculator.domain-service';
 
 export class CalculateCommissionCommand {
@@ -23,14 +22,12 @@ export class CalculateCommissionHandler
   implements ICommandHandler<CalculateCommissionCommand>
 {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(COMMISSION_PAYMENT_REPOSITORY) private readonly repo: CommissionPaymentRepositoryPort,
     private readonly calculator: CommissionCalculatorDomainService,
   ) {}
 
   async execute(command: CalculateCommissionCommand) {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: command.leadId },
-    });
+    const lead = await this.repo.findLeadById(command.leadId);
 
     if (!lead) {
       throw new NotFoundException(`Lead with ID ${command.leadId} not found`);
@@ -44,41 +41,16 @@ export class CalculateCommissionHandler
       splitPct: command.splitPct,
     });
 
-    const status: CommissionStatus = command.finalize
-      ? CommissionStatus.ACTIVE
-      : CommissionStatus.PENDING;
+    const status = command.finalize ? 'ACTIVE' : 'PENDING';
 
-    const commission = await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.commission.findFirst({
-        where: {
-          leadId: command.leadId,
-          userId: command.userId,
-        },
-      });
-
-      if (existing) {
-        return tx.commission.update({
-          where: { id: existing.id },
-          data: {
-            splitPct: command.splitPct,
-            amount: result.calculatedAmount,
-            breakdown: result as unknown as import('@prisma/client').Prisma.InputJsonValue,
-            status,
-          },
-        });
-      }
-
-      return tx.commission.create({
-        data: {
-          lead: { connect: { id: command.leadId } },
-          user: { connect: { id: command.userId } },
-          type: 'M1',
-          splitPct: command.splitPct,
-          amount: result.calculatedAmount,
-          breakdown: result as unknown as import('@prisma/client').Prisma.InputJsonValue,
-          status,
-        },
-      });
+    const commission = await this.repo.upsertCommission({
+      leadId: command.leadId,
+      userId: command.userId,
+      splitPct: command.splitPct,
+      amount: result.calculatedAmount,
+      breakdown: result as unknown as Record<string, unknown>,
+      status,
+      type: 'M1',
     });
 
     return { ...commission, breakdown: result };

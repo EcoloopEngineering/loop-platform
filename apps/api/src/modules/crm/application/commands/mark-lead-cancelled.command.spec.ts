@@ -2,22 +2,25 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MarkLeadCancelledCommand, MarkLeadCancelledHandler } from './mark-lead-cancelled.command';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
 
 describe('MarkLeadCancelledHandler', () => {
   let handler: MarkLeadCancelledHandler;
-  let prisma: MockPrismaService;
+  let leadRepo: Record<string, jest.Mock>;
   let emitter: { emit: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    leadRepo = {
+      findByIdWithCustomerName: jest.fn(),
+      updateStatus: jest.fn(),
+      createActivity: jest.fn().mockResolvedValue({}),
+    };
     emitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MarkLeadCancelledHandler,
-        { provide: PrismaService, useValue: prisma },
+        { provide: LEAD_REPOSITORY, useValue: leadRepo },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
@@ -26,20 +29,17 @@ describe('MarkLeadCancelledHandler', () => {
   });
 
   it('should mark lead as cancelled, log activity, and emit statusChanged', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
+    leadRepo.findByIdWithCustomerName.mockResolvedValue({
       id: 'lead-1',
       currentStage: 'SIT',
       customer: { firstName: 'Alice', lastName: 'Smith' },
     });
-    prisma.lead.update.mockResolvedValue({ id: 'lead-1', status: 'CANCELLED' });
-    prisma.leadActivity.create.mockResolvedValue({});
+    leadRepo.updateStatus.mockResolvedValue({ id: 'lead-1', status: 'CANCELLED' });
 
     const command = new MarkLeadCancelledCommand('lead-1', 'Customer request', 'user-1');
     await handler.execute(command);
 
-    expect(prisma.lead.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'CANCELLED' }) }),
-    );
+    expect(leadRepo.updateStatus).toHaveBeenCalledWith('lead-1', expect.objectContaining({ status: 'CANCELLED' }));
     expect(emitter.emit).toHaveBeenCalledWith(
       'lead.statusChanged',
       expect.objectContaining({ newStatus: 'CANCELLED', leadId: 'lead-1' }),
@@ -47,7 +47,7 @@ describe('MarkLeadCancelledHandler', () => {
   });
 
   it('should throw NotFoundException when lead not found', async () => {
-    prisma.lead.findUnique.mockResolvedValue(null);
+    leadRepo.findByIdWithCustomerName.mockResolvedValue(null);
 
     const command = new MarkLeadCancelledCommand('bad-id', undefined, 'user-1');
     await expect(handler.execute(command)).rejects.toThrow(NotFoundException);

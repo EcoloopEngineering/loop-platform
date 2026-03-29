@@ -125,7 +125,14 @@ const currentStage = ref('NEW_LEAD');
 const documentCount = ref(0);
 const notificationCount = ref(0);
 const lastUpdated = ref('--');
-const timeline = ref<any[]>([]);
+interface TimelineEntry {
+  id: string;
+  event: string;
+  title: string;
+  message?: string;
+  createdAt: string;
+}
+const timeline = ref<TimelineEntry[]>([]);
 
 const STAGE_ORDER = [
   'NEW_LEAD', 'ALREADY_CALLED', 'CONNECTED', 'REQUEST_DESIGN', 'DESIGN_IN_PROGRESS',

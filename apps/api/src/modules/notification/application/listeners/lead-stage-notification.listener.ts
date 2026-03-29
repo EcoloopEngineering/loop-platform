@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationService } from '../services/notification.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { NOTIFICATION_REPOSITORY, NotificationRepositoryPort } from '../ports/notification.repository.port';
 
 interface LeadStageChangedPayload {
   leadId: string;
@@ -16,14 +16,13 @@ export class LeadStageNotificationListener {
 
   constructor(
     private readonly notificationService: NotificationService,
-    private readonly prisma: PrismaService,
+    @Inject(NOTIFICATION_REPOSITORY) private readonly repo: NotificationRepositoryPort,
   ) {}
 
   private async isEnabled(eventKey: string): Promise<boolean> {
     try {
-      const setting = await this.prisma.appSetting.findUnique({ where: { key: 'notifications' } });
-      if (!setting?.value) return true;
-      const prefs = setting.value as Record<string, boolean>;
+      const prefs = await this.repo.findNotificationSetting();
+      if (!prefs) return true;
       return prefs[eventKey] !== false;
     } catch {
       return true;
@@ -37,7 +36,7 @@ export class LeadStageNotificationListener {
       `Lead stage changed: ${payload.leadId} from ${payload.previousStage} to ${payload.newStage}`,
     );
 
-    const usersToNotify = await this.getLeadStakeholders(payload.leadId);
+    const usersToNotify = await this.repo.findLeadStakeholderIds(payload.leadId);
 
     const notifications = usersToNotify.map((userId) =>
       this.notificationService.create({
@@ -54,41 +53,5 @@ export class LeadStageNotificationListener {
     );
 
     await Promise.allSettled(notifications);
-  }
-
-  /**
-   * Gets all users linked to a lead: assignees + PM + creator.
-   */
-  private async getLeadStakeholders(leadId: string, excludeIds: string[] = []): Promise<string[]> {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
-      select: {
-        createdById: true,
-        projectManagerId: true,
-        assignments: { select: { userId: true } },
-      },
-    });
-
-    if (!lead) return [];
-
-    const userIds = new Set<string>();
-
-    for (const assignment of lead.assignments) {
-      userIds.add(assignment.userId);
-    }
-
-    if (lead.projectManagerId) {
-      userIds.add(lead.projectManagerId);
-    }
-
-    if (lead.createdById) {
-      userIds.add(lead.createdById);
-    }
-
-    for (const id of excludeIds) {
-      userIds.delete(id);
-    }
-
-    return Array.from(userIds);
   }
 }

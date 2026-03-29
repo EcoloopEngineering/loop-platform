@@ -277,7 +277,12 @@ watch([notificationEvents, channels], () => {
   notifTimeout = setTimeout(() => saveNotificationPrefs(), 800);
 }, { deep: true });
 
-function loadData(data: any) {
+interface SettingsPayload {
+  preferences?: { compactView?: boolean; autoAssign?: boolean };
+  notifications?: Record<string, boolean>;
+}
+
+function loadData(data: SettingsPayload) {
   if (data?.preferences) {
     preferences.compactView = data.preferences.compactView ?? preferences.compactView;
     preferences.autoAssign = data.preferences.autoAssign ?? preferences.autoAssign;

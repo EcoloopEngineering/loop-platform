@@ -177,7 +177,7 @@ onMounted(async () => {
     socket.value.emit('join_conversation', { conversationId: storedId });
   }
 
-  socket.value.on('conversation_started', (data: { conversation: any; message: ChatMessage }) => {
+  socket.value.on('conversation_started', (data: { conversation: { id: string; status: string }; message: ChatMessage }) => {
     saveConversation(data.conversation.id);
     status.value = data.conversation.status;
     messages.value = [data.message];
@@ -186,7 +186,7 @@ onMounted(async () => {
     scrollToBottom();
   });
 
-  socket.value.on('conversation_loaded', (data: any) => {
+  socket.value.on('conversation_loaded', (data: { messages?: ChatMessage[]; status: string } | null) => {
     if (data) {
       messages.value = data.messages ?? [];
       status.value = data.status;
@@ -207,7 +207,7 @@ onMounted(async () => {
     }
   });
 
-  socket.value.on('agent_joined', (data: any) => {
+  socket.value.on('agent_joined', (_data: { agentId?: string }) => {
     status.value = 'WITH_AGENT';
     // Re-join room to ensure we receive agent messages
     if (conversationId.value) {

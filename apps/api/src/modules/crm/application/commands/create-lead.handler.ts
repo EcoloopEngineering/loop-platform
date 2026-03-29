@@ -6,7 +6,6 @@ import { LeadScoringDomainService } from '../../domain/services/lead-scoring.dom
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 import { CUSTOMER_REPOSITORY, CustomerRepositoryPort } from '../ports/customer.repository.port';
 import { PROPERTY_REPOSITORY, PropertyRepositoryPort } from '../ports/property.repository.port';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { LeadCreatedPayload, AiDesignRequestedPayload } from '../events/lead-events.types';
 import { LeadDetail } from '../dto/lead-data.types';
 
@@ -20,7 +19,6 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
     @Inject(CUSTOMER_REPOSITORY) private readonly customerRepo: CustomerRepositoryPort,
     @Inject(PROPERTY_REPOSITORY) private readonly propertyRepo: PropertyRepositoryPort,
-    private readonly prisma: PrismaService,
     private readonly scoringService: LeadScoringDomainService,
     private readonly emitter: EventEmitter2,
   ) {}
@@ -65,9 +63,16 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
       utilityProvider: energy.utilityProvider,
     });
 
-    const txResult = await this.executeTransaction(
-      lead.id, scoreBreakdown, ownerId, userId, design, initialStage, contact.source,
-    );
+    const txResult = await this.leadRepo.createScoreAndAssignments({
+      leadId: lead.id,
+      score: scoreBreakdown,
+      primaryOwnerId: ownerId,
+      creatorId: userId,
+      designType: design.designType,
+      designNotes: design.designNotes,
+      initialStage,
+      source: contact.source,
+    });
 
     this.emitEvents(lead.id, dto, txResult.designRequest, ownerId, userId);
 
@@ -115,7 +120,7 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
   }
 
   private async findDefaultPipeline(): Promise<{ id: string }> {
-    const pipeline = await this.prisma.pipeline.findFirst({ where: { isDefault: true } });
+    const pipeline = await this.leadRepo.findDefaultPipeline();
     if (!pipeline) {
       throw new Error('No default pipeline found. Please create a pipeline first.');
     }
@@ -123,15 +128,12 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
   }
 
   private async resolveOwner(userId: string): Promise<string> {
-    const creatorUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    const creatorUser = await this.leadRepo.findUserEmailById(userId);
     if (!creatorUser || creatorUser.email.endsWith('@ecoloop.us')) {
       return userId;
     }
 
-    const referral = await this.prisma.referral.findFirst({
-      where: { inviteeId: userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const referral = await this.leadRepo.findReferralByInvitee(userId);
 
     if (referral) {
       this.logger.log(`External creator ${creatorUser.email} — assigning to referrer ${referral.inviterId}`);
@@ -139,65 +141,6 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
     }
 
     return userId;
-  }
-
-  private async executeTransaction(
-    leadId: string,
-    scoreBreakdown: { totalScore: number; roofScore: number; energyScore: number; contactScore: number; propertyScore: number },
-    ownerId: string,
-    userId: string,
-    design: { designType?: string; designNotes?: string },
-    initialStage: string,
-    source: string,
-  ): Promise<{ designRequest: { id: string } | null }> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.leadScore.create({
-        data: {
-          leadId,
-          totalScore: scoreBreakdown.totalScore,
-          roofScore: scoreBreakdown.roofScore,
-          energyScore: scoreBreakdown.energyScore,
-          contactScore: scoreBreakdown.contactScore,
-          propertyScore: scoreBreakdown.propertyScore,
-        },
-      });
-
-      await tx.leadAssignment.create({
-        data: { leadId, userId: ownerId, splitPct: 100, isPrimary: true },
-      });
-
-      if (ownerId !== userId) {
-        await tx.leadAssignment.create({
-          data: { leadId, userId, splitPct: 0, isPrimary: false },
-        });
-      }
-
-      let designRequest: { id: string } | null = null;
-      if (design.designType) {
-        const isAiDesign = design.designType === 'AI_DESIGN';
-        designRequest = await tx.designRequest.create({
-          data: {
-            leadId,
-            designType: design.designType as any,
-            notes: design.designNotes,
-            status: isAiDesign ? 'COMPLETED' : 'PENDING',
-            completedAt: isAiDesign ? new Date() : null,
-          },
-        });
-      }
-
-      await tx.leadActivity.create({
-        data: {
-          leadId,
-          userId,
-          type: 'STAGE_CHANGE',
-          description: `Lead created via wizard${design.designType === 'AI_DESIGN' ? ' (AI Design → Design Ready)' : ''}`,
-          metadata: { stage: initialStage, source, designType: design.designType },
-        },
-      });
-
-      return { designRequest };
-    });
   }
 
   private emitEvents(

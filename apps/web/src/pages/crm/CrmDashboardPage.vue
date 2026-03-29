@@ -340,7 +340,8 @@ onMounted(async () => {
 
     // Use notifications as activity feed
     const notifs = Array.isArray(activityRes.data) ? activityRes.data : activityRes.data?.data ?? [];
-    recentActivity.value = notifs.slice(0, 10).map((n: any) => ({
+    interface RawNotification { id: string; event?: string; message?: string; title?: string; createdAt: string }
+    recentActivity.value = (notifs as RawNotification[]).slice(0, 10).map((n) => ({
       id: n.id,
       type: n.event ?? 'info',
       description: n.message ?? n.title ?? '',

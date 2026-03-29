@@ -1,7 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DocumentType as PrismaDocumentType } from '@prisma/client';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { DOCUMENT_REPOSITORY, DocumentRepositoryPort } from '../ports/document.repository.port';
 import { DocumentType } from '../../domain/entities/document.entity';
 
 export class UploadDocumentCommand {
@@ -20,27 +19,26 @@ export class UploadDocumentCommand {
 @CommandHandler(UploadDocumentCommand)
 @Injectable()
 export class UploadDocumentHandler implements ICommandHandler<UploadDocumentCommand> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DOCUMENT_REPOSITORY) private readonly repo: DocumentRepositoryPort,
+  ) {}
 
   async execute(command: UploadDocumentCommand) {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: command.leadId },
-    });
+    const lead = await this.repo.findLeadById(command.leadId);
 
     if (!lead) {
       throw new NotFoundException(`Lead with ID ${command.leadId} not found`);
     }
 
-    return this.prisma.document.create({
-      data: {
-        leadId: command.leadId,
-        type: command.type as unknown as PrismaDocumentType,
-        fileName: command.fileName,
-        mimeType: command.mimeType,
-        fileSize: command.fileSize,
-        fileKey: command.storagePath,
-        uploadedById: command.uploadedBy,
-      },
+    return this.repo.createDocument({
+      leadId: command.leadId,
+      type: command.type as string,
+      fileName: command.fileName,
+      mimeType: command.mimeType,
+      fileSize: command.fileSize,
+      fileKey: command.storagePath,
+      uploadedById: command.uploadedBy,
+      metadata: {},
     });
   }
 }

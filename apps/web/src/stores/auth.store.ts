@@ -80,8 +80,9 @@ export const useAuthStore = defineStore(
       try {
         await api.post('/auth/forgot-password', { email });
         return;
-      } catch (err: any) {
-        throw new Error(err.response?.data?.message || 'Failed to send reset link');
+      } catch (err: unknown) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        throw new Error(axErr?.response?.data?.message || 'Failed to send reset link');
       }
       // Firebase fallback (keep for reference but won't reach here)
       try {

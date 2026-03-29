@@ -2,7 +2,6 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Inject, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { LeadUpdatedPayload } from '../events/lead-events.types';
 import { UpdateLeadData } from '../dto/lead-data.types';
 
@@ -18,7 +17,6 @@ export class UpdateLeadCommand {
 export class UpdateLeadHandler implements ICommandHandler<UpdateLeadCommand> {
   constructor(
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
-    private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
   ) {}
 
@@ -30,21 +28,15 @@ export class UpdateLeadHandler implements ICommandHandler<UpdateLeadCommand> {
 
     const updated = await this.leadRepo.update(leadId, data);
 
-    const [lead, currentUser] = await Promise.all([
-      this.prisma.lead.findUnique({
-        where: { id: leadId },
-        include: { customer: { select: { firstName: true, lastName: true } } },
-      }),
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { firstName: true, lastName: true },
-      }),
+    const [leadWithCustomer, currentUser] = await Promise.all([
+      this.leadRepo.findByIdWithCustomer(leadId),
+      this.leadRepo.findUserNameById(userId),
     ]);
 
-    if (lead && currentUser) {
+    if (leadWithCustomer && currentUser) {
       const payload: LeadUpdatedPayload = {
         leadId,
-        customerName: `${lead.customer.firstName} ${lead.customer.lastName}`,
+        customerName: `${leadWithCustomer.customer.firstName} ${leadWithCustomer.customer.lastName}`,
         updatedByName: `${currentUser.firstName} ${currentUser.lastName}`,
         changes: Object.keys(data).join(', '),
       };

@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { TASK_REPOSITORY, TaskRepositoryPort } from '../ports/task.repository.port';
 
 interface TaskCompletedPayload {
   taskId: string;
@@ -15,7 +15,7 @@ export class TaskCompletedListener {
   private readonly logger = new Logger(TaskCompletedListener.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(TASK_REPOSITORY) private readonly repo: TaskRepositoryPort,
     private readonly emitter: EventEmitter2,
   ) {}
 
@@ -30,14 +30,7 @@ export class TaskCompletedListener {
 
     try {
       // 1. Check if all sibling tasks (same lead + same templateKey) are completed
-      const siblings = await this.prisma.task.findMany({
-        where: {
-          leadId: payload.leadId,
-          templateKey: payload.templateKey,
-          parentTaskId: null, // Only top-level tasks
-        },
-        select: { id: true, status: true },
-      });
+      const siblings = await this.repo.findSiblingTasks(payload.leadId, payload.templateKey);
 
       const allCompleted = siblings.every((t) => t.status === 'COMPLETED');
 
@@ -53,18 +46,14 @@ export class TaskCompletedListener {
       );
 
       // 2. Check if template has a nextStage suggestion
-      const template = await this.prisma.taskTemplate.findUnique({
-        where: { id: payload.templateKey },
-      });
+      const template = await this.repo.findTemplateById(payload.templateKey);
 
       // 3. Log activity on lead
-      await this.prisma.leadActivity.create({
-        data: {
-          leadId: payload.leadId,
-          type: 'STAGE_CHANGE',
-          description: `All tasks for template "${template?.title ?? payload.templateKey}" completed`,
-          userId: payload.completedById,
-        },
+      await this.repo.createLeadActivity({
+        leadId: payload.leadId,
+        type: 'STAGE_CHANGE',
+        description: `All tasks for template "${template?.title ?? payload.templateKey}" completed`,
+        userId: payload.completedById,
       });
 
       // Emit stage advance suggestion if template metadata suggests it

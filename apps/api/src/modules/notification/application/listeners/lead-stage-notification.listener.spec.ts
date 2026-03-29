@@ -1,23 +1,36 @@
 import { Test } from '@nestjs/testing';
 import { LeadStageNotificationListener } from './lead-stage-notification.listener';
 import { NotificationService } from '../services/notification.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { NOTIFICATION_REPOSITORY } from '../ports/notification.repository.port';
 
 describe('LeadStageNotificationListener', () => {
   let listener: LeadStageNotificationListener;
   let notificationService: { create: jest.Mock };
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findNotificationSetting: jest.fn().mockResolvedValue(null),
+      findLeadStakeholderIds: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      markRead: jest.fn(),
+      markAllRead: jest.fn(),
+      findByUser: jest.fn(),
+      countByUser: jest.fn(),
+      countUnread: jest.fn(),
+      findDeviceToken: jest.fn(),
+      findLeadWithStakeholders: jest.fn(),
+      findLeadMetadata: jest.fn(),
+      findLeadWithPrimaryAssignment: jest.fn(),
+      updateLeadMetadata: jest.fn(),
+    };
     notificationService = { create: jest.fn().mockResolvedValue({}) };
 
     const module = await Test.createTestingModule({
       providers: [
         LeadStageNotificationListener,
         { provide: NotificationService, useValue: notificationService },
-        { provide: PrismaService, useValue: prisma },
+        { provide: NOTIFICATION_REPOSITORY, useValue: repo },
       ],
     }).compile();
 
@@ -29,11 +42,7 @@ describe('LeadStageNotificationListener', () => {
   });
 
   it('should notify all stakeholders on stage change', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
-      createdById: 'u1',
-      projectManagerId: 'u2',
-      assignments: [{ userId: 'u3' }],
-    });
+    repo.findLeadStakeholderIds.mockResolvedValue(['u1', 'u2', 'u3']);
 
     await listener.handleLeadStageChanged({
       leadId: 'l1',
@@ -47,10 +56,7 @@ describe('LeadStageNotificationListener', () => {
   });
 
   it('should skip when stage_changes notification is disabled', async () => {
-    prisma.appSetting.findUnique.mockResolvedValue({
-      key: 'notifications',
-      value: { stage_changes: false },
-    });
+    repo.findNotificationSetting.mockResolvedValue({ stage_changes: false });
 
     await listener.handleLeadStageChanged({
       leadId: 'l1',
@@ -63,7 +69,7 @@ describe('LeadStageNotificationListener', () => {
   });
 
   it('should handle lead with no stakeholders', async () => {
-    prisma.lead.findUnique.mockResolvedValue(null);
+    repo.findLeadStakeholderIds.mockResolvedValue([]);
 
     await listener.handleLeadStageChanged({
       leadId: 'l1',

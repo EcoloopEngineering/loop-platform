@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { TASK_REPOSITORY, TaskRepositoryPort } from '../ports/task.repository.port';
 import { GoogleChatService } from '../../../../integrations/google-chat/google-chat.service';
 import { TaskCreationService } from '../services/task-creation.service';
 
@@ -16,7 +16,7 @@ export class StageTaskListener {
   private readonly logger = new Logger(StageTaskListener.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(TASK_REPOSITORY) private readonly repo: TaskRepositoryPort,
     private readonly googleChat: GoogleChatService,
     private readonly taskCreationService: TaskCreationService,
   ) {}
@@ -29,10 +29,7 @@ export class StageTaskListener {
 
     try {
       // 1. Find active templates for the new stage
-      const templates = await this.prisma.taskTemplate.findMany({
-        where: { stage: payload.newStage, isActive: true },
-        orderBy: { sortOrder: 'asc' },
-      });
+      const templates = await this.repo.findActiveTemplatesByStage(payload.newStage);
 
       if (!templates.length) {
         this.logger.debug(`No task templates found for stage ${payload.newStage}`);
@@ -40,14 +37,7 @@ export class StageTaskListener {
       }
 
       // Load lead with metadata for condition evaluation
-      const lead = await this.prisma.lead.findUnique({
-        where: { id: payload.leadId },
-        select: {
-          id: true,
-          metadata: true,
-          property: { select: { state: true } },
-        },
-      });
+      const lead = await this.repo.findLeadWithMetadataAndState(payload.leadId);
 
       if (!lead) {
         this.logger.warn(`Lead ${payload.leadId} not found`);
@@ -63,12 +53,10 @@ export class StageTaskListener {
 
       // Log activity and notify
       if (createdTasks.length > 0) {
-        await this.prisma.leadActivity.create({
-          data: {
-            leadId: payload.leadId,
-            type: 'STAGE_CHANGE',
-            description: `${createdTasks.length} task(s) auto-created for stage ${payload.newStage}`,
-          },
+        await this.repo.createLeadActivity({
+          leadId: payload.leadId,
+          type: 'STAGE_CHANGE',
+          description: `${createdTasks.length} task(s) auto-created for stage ${payload.newStage}`,
         });
 
         await this.sendChatNotification(payload, createdTasks.length);
@@ -99,10 +87,7 @@ export class StageTaskListener {
       if (!this.googleChat.isConfigured()) return;
 
       // Find the lead's Google Chat space from metadata
-      const lead = await this.prisma.lead.findUnique({
-        where: { id: payload.leadId },
-        select: { metadata: true },
-      });
+      const lead = await this.repo.findLeadMetadataOnly(payload.leadId);
 
       const metadata = (lead?.metadata as Record<string, unknown>) ?? {};
       const spaceName = metadata.googleChatSpace as string | undefined;

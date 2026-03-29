@@ -29,11 +29,11 @@
       <div class="col-12 col-md-6">
         <div class="center-card">
           <q-tabs v-model="activeTab" dense align="left" active-color="primary" indicator-color="primary" no-caps class="center-tabs">
-            <q-tab name="activity" label="Activity" />
-            <q-tab name="notes" label="Notes" />
-            <q-tab name="tasks" label="Tasks" />
-            <q-tab name="files" label="Files" />
-            <q-tab name="commission" label="Commission" />
+            <q-tab name="activity" label="Activity" aria-label="View lead activity timeline" />
+            <q-tab name="notes" label="Notes" aria-label="View and add lead notes" />
+            <q-tab name="tasks" label="Tasks" aria-label="View lead tasks" />
+            <q-tab name="files" label="Files" aria-label="View lead files and documents" />
+            <q-tab name="commission" label="Commission" aria-label="View commission details" />
           </q-tabs>
           <q-separator />
           <q-tab-panels v-model="activeTab" animated class="center-panels">

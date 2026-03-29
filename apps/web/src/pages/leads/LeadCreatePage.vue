@@ -103,8 +103,8 @@ const $q = useQuasar();
 async function handleSubmit() {
   try {
     await submitLead();
-  } catch (err: any) {
-    $q.notify({ type: 'negative', message: err.message || 'Failed to create lead.' });
+  } catch (err: unknown) {
+    $q.notify({ type: 'negative', message: err instanceof Error ? err.message : 'Failed to create lead.' });
   }
 }
 

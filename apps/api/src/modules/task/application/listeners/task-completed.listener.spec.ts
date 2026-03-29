@@ -1,22 +1,43 @@
 import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskCompletedListener } from './task-completed.listener';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { TASK_REPOSITORY } from '../ports/task.repository.port';
 
 describe('TaskCompletedListener', () => {
   let listener: TaskCompletedListener;
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
   let emitter: { emit: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findSiblingTasks: jest.fn(),
+      findTemplateById: jest.fn(),
+      createLeadActivity: jest.fn().mockResolvedValue({}),
+      findAll: jest.fn(),
+      findById: jest.fn(),
+      findByIdSimple: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      complete: jest.fn(),
+      cancel: jest.fn(),
+      createTask: jest.fn(),
+      findActiveUserByEmail: jest.fn(),
+      findActiveUserByRole: jest.fn(),
+      findLeadProjectManagerId: jest.fn(),
+      findTemplates: jest.fn(),
+      createTemplate: jest.fn(),
+      updateTemplate: jest.fn(),
+      deleteTemplate: jest.fn(),
+      findActiveTemplatesByStage: jest.fn(),
+      findLeadWithMetadataAndState: jest.fn(),
+      findLeadMetadataOnly: jest.fn(),
+    };
     emitter = { emit: jest.fn() };
 
     const module = await Test.createTestingModule({
       providers: [
         TaskCompletedListener,
-        { provide: PrismaService, useValue: prisma },
+        { provide: TASK_REPOSITORY, useValue: repo },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
@@ -32,11 +53,11 @@ describe('TaskCompletedListener', () => {
       completedById: 'u1',
     });
 
-    expect(prisma.task.findMany).not.toHaveBeenCalled();
+    expect(repo.findSiblingTasks).not.toHaveBeenCalled();
   });
 
   it('should not emit stageAdvance when not all siblings completed', async () => {
-    prisma.task.findMany.mockResolvedValue([
+    repo.findSiblingTasks.mockResolvedValue([
       { id: 't1', status: 'COMPLETED' },
       { id: 't2', status: 'OPEN' },
     ]);
@@ -49,20 +70,19 @@ describe('TaskCompletedListener', () => {
     });
 
     expect(emitter.emit).not.toHaveBeenCalled();
-    expect(prisma.leadActivity.create).not.toHaveBeenCalled();
+    expect(repo.createLeadActivity).not.toHaveBeenCalled();
   });
 
   it('should log activity when all siblings completed', async () => {
-    prisma.task.findMany.mockResolvedValue([
+    repo.findSiblingTasks.mockResolvedValue([
       { id: 't1', status: 'COMPLETED' },
       { id: 't2', status: 'COMPLETED' },
     ]);
-    prisma.taskTemplate.findUnique.mockResolvedValue({
+    repo.findTemplateById.mockResolvedValue({
       id: 'tmpl-1',
       title: 'Review design',
       conditions: {},
     });
-    prisma.leadActivity.create.mockResolvedValue({});
 
     await listener.handleTaskCompleted({
       taskId: 't1',
@@ -71,27 +91,24 @@ describe('TaskCompletedListener', () => {
       completedById: 'u1',
     });
 
-    expect(prisma.leadActivity.create).toHaveBeenCalledWith(
+    expect(repo.createLeadActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          leadId: 'lead-1',
-          type: 'STAGE_CHANGE',
-          userId: 'u1',
-        }),
+        leadId: 'lead-1',
+        type: 'STAGE_CHANGE',
+        userId: 'u1',
       }),
     );
   });
 
   it('should emit lead.stageAdvance when all completed and nextStage defined', async () => {
-    prisma.task.findMany.mockResolvedValue([
+    repo.findSiblingTasks.mockResolvedValue([
       { id: 't1', status: 'COMPLETED' },
     ]);
-    prisma.taskTemplate.findUnique.mockResolvedValue({
+    repo.findTemplateById.mockResolvedValue({
       id: 'tmpl-1',
       title: 'Review design',
       conditions: { nextStage: 'DESIGN_READY' },
     });
-    prisma.leadActivity.create.mockResolvedValue({});
 
     await listener.handleTaskCompleted({
       taskId: 't1',

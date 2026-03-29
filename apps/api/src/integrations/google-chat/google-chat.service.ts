@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { google, chat_v1 } from 'googleapis';
+import { withRetry, CircuitBreaker } from '../../common/utils/resilience';
+
+const GOOGLE_CHAT_TIMEOUT_MS = 5_000;
 
 @Injectable()
 export class GoogleChatService {
   private readonly logger = new Logger(GoogleChatService.name);
   private credentials: Record<string, unknown> | null = null;
+  private readonly circuitBreaker: CircuitBreaker;
 
   private readonly SCOPES = [
     'https://www.googleapis.com/auth/chat.app.spaces.create',
@@ -30,6 +34,12 @@ export class GoogleChatService {
     } else {
       this.logger.warn('Google Chat not configured — GOOGLE_ADMIN_CREDENTIALS missing');
     }
+
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: 5,
+      resetTimeMs: 30_000,
+      name: 'google-chat',
+    });
   }
 
   isConfigured(): boolean {
@@ -49,61 +59,64 @@ export class GoogleChatService {
    */
   async createSpace(params: {
     displayName: string;
-    members?: string[]; // email addresses
+    members?: string[];
   }): Promise<{ spaceName: string; displayName: string }> {
     if (!this.isConfigured()) {
       throw new Error('Google Chat not configured');
     }
 
-    try {
-      const chatClient = await this.getClient();
+    return this.circuitBreaker.execute(() =>
+      withRetry(
+        async () => {
+          const chatClient = await this.getClient();
 
-      // Create space
-      const res = await chatClient.spaces.create({
-        requestBody: {
-          spaceType: 'SPACE',
-          displayName: params.displayName,
-          customer: 'customers/my_customer',
-        },
-      });
-
-      const space = res.data;
-      const spaceName = space.name!;
-
-      this.logger.log(`Google Chat space created: ${spaceName} (${params.displayName})`);
-
-      // Add members
-      if (params.members?.length) {
-        for (const email of params.members) {
-          try {
-            await chatClient.spaces.members.create({
-              parent: spaceName,
+          const res = await this.withTimeout(
+            chatClient.spaces.create({
               requestBody: {
-                member: { name: `users/${email}`, type: 'HUMAN' },
+                spaceType: 'SPACE',
+                displayName: params.displayName,
+                customer: 'customers/my_customer',
               },
-            });
-            this.logger.debug(`Added ${email} to space ${spaceName}`);
-          } catch (err: unknown) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            this.logger.warn(`Failed to add ${email} to space: ${errMsg}`);
+            }),
+          );
+
+          const space = res.data;
+          const spaceName = space.name!;
+
+          this.logger.log(`Google Chat space created: ${spaceName} (${params.displayName})`);
+
+          // Add members (not retried individually — rate limited)
+          if (params.members?.length) {
+            for (const email of params.members) {
+              try {
+                await chatClient.spaces.members.create({
+                  parent: spaceName,
+                  requestBody: {
+                    member: { name: `users/${email}`, type: 'HUMAN' },
+                  },
+                });
+                this.logger.debug(`Added ${email} to space ${spaceName}`);
+              } catch (err: unknown) {
+                const errMsg = err instanceof Error ? err.message : String(err);
+                this.logger.warn(`Failed to add ${email} to space: ${errMsg}`);
+              }
+              // Rate limit: 1 member per second
+              await new Promise((r) => setTimeout(r, 1000));
+            }
           }
-          // Rate limit: 1 member per second
-          await new Promise((r) => setTimeout(r, 1000));
-        }
-      }
 
-      // Send welcome message
-      await this.sendMessage(
-        spaceName,
-        `Welcome to the project space for *${params.displayName}*! Use @mentions to tag team members.`,
-      );
+          // Send welcome message
+          await this.sendMessage(
+            spaceName,
+            `Welcome to the project space for *${params.displayName}*! Use @mentions to tag team members.`,
+          );
 
-      return { spaceName, displayName: params.displayName };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to create Google Chat space: ${message}`);
-      throw error;
-    }
+          return { spaceName, displayName: params.displayName };
+        },
+        { maxAttempts: 2, initialDelayMs: 2000, maxDelayMs: 5_000 },
+        this.logger,
+      ),
+    );
   }
 
   /**
@@ -121,12 +134,22 @@ export class GoogleChatService {
     }
 
     try {
-      const chatClient = await this.getClient();
-      await chatClient.spaces.messages.create({
-        parent: spaceName,
-        requestBody: { text },
-      });
-      this.logger.debug(`Message sent to ${spaceName}`);
+      await this.circuitBreaker.execute(() =>
+        withRetry(
+          async () => {
+            const chatClient = await this.getClient();
+            await this.withTimeout(
+              chatClient.spaces.messages.create({
+                parent: spaceName,
+                requestBody: { text },
+              }),
+            );
+            this.logger.debug(`Message sent to ${spaceName}`);
+          },
+          { maxAttempts: 2, initialDelayMs: 1000, maxDelayMs: 5_000 },
+          this.logger,
+        ),
+      );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Failed to send Google Chat message: ${message}`);
@@ -146,35 +169,45 @@ export class GoogleChatService {
     if (!this.isConfigured() || !spaceName) return;
 
     try {
-      const chatClient = await this.getClient();
-      await chatClient.spaces.messages.create({
-        parent: spaceName,
-        requestBody: {
-          cardsV2: [
-            {
-              cardId: `card-${Date.now()}`,
-              card: {
-                header: {
-                  title,
-                  subtitle,
-                  imageUrl: 'https://ecoloop.us/logo.png',
-                  imageType: 'CIRCLE',
-                },
-                sections: [
-                  {
-                    widgets: fields.map((f) => ({
-                      decoratedText: {
-                        topLabel: f.label,
-                        text: f.value,
+      await this.circuitBreaker.execute(() =>
+        withRetry(
+          async () => {
+            const chatClient = await this.getClient();
+            await this.withTimeout(
+              chatClient.spaces.messages.create({
+                parent: spaceName,
+                requestBody: {
+                  cardsV2: [
+                    {
+                      cardId: `card-${Date.now()}`,
+                      card: {
+                        header: {
+                          title,
+                          subtitle,
+                          imageUrl: 'https://ecoloop.us/logo.png',
+                          imageType: 'CIRCLE',
+                        },
+                        sections: [
+                          {
+                            widgets: fields.map((f) => ({
+                              decoratedText: {
+                                topLabel: f.label,
+                                text: f.value,
+                              },
+                            })),
+                          },
+                        ],
                       },
-                    })),
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      });
+                    },
+                  ],
+                },
+              }),
+            );
+          },
+          { maxAttempts: 2, initialDelayMs: 1000, maxDelayMs: 5_000 },
+          this.logger,
+        ),
+      );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Failed to send card to ${spaceName}: ${message}`);
@@ -188,12 +221,37 @@ export class GoogleChatService {
     if (!this.isConfigured() || !spaceName) return;
 
     try {
-      const chatClient = await this.getClient();
-      await chatClient.spaces.delete({ name: spaceName });
-      this.logger.log(`Google Chat space deleted: ${spaceName}`);
+      await this.circuitBreaker.execute(() =>
+        withRetry(
+          async () => {
+            const chatClient = await this.getClient();
+            await this.withTimeout(
+              chatClient.spaces.delete({ name: spaceName }),
+            );
+            this.logger.log(`Google Chat space deleted: ${spaceName}`);
+          },
+          { maxAttempts: 2, initialDelayMs: 1000, maxDelayMs: 5_000 },
+          this.logger,
+        ),
+      );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Failed to delete space ${spaceName}: ${message}`);
     }
+  }
+
+  /**
+   * Apply a timeout to a Google API promise.
+   */
+  private withTimeout<T>(promise: Promise<T>): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(
+          () => reject(new Error('Google Chat API request timed out')),
+          GOOGLE_CHAT_TIMEOUT_MS,
+        ),
+      ),
+    ]);
   }
 }

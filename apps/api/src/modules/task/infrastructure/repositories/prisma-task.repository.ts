@@ -175,4 +175,53 @@ export class PrismaTaskRepository implements TaskRepositoryPort {
   async deleteTemplate(id: string): Promise<TaskTemplateRecord> {
     return this.prisma.taskTemplate.delete({ where: { id } });
   }
+
+  /* ── Used by StageTaskListener ── */
+
+  async findActiveTemplatesByStage(stage: string): Promise<TaskTemplateRecord[]> {
+    return this.prisma.taskTemplate.findMany({
+      where: { stage, isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    }) as unknown as Promise<TaskTemplateRecord[]>;
+  }
+
+  async findLeadWithMetadataAndState(leadId: string): Promise<{
+    id: string;
+    metadata: unknown;
+    property: { state: string } | null;
+  } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: {
+        id: true,
+        metadata: true,
+        property: { select: { state: true } },
+      },
+    }) as any;
+  }
+
+  async createLeadActivity(data: {
+    leadId: string;
+    type: string;
+    description: string;
+    userId?: string;
+  }): Promise<any> {
+    return this.prisma.leadActivity.create({ data: data as any });
+  }
+
+  async findLeadMetadataOnly(leadId: string): Promise<{ metadata: unknown } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: { metadata: true },
+    });
+  }
+
+  /* ── Used by TaskCompletedListener ── */
+
+  async findSiblingTasks(leadId: string, templateKey: string): Promise<Array<{ id: string; status: string }>> {
+    return this.prisma.task.findMany({
+      where: { leadId, templateKey, parentTaskId: null },
+      select: { id: true, status: true },
+    });
+  }
 }

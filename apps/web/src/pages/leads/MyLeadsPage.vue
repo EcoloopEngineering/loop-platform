@@ -123,6 +123,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/boot/axios';
+import type { Lead, LeadAssignment } from '@/types/api';
 import { titleCase } from '@/composables/useLeadFormatting';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
@@ -132,7 +133,7 @@ const { stageColor, formatStage, formatSource, timeAgo } = useLeadFormatting();
 const router = useRouter();
 const loading = ref(true);
 const search = ref('');
-const leads = ref<any[]>([]);
+const leads = ref<Lead[]>([]);
 const currentUserId = ref<string | null>(null);
 
 const columns = [
@@ -148,16 +149,16 @@ const myLeads = computed(() => {
   const uid = currentUserId.value;
   if (!uid) return [];
 
-  return leads.value.filter((l: any) => {
+  return leads.value.filter((l) => {
     if (l.createdById === uid) return true;
-    if (l.assignments?.some((a: any) => a.userId === uid)) return true;
+    if (l.assignments?.some((a: LeadAssignment) => a.userId === uid)) return true;
     if (l.projectManagerId === uid) return true;
     return false;
   });
 });
 
 const filteredLeads = computed(() => {
-  let result = myLeads.value.map((l: any) => ({
+  let result = myLeads.value.map((l) => ({
     id: l.id,
     name: `${l.customer?.firstName ?? ''} ${l.customer?.lastName ?? ''}`.trim() || 'Unknown',
     email: l.customer?.email ?? '--',
@@ -194,7 +195,7 @@ onMounted(async () => {
 
 function onSearch() { /* reactive via computed */ }
 
-function onRowClick(_evt: Event, row: any) {
+function onRowClick(_evt: Event, row: { id: string }) {
   router.push(`/leads/${row.id}`);
 }
 

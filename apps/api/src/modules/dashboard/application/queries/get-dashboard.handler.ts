@@ -1,6 +1,6 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable } from '@nestjs/common';
+import { DASHBOARD_REPOSITORY, DashboardRepositoryPort } from '../ports/dashboard.repository.port';
 
 export class GetDashboardQuery {
   constructor(
@@ -23,7 +23,9 @@ interface DashboardResult {
 @QueryHandler(GetDashboardQuery)
 @Injectable()
 export class GetDashboardHandler implements IQueryHandler<GetDashboardQuery> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DASHBOARD_REPOSITORY) private readonly repo: DashboardRepositoryPort,
+  ) {}
 
   async execute(query: GetDashboardQuery): Promise<DashboardResult> {
     const dateFilter = {
@@ -38,35 +40,19 @@ export class GetDashboardHandler implements IQueryHandler<GetDashboardQuery> {
       ...dateFilter,
     };
 
-    const [totalLeads, wonLeads, lostLeads, commissions, leadsByStage] =
+    const [totalLeads, wonLeads, lostLeads, totalCommission, leadsByStage] =
       await Promise.all([
-        this.prisma.lead.count({
-          where: userLeadFilter,
-        }),
-        this.prisma.lead.count({
-          where: { ...userLeadFilter, currentStage: 'WON' },
-        }),
-        this.prisma.lead.count({
-          where: { ...userLeadFilter, status: 'LOST' },
-        }),
-        this.prisma.commission.aggregate({
-          where: { userId: query.userId, ...dateFilter },
-          _sum: { amount: true },
-        }),
-        this.prisma.lead.groupBy({
-          by: ['currentStage'],
-          where: userLeadFilter,
-          _count: true,
-        }),
+        this.repo.countLeads(userLeadFilter),
+        this.repo.countLeads({ ...userLeadFilter, currentStage: 'WON' }),
+        this.repo.countLeads({ ...userLeadFilter, status: 'LOST' }),
+        this.repo.aggregateCommission({ userId: query.userId, ...dateFilter }),
+        this.repo.groupLeadsByStage(userLeadFilter),
       ]);
 
-    const pendingCommissions = await this.prisma.commission.aggregate({
-      where: {
-        userId: query.userId,
-        status: { in: ['PENDING'] },
-        ...dateFilter,
-      },
-      _sum: { amount: true },
+    const pendingCommission = await this.repo.aggregatePendingCommission({
+      userId: query.userId,
+      status: { in: ['PENDING'] },
+      ...dateFilter,
     });
 
     const leadsbyStage: Record<string, number> = {};
@@ -79,8 +65,8 @@ export class GetDashboardHandler implements IQueryHandler<GetDashboardQuery> {
       wonLeads,
       lostLeads,
       conversionRate: totalLeads > 0 ? (wonLeads / totalLeads) * 100 : 0,
-      totalCommission: Number(commissions._sum?.amount ?? 0),
-      pendingCommission: Number(pendingCommissions._sum?.amount ?? 0),
+      totalCommission,
+      pendingCommission,
       leadsbyStage,
     };
   }

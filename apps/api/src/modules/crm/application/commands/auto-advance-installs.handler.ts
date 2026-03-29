@@ -1,15 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { LeadStage } from '@prisma/client';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 
 @Injectable()
 export class AutoAdvanceInstallsHandler {
   private readonly logger = new Logger(AutoAdvanceInstallsHandler.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
     private readonly emitter: EventEmitter2,
   ) {}
 
@@ -29,15 +28,7 @@ export class AutoAdvanceInstallsHandler {
     this.logger.log(`Auto-advance installs check for date: ${dateStr}`);
 
     try {
-      const leads = await this.prisma.lead.findMany({
-        where: {
-          currentStage: 'INSTALL',
-        },
-        include: {
-          customer: { select: { firstName: true, lastName: true } },
-        },
-        take: 500,
-      });
+      const leads = await this.leadRepo.findByStageWithCustomer('INSTALL');
 
       let advancedCount = 0;
 
@@ -49,22 +40,17 @@ export class AutoAdvanceInstallsHandler {
           continue;
         }
 
-        await this.prisma.lead.update({
-          where: { id: lead.id },
-          data: { currentStage: LeadStage.COMMISSION },
-        });
+        await this.leadRepo.updateStage(lead.id, 'COMMISSION');
 
-        await this.prisma.leadActivity.create({
-          data: {
-            leadId: lead.id,
-            userId: lead.createdById ?? '',
-            type: 'STAGE_CHANGE',
-            description: 'Auto-advanced from INSTALL to COMMISSION (scheduled date reached)',
-            metadata: {
-              previousStage: 'INSTALL',
-              newStage: 'COMMISSION',
-              automated: true,
-            },
+        await this.leadRepo.createActivity({
+          leadId: lead.id,
+          userId: lead.createdById ?? '',
+          type: 'STAGE_CHANGE',
+          description: 'Auto-advanced from INSTALL to COMMISSION (scheduled date reached)',
+          metadata: {
+            previousStage: 'INSTALL',
+            newStage: 'COMMISSION',
+            automated: true,
           },
         });
 

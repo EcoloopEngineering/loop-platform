@@ -165,7 +165,23 @@ onMounted(async () => {
     const { data } = await api.get('/referrals');
     const list = Array.isArray(data) ? data : data.data ?? [];
 
-    referrals.value = list.map((r: any) => ({
+    interface RawReferralLead {
+      id: string;
+      customer?: { firstName: string; lastName: string };
+      customerName?: string;
+      currentStage?: string;
+      stage?: string;
+    }
+    interface RawReferral {
+      id: string;
+      inviteeId?: string;
+      invitee?: { firstName?: string; lastName?: string; email?: string; isActive?: boolean; _count?: { leadAssignments?: number } };
+      name?: string;
+      email?: string;
+      leadCount?: number;
+      leads?: RawReferralLead[];
+    }
+    referrals.value = (list as RawReferral[]).map((r) => ({
       id: r.inviteeId ?? r.id,
       name: r.invitee
         ? `${r.invitee.firstName ?? ''} ${r.invitee.lastName ?? ''}`.trim()
@@ -173,7 +189,7 @@ onMounted(async () => {
       email: r.invitee?.email ?? r.email ?? '--',
       isActive: r.invitee?.isActive ?? true,
       leadCount: r.invitee?._count?.leadAssignments ?? r.leadCount ?? 0,
-      leads: (r.leads ?? []).map((l: any) => ({
+      leads: (r.leads ?? []).map((l) => ({
         id: l.id,
         customerName: l.customer
           ? `${l.customer.firstName} ${l.customer.lastName}`

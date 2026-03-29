@@ -24,10 +24,10 @@
       <div class="section-title q-mb-sm">Quick Actions</div>
       <div class="row q-col-gutter-sm">
         <div :class="isEmployee ? 'col-6' : 'col-12'">
-          <q-btn unelevated no-caps color="primary" text-color="white" icon="add" label="New Lead" class="full-width action-btn" @click="$router.push('/leads/new')" />
+          <q-btn unelevated no-caps color="primary" text-color="white" icon="add" label="New Lead" class="full-width action-btn" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
         </div>
         <div v-if="isEmployee" class="col-6">
-          <q-btn outline no-caps color="primary" icon="share" label="Invite" class="full-width action-btn" @click="$router.push('/referrals')" />
+          <q-btn outline no-caps color="primary" icon="share" label="Invite" class="full-width action-btn" aria-label="Invite a referral partner" @click="$router.push('/referrals')" />
         </div>
       </div>
     </div>
@@ -40,7 +40,7 @@
           {{ myLeads.length }}
         </q-badge>
         <q-space />
-        <q-btn v-if="myLeads.length > LEADS_PER_PAGE" flat dense no-caps color="primary" label="View all" @click="$router.push('/leads')" size="sm" />
+        <q-btn v-if="myLeads.length > LEADS_PER_PAGE" flat dense no-caps color="primary" label="View all" @click="$router.push('/leads')" size="sm" aria-label="View all leads" />
       </div>
 
       <div v-if="loadingLeads" class="text-center q-pa-md">
@@ -89,6 +89,8 @@
             round
             size="xs"
             :label="String(p)"
+            :aria-label="`Go to page ${p}`"
+            :aria-current="p === leadsPage ? 'page' : undefined"
             @click="leadsPage = p"
           />
         </div>
@@ -125,16 +127,32 @@
 import { ref, computed, inject, onMounted } from 'vue';
 import type { Ref } from 'vue';
 import { api } from '@/boot/axios';
+import type { Lead, LeadAssignment } from '@/types/api';
 import { titleCase } from '@/composables/useLeadFormatting';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
 
+interface CurrentUserInfo {
+  id: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface ActivityItem {
+  id: string;
+  event: string;
+  title?: string;
+  message?: string;
+  createdAt: string;
+}
+
 const { stageColor, formatStage, formatSource, timeAgo } = useLeadFormatting();
 
 const loadingLeads = ref(true);
-const leads = ref<any[]>([]);
-const activities = ref<any[]>([]);
-const currentUser = ref<any>(null);
+const leads = ref<Lead[]>([]);
+const activities = ref<ActivityItem[]>([]);
+const currentUser = ref<CurrentUserInfo | null>(null);
 const injectedName = inject<Ref<string>>('userName', ref(''));
 const displayName = computed(() => injectedName?.value || '');
 
@@ -179,11 +197,11 @@ const filteredLeads = computed(() => {
 
   if (!userId) return [];
 
-  return leads.value.filter((l: any) => {
+  return leads.value.filter((l) => {
     // Created by this user
     if (l.createdById === userId) return true;
     // Assigned to this user (primary or secondary)
-    if (l.assignments?.some((a: any) => a.userId === userId)) return true;
+    if (l.assignments?.some((a: LeadAssignment) => a.userId === userId)) return true;
     // PM of this lead
     if (l.projectManagerId === userId) return true;
     return false;

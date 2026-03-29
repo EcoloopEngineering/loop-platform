@@ -124,4 +124,32 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
     });
     return (setting?.value as Record<string, boolean>) ?? null;
   }
+
+  // ── Stakeholder lookups ────────────────────────────────────────────────
+
+  async findLeadStakeholderIds(leadId: string, excludeIds: string[] = []): Promise<string[]> {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: {
+        createdById: true,
+        projectManagerId: true,
+        assignments: { select: { userId: true } },
+      },
+    });
+
+    if (!lead) return [];
+
+    const userIds = new Set<string>();
+    for (const assignment of lead.assignments) {
+      userIds.add(assignment.userId);
+    }
+    if (lead.projectManagerId) userIds.add(lead.projectManagerId);
+    if (lead.createdById) userIds.add(lead.createdById);
+
+    for (const id of excludeIds) {
+      userIds.delete(id);
+    }
+
+    return Array.from(userIds);
+  }
 }

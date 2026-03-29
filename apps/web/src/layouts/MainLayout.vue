@@ -5,7 +5,7 @@
         <img src="/logo_short_dark.svg" alt="ecoLoop" style="height: 26px" class="q-mr-sm" />
         <span class="text-weight-bold text-grey-8" style="font-size: 15px">Sales</span>
         <q-space />
-        <q-btn flat round dense icon="notifications_none" color="grey-7" class="q-mr-xs">
+        <q-btn flat round dense icon="notifications_none" color="grey-7" class="q-mr-xs" aria-label="Notifications">
           <q-badge v-if="unreadCount > 0" floating color="negative" :label="unreadCount" />
           <q-menu anchor="bottom right" self="top right" style="min-width: 320px; border-radius: 12px">
             <q-list>
@@ -34,7 +34,7 @@
             </q-list>
           </q-menu>
         </q-btn>
-        <q-avatar size="36px" color="primary" text-color="white" class="cursor-pointer">
+        <q-avatar size="36px" color="primary" text-color="white" class="cursor-pointer" role="button" aria-label="User menu" tabindex="0">
           <q-img v-if="userAvatar" :src="userAvatar" />
           <span v-else style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
           <q-menu anchor="bottom right" self="top right" style="min-width: 180px; border-radius: 12px">
@@ -68,10 +68,10 @@
         dense
         no-caps
       >
-        <q-tab name="home" icon="home" label="Home" @click="$router.push('/home')" />
-        <q-tab name="leads" icon="add_circle" label="New Lead" @click="$router.push('/leads/new')" />
-        <q-tab v-if="isEmployee" name="referrals" icon="group_add" label="Referrals" @click="$router.push('/referrals')" />
-        <q-tab name="support" icon="chat" label="Support" @click="$router.push('/support')" />
+        <q-tab name="home" icon="home" label="Home" aria-label="Go to home page" @click="$router.push('/home')" />
+        <q-tab name="leads" icon="add_circle" label="New Lead" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
+        <q-tab v-if="isEmployee" name="referrals" icon="group_add" label="Referrals" aria-label="View referrals" @click="$router.push('/referrals')" />
+        <q-tab name="support" icon="chat" label="Support" aria-label="Open support chat" @click="$router.push('/support')" />
       </q-tabs>
     </q-footer>
   </q-layout>

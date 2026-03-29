@@ -1,28 +1,34 @@
 import { Test } from '@nestjs/testing';
 import { StageCommissionListener } from './stage-commission.listener';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { COMMISSION_PAYMENT_REPOSITORY } from '../ports/commission-payment.repository.port';
 import { QUEUE_COMMISSION } from '../../../../infrastructure/queue/queue.module';
 import { QueueFallbackService } from '../../../../infrastructure/queue/queue-fallback.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
 
 describe('StageCommissionListener', () => {
   let listener: StageCommissionListener;
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
   let commissionQueue: { add: jest.Mock };
   let queueFallback: QueueFallbackService;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findSettingByKey: jest.fn().mockResolvedValue(null),
+      findPaidCommissionPayment: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      updateStatus: jest.fn(),
+      findCommissionsByUserId: jest.fn(),
+      findCommissionsByLeadId: jest.fn(),
+      findLeadById: jest.fn(),
+      upsertCommission: jest.fn(),
+    };
     commissionQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
     queueFallback = new QueueFallbackService(true);
 
     const module = await Test.createTestingModule({
       providers: [
         StageCommissionListener,
-        { provide: PrismaService, useValue: prisma },
+        { provide: COMMISSION_PAYMENT_REPOSITORY, useValue: repo },
         { provide: QueueFallbackService, useValue: queueFallback },
         { provide: `BullQueue_${QUEUE_COMMISSION}`, useValue: commissionQueue },
       ],
@@ -75,7 +81,7 @@ describe('StageCommissionListener', () => {
   });
 
   it('should enqueue M3 commission job when M2 is NOT paid', async () => {
-    prisma.commissionPayment.findFirst.mockResolvedValue(null);
+    repo.findPaidCommissionPayment.mockResolvedValue(null);
 
     await listener.handleStageChanged({
       ...basePayload,
@@ -90,10 +96,8 @@ describe('StageCommissionListener', () => {
   });
 
   it('should NOT enqueue M3 commission job when M2 is already PAID', async () => {
-    prisma.commissionPayment.findFirst.mockResolvedValue({
+    repo.findPaidCommissionPayment.mockResolvedValue({
       id: 'cp-existing',
-      type: 'M2',
-      status: 'PAID',
     });
 
     await listener.handleStageChanged({
@@ -114,7 +118,7 @@ describe('StageCommissionListener', () => {
   });
 
   it('should use custom tiers from AppSetting when available', async () => {
-    prisma.appSetting.findUnique.mockResolvedValue({
+    repo.findSettingByKey.mockResolvedValue({
       key: 'commission',
       value: { m1: 70, m2: 20, m3: 10 },
     });

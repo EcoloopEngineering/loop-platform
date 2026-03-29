@@ -59,7 +59,7 @@ describe('ZapSignService', () => {
       );
     });
 
-    it('should throw when API call fails', async () => {
+    it('should throw when API call fails after retries', async () => {
       httpService.post.mockReturnValue(throwError(() => new Error('Network error')));
 
       await expect(
@@ -83,7 +83,7 @@ describe('ZapSignService', () => {
       );
     });
 
-    it('should throw when signing fails', async () => {
+    it('should throw when signing fails after retries', async () => {
       httpService.post.mockReturnValue(throwError(() => new Error('Forbidden')));
 
       await expect(service.signDocument('bad-token')).rejects.toThrow('Forbidden');
@@ -122,12 +122,43 @@ describe('ZapSignService', () => {
         providers: [
           ZapSignService,
           { provide: HttpService, useValue: httpService },
-          { provide: ConfigService, useValue: { get: jest.fn((key: string, def?: string) => def) } },
+          { provide: ConfigService, useValue: { get: jest.fn((_key: string, def?: string) => def) } },
         ],
       }).compile();
 
       const unconfiguredService = module.get<ZapSignService>(ZapSignService);
       expect(unconfiguredService.isConfigured()).toBe(false);
+    });
+  });
+
+  describe('environment validation', () => {
+    it('should throw when calling methods on unconfigured service', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ZapSignService,
+          { provide: HttpService, useValue: httpService },
+          { provide: ConfigService, useValue: { get: jest.fn((_key: string, def?: string) => def) } },
+        ],
+      }).compile();
+
+      const unconfiguredService = module.get<ZapSignService>(ZapSignService);
+
+      await expect(
+        unconfiguredService.createDocument({ name: 'X', base64_pdf: '', signers: [] }),
+      ).rejects.toThrow('ZapSign integration is not configured');
+    });
+  });
+
+  describe('retry behavior', () => {
+    it('should retry on transient failure then succeed', async () => {
+      httpService.post
+        .mockReturnValueOnce(throwError(() => new Error('timeout')))
+        .mockReturnValue(of({ data: { token: 'doc-ok', status: 'pending', open_id: 1, name: 'Doc', signers: [], created_at: '2026-01-01' } }));
+
+      const result = await service.createDocument({ name: 'Doc', base64_pdf: 'data', signers: [] });
+
+      expect(result.token).toBe('doc-ok');
+      expect(httpService.post).toHaveBeenCalledTimes(2);
     });
   });
 });

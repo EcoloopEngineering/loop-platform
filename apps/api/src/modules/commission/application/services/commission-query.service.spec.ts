@@ -16,6 +16,10 @@ describe('CommissionQueryService', () => {
       updateStatus: jest.fn(),
       findCommissionsByUserId: jest.fn(),
       findCommissionsByLeadId: jest.fn(),
+      findLeadById: jest.fn(),
+      upsertCommission: jest.fn(),
+      findPaidCommissionPayment: jest.fn(),
+      findSettingByKey: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({

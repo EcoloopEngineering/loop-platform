@@ -1,7 +1,6 @@
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
-import { Injectable } from '@nestjs/common';
-import { DesignType as PrismaDesignType } from '@prisma/client';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable } from '@nestjs/common';
+import { DESIGN_REPOSITORY, DesignRepositoryPort } from '../ports/design.repository.port';
 import { DesignRequestedEvent } from '../../domain/events/design-requested.event';
 import { DesignType } from '../../domain/entities/design-request.entity';
 
@@ -19,19 +18,17 @@ export class RequestDesignCommand {
 @Injectable()
 export class RequestDesignHandler implements ICommandHandler<RequestDesignCommand> {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(DESIGN_REPOSITORY) private readonly repo: DesignRepositoryPort,
     private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: RequestDesignCommand) {
-    const designRequest = await this.prisma.designRequest.create({
-      data: {
-        leadId: command.leadId,
-        designType: command.designType as unknown as PrismaDesignType,
-        treeRemoval: command.treeRemoval,
-        notes: command.notes,
-        status: 'PENDING',
-      },
+    const designRequest = await this.repo.createDesignRequest({
+      leadId: command.leadId,
+      designType: command.designType as string,
+      treeRemoval: command.treeRemoval,
+      notes: command.notes,
+      status: 'PENDING',
     });
 
     this.eventBus.publish(

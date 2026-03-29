@@ -1,23 +1,36 @@
 import { Test } from '@nestjs/testing';
 import { LeadAssignmentNotificationListener } from './lead-assignment-notification.listener';
 import { NotificationService } from '../services/notification.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { NOTIFICATION_REPOSITORY } from '../ports/notification.repository.port';
 
 describe('LeadAssignmentNotificationListener', () => {
   let listener: LeadAssignmentNotificationListener;
   let notificationService: { create: jest.Mock };
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findNotificationSetting: jest.fn().mockResolvedValue(null),
+      findLeadStakeholderIds: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      markRead: jest.fn(),
+      markAllRead: jest.fn(),
+      findByUser: jest.fn(),
+      countByUser: jest.fn(),
+      countUnread: jest.fn(),
+      findDeviceToken: jest.fn(),
+      findLeadWithStakeholders: jest.fn(),
+      findLeadMetadata: jest.fn(),
+      findLeadWithPrimaryAssignment: jest.fn(),
+      updateLeadMetadata: jest.fn(),
+    };
     notificationService = { create: jest.fn().mockResolvedValue({}) };
 
     const module = await Test.createTestingModule({
       providers: [
         LeadAssignmentNotificationListener,
         { provide: NotificationService, useValue: notificationService },
-        { provide: PrismaService, useValue: prisma },
+        { provide: NOTIFICATION_REPOSITORY, useValue: repo },
       ],
     }).compile();
 
@@ -47,10 +60,7 @@ describe('LeadAssignmentNotificationListener', () => {
   });
 
   it('should skip lead.assigned when notification is disabled', async () => {
-    prisma.appSetting.findUnique.mockResolvedValue({
-      key: 'notifications',
-      value: { lead_assigned: false },
-    });
+    repo.findNotificationSetting.mockResolvedValue({ lead_assigned: false });
 
     await listener.handleLeadAssigned({
       leadId: 'l1',
@@ -64,11 +74,7 @@ describe('LeadAssignmentNotificationListener', () => {
   });
 
   it('should notify PM and stakeholders on lead.pmAssigned', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
-      createdById: 'u1',
-      projectManagerId: 'pm1',
-      assignments: [{ userId: 'u2' }],
-    });
+    repo.findLeadStakeholderIds.mockResolvedValue(['u1', 'u2']);
 
     await listener.handleLeadPMAssigned({
       leadId: 'l1',
@@ -106,11 +112,7 @@ describe('LeadAssignmentNotificationListener', () => {
   });
 
   it('should notify stakeholders on lead.updated', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
-      createdById: 'u1',
-      projectManagerId: null,
-      assignments: [{ userId: 'u2' }],
-    });
+    repo.findLeadStakeholderIds.mockResolvedValue(['u1', 'u2']);
 
     await listener.handleLeadUpdated({
       leadId: 'l1',
@@ -123,11 +125,7 @@ describe('LeadAssignmentNotificationListener', () => {
   });
 
   it('should notify stakeholders on lead.noteAdded', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
-      createdById: 'u1',
-      projectManagerId: null,
-      assignments: [],
-    });
+    repo.findLeadStakeholderIds.mockResolvedValue(['u1']);
 
     await listener.handleLeadNoteAdded({
       leadId: 'l1',

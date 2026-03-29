@@ -13,6 +13,9 @@ describe('DesignProcessor', () => {
     prisma = createMockPrismaService();
     auroraService = { createProject: jest.fn() };
     processor = new DesignProcessor(prisma as any, auroraService as any);
+
+    // Default: lead lookup returns no property coordinates
+    prisma.lead.findUnique.mockResolvedValue(null);
   });
 
   const basePayload: DesignJobData = {
@@ -52,6 +55,61 @@ describe('DesignProcessor', () => {
       roofType: 'GOOD',
       notes: 'Property type: RESIDENTIAL',
     });
+  });
+
+  it('should use property coordinates when available', async () => {
+    prisma.lead.findUnique.mockResolvedValue({
+      property: { latitude: 30.2672, longitude: -97.7431 },
+    });
+    auroraService.createProject.mockResolvedValue({ projectId: 'aurora-geo' });
+    prisma.designRequest.update.mockResolvedValue({});
+    prisma.leadActivity.create.mockResolvedValue({});
+
+    const job = makeJob(basePayload);
+    await processor.process(job);
+
+    expect(auroraService.createProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        latitude: 30.2672,
+        longitude: -97.7431,
+      }),
+    );
+  });
+
+  it('should fall back to 0,0 when property has no coordinates', async () => {
+    prisma.lead.findUnique.mockResolvedValue({
+      property: { latitude: null, longitude: null },
+    });
+    auroraService.createProject.mockResolvedValue({ projectId: 'aurora-no-geo' });
+    prisma.designRequest.update.mockResolvedValue({});
+    prisma.leadActivity.create.mockResolvedValue({});
+
+    const job = makeJob(basePayload);
+    await processor.process(job);
+
+    expect(auroraService.createProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        latitude: 0,
+        longitude: 0,
+      }),
+    );
+  });
+
+  it('should fall back to 0,0 when coordinate lookup fails', async () => {
+    prisma.lead.findUnique.mockRejectedValue(new Error('DB down'));
+    auroraService.createProject.mockResolvedValue({ projectId: 'aurora-err' });
+    prisma.designRequest.update.mockResolvedValue({});
+    prisma.leadActivity.create.mockResolvedValue({});
+
+    const job = makeJob(basePayload);
+    await processor.process(job);
+
+    expect(auroraService.createProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        latitude: 0,
+        longitude: 0,
+      }),
+    );
   });
 
   it('should update design request with Aurora project data', async () => {

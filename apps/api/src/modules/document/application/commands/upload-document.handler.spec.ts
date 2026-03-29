@@ -4,24 +4,29 @@ import {
   UploadDocumentHandler,
   UploadDocumentCommand,
 } from './upload-document.handler';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
+import { DOCUMENT_REPOSITORY } from '../ports/document.repository.port';
 import { DocumentType } from '../../domain/entities/document.entity';
 
 describe('UploadDocumentHandler', () => {
   let handler: UploadDocumentHandler;
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findLeadById: jest.fn(),
+      createDocument: jest.fn(),
+      createLeadActivity: jest.fn(),
+      findDocumentsByLead: jest.fn(),
+      findDocumentById: jest.fn(),
+      deleteDocument: jest.fn(),
+      updateLeadStage: jest.fn(),
+      findLeadWithCustomerAndProperty: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         UploadDocumentHandler,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DOCUMENT_REPOSITORY, useValue: repo },
       ],
     }).compile();
 
@@ -40,16 +45,16 @@ describe('UploadDocumentHandler', () => {
   );
 
   it('should throw NotFoundException when lead does not exist', async () => {
-    prisma.lead.findUnique.mockResolvedValue(null);
+    repo.findLeadById.mockResolvedValue(null);
 
     await expect(handler.execute(baseCommand)).rejects.toThrow(
       NotFoundException,
     );
-    expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(repo.createDocument).not.toHaveBeenCalled();
   });
 
   it('should create a document record when lead exists', async () => {
-    prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
+    repo.findLeadById.mockResolvedValue({ id: 'lead-1' });
 
     const createdDoc = {
       id: 'doc-1',
@@ -61,20 +66,19 @@ describe('UploadDocumentHandler', () => {
       fileKey: '/uploads/contract.pdf',
       uploadedById: 'user-1',
     };
-    prisma.document.create.mockResolvedValue(createdDoc);
+    repo.createDocument.mockResolvedValue(createdDoc);
 
     const result = await handler.execute(baseCommand);
 
-    expect(prisma.document.create).toHaveBeenCalledWith({
-      data: {
-        leadId: 'lead-1',
-        type: 'CONTRACT',
-        fileName: 'contract.pdf',
-        mimeType: 'application/pdf',
-        fileSize: 102400,
-        fileKey: '/uploads/contract.pdf',
-        uploadedById: 'user-1',
-      },
+    expect(repo.createDocument).toHaveBeenCalledWith({
+      leadId: 'lead-1',
+      type: 'CONTRACT',
+      fileName: 'contract.pdf',
+      mimeType: 'application/pdf',
+      fileSize: 102400,
+      fileKey: '/uploads/contract.pdf',
+      uploadedById: 'user-1',
+      metadata: {},
     });
     expect(result).toEqual(createdDoc);
   });
@@ -91,17 +95,17 @@ describe('UploadDocumentHandler', () => {
       'user-1',
     );
 
-    prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
-    prisma.document.create.mockResolvedValue({ id: 'doc-2' });
+    repo.findLeadById.mockResolvedValue({ id: 'lead-1' });
+    repo.createDocument.mockResolvedValue({ id: 'doc-2' });
 
     await handler.execute(commandNoUrl);
 
-    expect(prisma.document.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(repo.createDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
         fileName: 'photo.jpg',
         mimeType: 'image/jpeg',
       }),
-    });
+    );
   });
 
   it('should handle different document types', async () => {
@@ -116,16 +120,16 @@ describe('UploadDocumentHandler', () => {
       'user-2',
     );
 
-    prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
-    prisma.document.create.mockResolvedValue({ id: 'doc-3' });
+    repo.findLeadById.mockResolvedValue({ id: 'lead-1' });
+    repo.createDocument.mockResolvedValue({ id: 'doc-3' });
 
     await handler.execute(permitCommand);
 
-    expect(prisma.document.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(repo.createDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
         type: 'PERMIT',
         uploadedById: 'user-2',
       }),
-    });
+    );
   });
 });

@@ -171,6 +171,62 @@ export interface LeadRepositoryPort {
 
   // Timeline
   findActivitiesWithUser(leadId: string): Promise<ActivityWithUser[]>;
+
+  // ── Status changes (mark lost / cancelled) ────────────────────────────────
+  findByIdWithCustomerName(id: string): Promise<{
+    id: string;
+    currentStage: string;
+    status: string;
+    metadata: unknown;
+    createdById: string | null;
+    customer: { firstName: string; lastName: string };
+  } | null>;
+
+  updateStatus(id: string, data: {
+    status: string;
+    lostAt?: Date | null;
+    lostReason?: string | null;
+    currentStage?: string;
+  }): Promise<unknown>;
+
+  // ── Metadata ──────────────────────────────────────────────────────────────
+  findLeadMetadata(id: string): Promise<{ id: string; metadata: unknown } | null>;
+  updateMetadata(id: string, metadata: Record<string, unknown>): Promise<unknown>;
+
+  // ── Batch queries ─────────────────────────────────────────────────────────
+  findByStageWithCustomer(stage: string, take?: number): Promise<Array<{
+    id: string;
+    currentStage: string;
+    createdById: string | null;
+    metadata: unknown;
+    customer: { firstName: string; lastName: string } | null;
+  }>>;
+
+  // ── Owner resolution ──────────────────────────────────────────────────────
+  findUserEmailById(userId: string): Promise<{ id: string; email: string } | null>;
+  findReferralByInvitee(inviteeId: string): Promise<{ inviterId: string } | null>;
+
+  // ── Transaction-based lead creation helpers ───────────────────────────────
+  createScoreAndAssignments(data: {
+    leadId: string;
+    score: { totalScore: number; roofScore: number; energyScore: number; contactScore: number; propertyScore: number };
+    primaryOwnerId: string;
+    creatorId: string;
+    designType?: string;
+    designNotes?: string;
+    initialStage: string;
+    source: string;
+  }): Promise<{ designRequest: { id: string } | null }>;
+
+  // ── Stakeholder lookups (notification) ────────────────────────────────────
+  findLeadStakeholderIds(leadId: string, excludeIds?: string[]): Promise<string[]>;
+
+  // ── Lead metadata for task listeners ──────────────────────────────────────
+  findLeadWithMetadataAndState(leadId: string): Promise<{
+    id: string;
+    metadata: unknown;
+    property: { state: string } | null;
+  } | null>;
 }
 
 export const LEAD_REPOSITORY = Symbol('LEAD_REPOSITORY');

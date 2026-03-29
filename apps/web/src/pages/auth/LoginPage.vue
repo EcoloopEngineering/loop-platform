@@ -4,14 +4,14 @@
     <p class="form-subtitle">Sign in to your account</p>
 
     <q-form @submit.prevent="handleLogin" class="form-fields">
-      <q-input v-model="email" label="Email" type="email" outlined dense class="auth-input" :rules="[(v: string) => !!v || 'Email is required']">
-        <template #prepend><q-icon name="email" color="grey-5" size="18px" /></template>
+      <q-input v-model="email" label="Email" type="email" outlined dense class="auth-input" aria-label="Email address" :rules="[(v: string) => !!v || 'Email is required']">
+        <template #prepend><q-icon name="email" color="grey-5" size="18px" aria-hidden="true" /></template>
       </q-input>
 
-      <q-input v-model="password" label="Password" :type="showPassword ? 'text' : 'password'" outlined dense class="auth-input" :rules="[(v: string) => !!v || 'Password is required']">
-        <template #prepend><q-icon name="lock" color="grey-5" size="18px" /></template>
+      <q-input v-model="password" label="Password" :type="showPassword ? 'text' : 'password'" outlined dense class="auth-input" aria-label="Password" :rules="[(v: string) => !!v || 'Password is required']">
+        <template #prepend><q-icon name="lock" color="grey-5" size="18px" aria-hidden="true" /></template>
         <template #append>
-          <q-icon :name="showPassword ? 'visibility_off' : 'visibility'" class="cursor-pointer" color="grey-4" size="18px" @click="showPassword = !showPassword" />
+          <q-icon :name="showPassword ? 'visibility_off' : 'visibility'" class="cursor-pointer" color="grey-4" size="18px" role="button" :aria-label="showPassword ? 'Hide password' : 'Show password'" tabindex="0" @click="showPassword = !showPassword" @keyup.enter="showPassword = !showPassword" />
         </template>
       </q-input>
 
@@ -19,7 +19,7 @@
         <router-link to="/auth/forgot-password" class="forgot-link">Forgot Password?</router-link>
       </div>
 
-      <q-btn unelevated no-caps color="primary" label="Sign In" type="submit" :loading="loading" class="full-width submit-btn" />
+      <q-btn unelevated no-caps color="primary" label="Sign In" type="submit" :loading="loading" class="full-width submit-btn" aria-label="Sign in to your account" />
 
       <div class="divider-row">
         <div class="divider-line" />
@@ -36,6 +36,7 @@
         @click="handleGoogleLogin"
         :loading="googleLoading"
         no-caps
+        aria-label="Sign in with Google"
       />
 
       <div class="text-center q-mt-md">
@@ -49,7 +50,7 @@
       </div>
     </q-form>
 
-    <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded dense style="font-size: 13px">
+    <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded dense style="font-size: 13px" role="alert">
       {{ error }}
     </q-banner>
   </div>
@@ -81,9 +82,10 @@ async function handleLogin() {
     await userStore.loadUser();
     const redirect = (route.query.redirect as string) || '/home';
     router.push(redirect);
-  } catch (err: any) {
-    const status = err?.response?.status;
-    const apiMsg = err?.response?.data?.message;
+  } catch (err: unknown) {
+    const axErr = err as { response?: { status?: number; data?: { message?: string } } };
+    const status = axErr?.response?.status;
+    const apiMsg = axErr?.response?.data?.message;
     if (status === 401 || status === 403) {
       error.value = 'Invalid email or password. Please try again.';
     } else if (status === 429) {
@@ -106,8 +108,9 @@ async function handleGoogleLogin() {
     await userStore.loadUser();
     const redirect = (route.query.redirect as string) || '/home';
     router.push(redirect);
-  } catch (err: any) {
-    const apiMsg = err?.response?.data?.message;
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    const apiMsg = axErr?.response?.data?.message;
     error.value = apiMsg && !apiMsg.includes('status code')
       ? apiMsg
       : 'Google login is not available. Please use email and password.';

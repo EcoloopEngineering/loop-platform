@@ -12,32 +12,33 @@ import { LeadScoringDomainService } from '../modules/crm/domain/services/lead-sc
 import { LEAD_REPOSITORY } from '../modules/crm/application/ports/lead.repository.port';
 import { CUSTOMER_REPOSITORY } from '../modules/crm/application/ports/customer.repository.port';
 import { PROPERTY_REPOSITORY } from '../modules/crm/application/ports/property.repository.port';
-import { PrismaService } from '../infrastructure/database/prisma.service';
+import { COMMISSION_PAYMENT_REPOSITORY } from '../modules/commission/application/ports/commission-payment.repository.port';
 import { QUEUE_COMMISSION } from '../infrastructure/queue/queue.module';
 import { QueueFallbackService } from '../infrastructure/queue/queue-fallback.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from './prisma-mock.helper';
 
 describe('Lead Flow Integration', () => {
   let module: TestingModule;
   let createLeadHandler: CreateLeadHandler;
   let changeStageHandler: ChangeLeadStageHandler;
   let emitter: EventEmitter2;
-  let prisma: MockPrismaService;
   let leadRepo: Record<string, jest.Mock>;
   let customerRepo: Record<string, jest.Mock>;
   let propertyRepo: Record<string, jest.Mock>;
+  let commissionRepo: Record<string, jest.Mock>;
   let commissionQueue: { add: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
     leadRepo = {
       create: jest.fn().mockResolvedValue({ id: 'lead-1' }),
       findById: jest.fn(),
       findByIdWithRelations: jest.fn().mockResolvedValue({ id: 'lead-1', currentStage: 'NEW_LEAD' }),
       updateStage: jest.fn().mockResolvedValue({ id: 'lead-1' }),
+      findDefaultPipeline: jest.fn().mockResolvedValue({ id: 'pipe-1', isDefault: true }),
+      findUserEmailById: jest.fn().mockResolvedValue({ id: 'user-1', email: 'rep@ecoloop.us' }),
+      findReferralByInvitee: jest.fn().mockResolvedValue(null),
+      createScoreAndAssignments: jest.fn().mockResolvedValue({ designRequest: null }),
+      createActivity: jest.fn().mockResolvedValue({}),
+      findByIdWithCustomer: jest.fn(),
     };
     customerRepo = {
       findByEmail: jest.fn().mockResolvedValue(null),
@@ -46,16 +47,18 @@ describe('Lead Flow Integration', () => {
     propertyRepo = {
       create: jest.fn().mockResolvedValue({ id: 'prop-1' }),
     };
+    commissionRepo = {
+      findSettingByKey: jest.fn().mockResolvedValue(null),
+      findPaidCommissionPayment: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      updateStatus: jest.fn(),
+      findCommissionsByUserId: jest.fn(),
+      findCommissionsByLeadId: jest.fn(),
+      findLeadById: jest.fn(),
+      upsertCommission: jest.fn(),
+    };
     commissionQueue = { add: jest.fn().mockResolvedValue({}) };
-
-    prisma.pipeline.findFirst.mockResolvedValue({ id: 'pipe-1', isDefault: true });
-    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'rep@ecoloop.us' });
-    prisma.leadScore.create.mockResolvedValue({});
-    prisma.leadAssignment.create.mockResolvedValue({});
-    prisma.designRequest.create.mockResolvedValue({ id: 'dr-1' });
-    prisma.leadActivity.create.mockResolvedValue({});
-    prisma.appSetting.findUnique.mockResolvedValue(null);
-    prisma.commissionPayment.findFirst.mockResolvedValue(null);
 
     module = await Test.createTestingModule({
       imports: [EventEmitterModule.forRoot()],
@@ -67,7 +70,7 @@ describe('Lead Flow Integration', () => {
         { provide: LEAD_REPOSITORY, useValue: leadRepo },
         { provide: CUSTOMER_REPOSITORY, useValue: customerRepo },
         { provide: PROPERTY_REPOSITORY, useValue: propertyRepo },
-        { provide: PrismaService, useValue: prisma },
+        { provide: COMMISSION_PAYMENT_REPOSITORY, useValue: commissionRepo },
         { provide: QueueFallbackService, useValue: new QueueFallbackService(true) },
         { provide: `BullQueue_${QUEUE_COMMISSION}`, useValue: commissionQueue },
       ],
@@ -124,12 +127,13 @@ describe('Lead Flow Integration', () => {
           createdById: 'user-1',
         }),
       );
-      expect(prisma.leadScore.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ leadId: 'lead-1' }),
-      });
-      expect(prisma.leadAssignment.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ leadId: 'lead-1', isPrimary: true }),
-      });
+      expect(leadRepo.createScoreAndAssignments).toHaveBeenCalledWith(
+        expect.objectContaining({
+          leadId: 'lead-1',
+          primaryOwnerId: 'user-1',
+          creatorId: 'user-1',
+        }),
+      );
     });
 
     it('should emit lead.created event after creation', async () => {
@@ -156,6 +160,10 @@ describe('Lead Flow Integration', () => {
         ...baseDto,
         design: { designType: 'AI_DESIGN' },
       };
+
+      leadRepo.createScoreAndAssignments.mockResolvedValue({
+        designRequest: { id: 'dr-1' },
+      });
 
       const designEventSpy = jest.fn();
       emitter.on('design.requested.ai', designEventSpy);
@@ -213,7 +221,7 @@ describe('Lead Flow Integration', () => {
     });
 
     it('should enqueue M3 when WAITING_FOR_PTO and M2 not paid', async () => {
-      prisma.commissionPayment.findFirst.mockResolvedValue(null);
+      commissionRepo.findPaidCommissionPayment.mockResolvedValue(null);
 
       await commissionListener.handleStageChanged(stagePayload('WAITING_FOR_PTO'));
 
@@ -225,10 +233,8 @@ describe('Lead Flow Integration', () => {
     });
 
     it('should skip M3 when M2 is already PAID', async () => {
-      prisma.commissionPayment.findFirst.mockResolvedValue({
+      commissionRepo.findPaidCommissionPayment.mockResolvedValue({
         id: 'cp-m2',
-        type: 'M2',
-        status: 'PAID',
       });
 
       await commissionListener.handleStageChanged(stagePayload('WAITING_FOR_PTO'));
@@ -238,7 +244,7 @@ describe('Lead Flow Integration', () => {
 
     it('should verify full chain: handler emits event, handler logs activity', async () => {
       leadRepo.findById.mockResolvedValue({ id: 'lead-1', currentStage: 'PENDING_SIGNATURE' });
-      prisma.lead.findUnique.mockResolvedValue({
+      leadRepo.findByIdWithCustomer.mockResolvedValue({
         id: 'lead-1',
         customer: { firstName: 'Jane', lastName: 'Smith' },
       });
@@ -249,20 +255,20 @@ describe('Lead Flow Integration', () => {
 
       // Verify handler side-effects (sync)
       expect(leadRepo.updateStage).toHaveBeenCalledWith('lead-1', 'WON');
-      expect(prisma.leadActivity.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(leadRepo.createActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
           leadId: 'lead-1',
           type: 'STAGE_CHANGE',
           description: 'Stage changed from PENDING_SIGNATURE to WON',
         }),
-      });
+      );
     });
   });
 
   describe('Stage change -> activity logging', () => {
     it('should create activity log entry on stage change', async () => {
       leadRepo.findById.mockResolvedValue({ id: 'lead-1', currentStage: 'NEW_LEAD' });
-      prisma.lead.findUnique.mockResolvedValue({
+      leadRepo.findByIdWithCustomer.mockResolvedValue({
         id: 'lead-1',
         customer: { firstName: 'Jane', lastName: 'Smith' },
       });
@@ -271,44 +277,37 @@ describe('Lead Flow Integration', () => {
         new ChangeLeadStageCommand('lead-1', 'REQUEST_DESIGN' as any, 'user-1'),
       );
 
-      expect(prisma.leadActivity.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(leadRepo.createActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
           leadId: 'lead-1',
           userId: 'user-1',
           type: 'STAGE_CHANGE',
           description: 'Stage changed from NEW_LEAD to REQUEST_DESIGN',
         }),
-      });
+      );
     });
   });
 
   describe('External user assignment', () => {
     it('should assign lead to referrer when created by external user', async () => {
-      prisma.user.findUnique.mockResolvedValue({
+      leadRepo.findUserEmailById.mockResolvedValue({
         id: 'ext-user',
         email: 'partner@gmail.com',
       });
-      prisma.referral.findFirst.mockResolvedValue({
+      leadRepo.findReferralByInvitee.mockResolvedValue({
         inviterId: 'referrer-1',
-        inviteeId: 'ext-user',
       });
 
       await createLeadHandler.execute(
         new CreateLeadCommand(baseDto as any, 'ext-user'),
       );
 
-      expect(prisma.leadAssignment.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          userId: 'referrer-1',
-          isPrimary: true,
+      expect(leadRepo.createScoreAndAssignments).toHaveBeenCalledWith(
+        expect.objectContaining({
+          primaryOwnerId: 'referrer-1',
+          creatorId: 'ext-user',
         }),
-      });
-      expect(prisma.leadAssignment.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          userId: 'ext-user',
-          isPrimary: false,
-        }),
-      });
+      );
     });
   });
 });

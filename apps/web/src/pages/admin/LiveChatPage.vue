@@ -139,9 +139,30 @@ import { API_URL } from '@/config/api';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const socket = ref<Socket | null>(null);
-const conversations = ref<any[]>([]);
-const selectedConv = ref<any>(null);
-const chatMessages = ref<any[]>([]);
+interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId?: string;
+  senderType: 'USER' | 'AGENT' | 'BOT';
+  content: string;
+  createdAt: string;
+}
+
+interface Conversation {
+  id: string;
+  status: string;
+  visitorName?: string;
+  visitorEmail?: string;
+  userId?: string;
+  assignedTo?: string;
+  updatedAt: string;
+  user?: { firstName: string; lastName: string };
+  messages?: ChatMessage[];
+}
+
+const conversations = ref<Conversation[]>([]);
+const selectedConv = ref<Conversation | null>(null);
+const chatMessages = ref<ChatMessage[]>([]);
 const agentReply = ref('');
 const filterTab = ref('waiting');
 const agentMessages = ref<HTMLElement>();
@@ -164,9 +185,9 @@ onMounted(() => {
 
   socket.value = io(`${API_URL}/chat`, { transports: ['websocket', 'polling'] });
 
-  socket.value.on('new_message', (msg: any) => {
+  socket.value.on('new_message', (msg: ChatMessage) => {
     if (selectedConv.value && msg.conversationId === selectedConv.value.id) {
-      if (!chatMessages.value.find((m: any) => m.id === msg.id)) {
+      if (!chatMessages.value.find((m) => m.id === msg.id)) {
         chatMessages.value.push(msg);
         scrollToBottom();
       }
@@ -190,7 +211,7 @@ async function loadConversations() {
   } catch { /* ignore */ }
 }
 
-async function selectConversation(conv: any) {
+async function selectConversation(conv: Conversation) {
   selectedConv.value = conv;
   try {
     const { data } = await api.get(`/chat/conversations/${conv.id}`);

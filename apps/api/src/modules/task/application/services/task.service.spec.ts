@@ -27,6 +27,11 @@ describe('TaskService', () => {
       createTemplate: jest.fn(),
       updateTemplate: jest.fn(),
       deleteTemplate: jest.fn(),
+      findActiveTemplatesByStage: jest.fn(),
+      findLeadWithMetadataAndState: jest.fn(),
+      createLeadActivity: jest.fn(),
+      findLeadMetadataOnly: jest.fn(),
+      findSiblingTasks: jest.fn(),
     };
     emitter = { emit: jest.fn() };
 

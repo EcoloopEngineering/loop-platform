@@ -1,7 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, NotFoundException } from '@nestjs/common';
+import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 
 export class UpdateLeadMetadataCommand {
   constructor(
@@ -13,30 +12,27 @@ export class UpdateLeadMetadataCommand {
 
 @CommandHandler(UpdateLeadMetadataCommand)
 export class UpdateLeadMetadataHandler implements ICommandHandler<UpdateLeadMetadataCommand> {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
+  ) {}
 
   async execute(command: UpdateLeadMetadataCommand): Promise<unknown> {
     const { leadId, data, userId } = command;
 
-    const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
+    const lead = await this.leadRepo.findLeadMetadata(leadId);
     if (!lead) throw new NotFoundException('Lead not found');
 
     const currentMeta = (lead.metadata as Record<string, unknown>) ?? {};
     const merged = { ...currentMeta, ...data };
 
-    const updated = await this.prisma.lead.update({
-      where: { id: leadId },
-      data: { metadata: merged as Prisma.InputJsonValue },
-    });
+    const updated = await this.leadRepo.updateMetadata(leadId, merged);
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId,
-        type: 'STAGE_CHANGE',
-        description: `Updated fields: ${Object.keys(data).join(', ')}`,
-        metadata: { fields: Object.keys(data), values: data } as unknown as Prisma.InputJsonValue,
-      },
+    await this.leadRepo.createActivity({
+      leadId,
+      userId,
+      type: 'STAGE_CHANGE',
+      description: `Updated fields: ${Object.keys(data).join(', ')}`,
+      metadata: { fields: Object.keys(data), values: data },
     }).catch(() => {});
 
     return updated;

@@ -40,4 +40,61 @@ export class PrismaCommissionPaymentRepository implements CommissionPaymentRepos
       take: limit,
     });
   }
+
+  // ── Used by CalculateCommissionHandler ──────────────────────────────────
+
+  async findLeadById(leadId: string): Promise<{ id: string } | null> {
+    return this.prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } });
+  }
+
+  async upsertCommission(data: {
+    leadId: string;
+    userId: string;
+    splitPct: number;
+    amount: number;
+    breakdown: unknown;
+    status: string;
+    type: string;
+  }): Promise<any> {
+    const existing = await this.prisma.commission.findFirst({
+      where: { leadId: data.leadId, userId: data.userId },
+    });
+
+    if (existing) {
+      return this.prisma.commission.update({
+        where: { id: existing.id },
+        data: {
+          splitPct: data.splitPct,
+          amount: data.amount,
+          breakdown: data.breakdown as any,
+          status: data.status as any,
+        },
+      });
+    }
+
+    return this.prisma.commission.create({
+      data: {
+        lead: { connect: { id: data.leadId } },
+        user: { connect: { id: data.userId } },
+        type: data.type as any,
+        splitPct: data.splitPct,
+        amount: data.amount,
+        breakdown: data.breakdown as any,
+        status: data.status as any,
+      },
+    });
+  }
+
+  // ── Used by StageCommissionListener ────────────────────────────────────
+
+  async findPaidCommissionPayment(leadId: string, type: string): Promise<{ id: string } | null> {
+    return this.prisma.commissionPayment.findFirst({
+      where: { leadId, type: type as any, status: 'PAID' },
+      select: { id: true },
+    });
+  }
+
+  async findSettingByKey(key: string): Promise<{ key: string; value: unknown } | null> {
+    return this.prisma.appSetting.findUnique({ where: { key } });
+  }
 }

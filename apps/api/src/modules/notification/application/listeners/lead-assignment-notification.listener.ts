@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationService } from '../services/notification.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { NOTIFICATION_REPOSITORY, NotificationRepositoryPort } from '../ports/notification.repository.port';
 
 interface LeadAssignedPayload {
   leadId: string;
@@ -46,14 +46,13 @@ export class LeadAssignmentNotificationListener {
 
   constructor(
     private readonly notificationService: NotificationService,
-    private readonly prisma: PrismaService,
+    @Inject(NOTIFICATION_REPOSITORY) private readonly repo: NotificationRepositoryPort,
   ) {}
 
   private async isEnabled(eventKey: string): Promise<boolean> {
     try {
-      const setting = await this.prisma.appSetting.findUnique({ where: { key: 'notifications' } });
-      if (!setting?.value) return true;
-      const prefs = setting.value as Record<string, boolean>;
+      const prefs = await this.repo.findNotificationSetting();
+      if (!prefs) return true;
       return prefs[eventKey] !== false;
     } catch {
       return true;
@@ -88,7 +87,7 @@ export class LeadAssignmentNotificationListener {
     });
 
     // Notify other stakeholders
-    const stakeholders = await this.getLeadStakeholders(payload.leadId, [payload.pmId]);
+    const stakeholders = await this.repo.findLeadStakeholderIds(payload.leadId, [payload.pmId]);
 
     const notifications = stakeholders.map((userId) =>
       this.notificationService.create({
@@ -120,7 +119,7 @@ export class LeadAssignmentNotificationListener {
   async handleLeadUpdated(payload: LeadUpdatedPayload): Promise<void> {
     this.logger.log(`Lead updated: ${payload.leadId}`);
 
-    const usersToNotify = await this.getLeadStakeholders(payload.leadId);
+    const usersToNotify = await this.repo.findLeadStakeholderIds(payload.leadId);
 
     const notifications = usersToNotify.map((userId) =>
       this.notificationService.create({
@@ -139,7 +138,7 @@ export class LeadAssignmentNotificationListener {
   async handleLeadNoteAdded(payload: LeadNoteAddedPayload): Promise<void> {
     this.logger.log(`Note added to lead: ${payload.leadId}`);
 
-    const usersToNotify = await this.getLeadStakeholders(payload.leadId);
+    const usersToNotify = await this.repo.findLeadStakeholderIds(payload.leadId);
 
     const notifications = usersToNotify.map((userId) =>
       this.notificationService.create({
@@ -152,42 +151,5 @@ export class LeadAssignmentNotificationListener {
     );
 
     await Promise.allSettled(notifications);
-  }
-
-  /**
-   * Gets all users linked to a lead: assignees + PM + creator.
-   * Excludes the user who triggered the action (via excludeIds).
-   */
-  private async getLeadStakeholders(leadId: string, excludeIds: string[] = []): Promise<string[]> {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
-      select: {
-        createdById: true,
-        projectManagerId: true,
-        assignments: { select: { userId: true } },
-      },
-    });
-
-    if (!lead) return [];
-
-    const userIds = new Set<string>();
-
-    for (const assignment of lead.assignments) {
-      userIds.add(assignment.userId);
-    }
-
-    if (lead.projectManagerId) {
-      userIds.add(lead.projectManagerId);
-    }
-
-    if (lead.createdById) {
-      userIds.add(lead.createdById);
-    }
-
-    for (const id of excludeIds) {
-      userIds.delete(id);
-    }
-
-    return Array.from(userIds);
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Queue } from 'bullmq';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { DESIGN_REPOSITORY, DesignRepositoryPort } from '../ports/design.repository.port';
 import { QUEUE_DESIGN } from '../../../../infrastructure/queue/queue.module';
 import { QueueFallbackService } from '../../../../infrastructure/queue/queue-fallback.service';
 import { DesignJobData } from '../../../../infrastructure/queue/processors/design.processor';
@@ -23,7 +23,7 @@ export class AuroraDesignListener {
   private readonly logger = new Logger(AuroraDesignListener.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(DESIGN_REPOSITORY) private readonly repo: DesignRepositoryPort,
     private readonly queueFallback: QueueFallbackService,
     @Optional() @Inject(`BullQueue_${QUEUE_DESIGN}`) private readonly designQueue: Queue<DesignJobData> | null,
   ) {}
@@ -62,14 +62,12 @@ export class AuroraDesignListener {
       this.logger.error(`Failed to enqueue Aurora design job for lead ${payload.leadId}: ${errMessage}`);
 
       // Log failure activity so it's not silently lost
-      await this.prisma.leadActivity.create({
-        data: {
-          leadId: payload.leadId,
-          userId: payload.userId,
-          type: 'DESIGN_REQUESTED',
-          description: `Failed to enqueue Aurora design job: ${errMessage}`,
-          metadata: { error: errMessage },
-        },
+      await this.repo.createLeadActivity({
+        leadId: payload.leadId,
+        userId: payload.userId,
+        type: 'DESIGN_REQUESTED',
+        description: `Failed to enqueue Aurora design job: ${errMessage}`,
+        metadata: { error: errMessage },
       }).catch(() => {});
     }
   }

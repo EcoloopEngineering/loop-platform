@@ -44,12 +44,44 @@ export class DesignProcessor extends WorkerHost {
     const estimatedKwh = payload.annualKwhUsage
       ?? (payload.monthlyBill ? Math.round((payload.monthlyBill / 0.16) * 12) : undefined);
 
-    // 3. Call Aurora API to create project
+    // 3. Look up property coordinates from the lead's associated property
+    let latitude = 0;
+    let longitude = 0;
+
+    try {
+      const lead = await this.prisma.lead.findUnique({
+        where: { id: payload.leadId },
+        select: {
+          property: {
+            select: { latitude: true, longitude: true },
+          },
+        },
+      });
+
+      if (lead?.property?.latitude != null && lead?.property?.longitude != null) {
+        latitude = lead.property.latitude;
+        longitude = lead.property.longitude;
+        this.logger.debug(
+          `Using property coordinates: ${latitude}, ${longitude} for lead ${payload.leadId}`,
+        );
+      } else {
+        this.logger.warn(
+          `No coordinates found for lead ${payload.leadId} — using fallback (0, 0)`,
+        );
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to look up property coordinates for lead ${payload.leadId}: ${message}`,
+      );
+    }
+
+    // 4. Call Aurora API to create project
     const auroraProject = await this.auroraService.createProject({
       name: `${payload.customerName} - ${street}`,
       address: { street, city, state, zip },
-      latitude: 0,
-      longitude: 0,
+      latitude,
+      longitude,
       utilityBillKwh: estimatedKwh,
       roofType: payload.roofCondition,
       notes: `Property type: ${payload.propertyType ?? 'N/A'}`,
@@ -57,7 +89,7 @@ export class DesignProcessor extends WorkerHost {
 
     this.logger.log(`Aurora project created: ${auroraProject.projectId}`);
 
-    // 4. Save Aurora project ID and URL on the design request
+    // 5. Save Aurora project ID and URL on the design request
     await this.prisma.designRequest.update({
       where: { id: payload.designRequestId },
       data: {
@@ -66,7 +98,7 @@ export class DesignProcessor extends WorkerHost {
       },
     });
 
-    // 5. Log activity
+    // 6. Log activity
     await this.prisma.leadActivity.create({
       data: {
         leadId: payload.leadId,

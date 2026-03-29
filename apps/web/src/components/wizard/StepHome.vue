@@ -139,8 +139,7 @@ import { RoofCondition, PropertyType } from '@loop/shared';
 import EInput from '@/components/common/EInput.vue';
 import type { HomeData } from '@/composables/useLeadWizard';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const MAPBOX_TOKEN = ((import.meta as any).env?.VITE_MAPBOX_ACCESS_TOKEN as string)
+const MAPBOX_TOKEN = (import.meta.env?.VITE_MAPBOX_ACCESS_TOKEN as string)
   || process.env.MAPBOX_ACCESS_TOKEN
   || '';
 
@@ -179,9 +178,16 @@ async function searchAddress(query: string | number | null) {
     const res = await fetch(url);
     const data = await res.json();
 
-    suggestions.value = (data.features ?? []).map((f: any) => {
+    interface MapboxContext { id?: string; text?: string }
+    interface MapboxFeature {
+      id: string;
+      text?: string;
+      place_name?: string;
+      context?: MapboxContext[];
+    }
+    suggestions.value = ((data.features ?? []) as MapboxFeature[]).map((f) => {
       const ctx = (key: string) =>
-        f.context?.find((c: any) => c.id?.startsWith(key))?.text ?? '';
+        f.context?.find((c) => c.id?.startsWith(key))?.text ?? '';
 
       return {
         id: f.id,

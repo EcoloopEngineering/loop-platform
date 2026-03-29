@@ -8,6 +8,7 @@ export type { PipelineLead, PipelineStage, PipelineView };
 export const usePipelineStore = defineStore('pipeline', () => {
   const pipelineData = ref<PipelineView | null>(null);
   const loading = ref(false);
+  const error = ref<string | null>(null);
 
   async function fetchPipelineView(params?: {
     pipelineId?: string;
@@ -18,6 +19,7 @@ export const usePipelineStore = defineStore('pipeline', () => {
     dateTo?: string;
   }) {
     loading.value = true;
+    error.value = null;
     try {
       const { data } = await api.get('/pipeline', { params });
       // API returns array of stages directly, not { stages: [...] }
@@ -74,6 +76,9 @@ export const usePipelineStore = defineStore('pipeline', () => {
         }),
       }));
       pipelineData.value = { stages };
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to fetch pipeline';
+      console.error('[PipelineStore] fetchPipelineView failed:', err);
     } finally {
       loading.value = false;
     }
@@ -98,6 +103,7 @@ export const usePipelineStore = defineStore('pipeline', () => {
   return {
     pipelineData,
     loading,
+    error,
     fetchPipelineView,
     moveLeadStage,
   };

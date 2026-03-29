@@ -3,7 +3,6 @@ import { Inject, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadStage } from '@loop/shared';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { LeadStageChangedPayload } from '../events/lead-events.types';
 
 export class ChangeLeadStageCommand {
@@ -18,7 +17,6 @@ export class ChangeLeadStageCommand {
 export class ChangeLeadStageHandler implements ICommandHandler<ChangeLeadStageCommand> {
   constructor(
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
-    private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
   ) {}
 
@@ -31,20 +29,15 @@ export class ChangeLeadStageHandler implements ICommandHandler<ChangeLeadStageCo
     const fromStage = existing.currentStage;
     const updated = await this.leadRepo.updateStage(leadId, stage);
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId,
-        type: 'STAGE_CHANGE',
-        description: `Stage changed from ${fromStage} to ${stage}`,
-        metadata: { fromStage, toStage: stage },
-      },
+    await this.leadRepo.createActivity({
+      leadId,
+      userId,
+      type: 'STAGE_CHANGE',
+      description: `Stage changed from ${fromStage} to ${stage}`,
+      metadata: { fromStage, toStage: stage },
     });
 
-    const leadWithCustomer = await this.prisma.lead.findUnique({
-      where: { id: leadId },
-      include: { customer: { select: { firstName: true, lastName: true } } },
-    });
+    const leadWithCustomer = await this.leadRepo.findByIdWithCustomer(leadId);
 
     if (leadWithCustomer) {
       const payload: LeadStageChangedPayload = {

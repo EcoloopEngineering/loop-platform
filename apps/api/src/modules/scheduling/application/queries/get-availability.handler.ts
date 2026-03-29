@@ -1,6 +1,6 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { APPOINTMENT_REPOSITORY, AppointmentRepositoryPort } from '../ports/appointment.repository.port';
 import { JobberService } from '../../../../integrations/jobber/jobber.service';
 
 export class GetAvailabilityQuery {
@@ -26,7 +26,7 @@ export class GetAvailabilityHandler implements IQueryHandler<GetAvailabilityQuer
   private readonly logger = new Logger(GetAvailabilityHandler.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(APPOINTMENT_REPOSITORY) private readonly repo: AppointmentRepositoryPort,
     private readonly jobberService: JobberService,
   ) {}
 
@@ -64,13 +64,7 @@ export class GetAvailabilityHandler implements IQueryHandler<GetAvailabilityQuer
     const dayStart = new Date(`${query.date}T08:00:00Z`);
     const dayEnd = new Date(`${query.date}T18:00:00Z`);
 
-    const existingAppointments = await this.prisma.appointment.findMany({
-      where: {
-        status: { in: ['PENDING', 'CONFIRMED'] },
-        scheduledAt: { gte: dayStart, lt: dayEnd },
-      },
-      orderBy: { scheduledAt: 'asc' },
-    });
+    const existingAppointments = await this.repo.findAppointmentsInRange(dayStart, dayEnd);
 
     const slots: TimeSlot[] = [];
     for (let hour = 8; hour < 18; hour++) {

@@ -9,6 +9,7 @@ export const useCustomerStore = defineStore('customer', () => {
   const customers = ref<Customer[]>([]);
   const currentCustomer = ref<CustomerDetail | null>(null);
   const loading = ref(false);
+  const error = ref<string | null>(null);
   const total = ref(0);
 
   async function fetchCustomers(params?: {
@@ -17,6 +18,7 @@ export const useCustomerStore = defineStore('customer', () => {
     search?: string;
   }) {
     loading.value = true;
+    error.value = null;
     try {
       const { data } = await api.get<{ data: Customer[]; total: number }>(
         '/customers',
@@ -38,6 +40,9 @@ export const useCustomerStore = defineStore('customer', () => {
         createdAt: c.createdAt ?? '',
       }));
       total.value = (data as { total?: number; meta?: { total: number } }).total ?? (data as { meta?: { total: number } }).meta?.total ?? raw.length;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to fetch customers';
+      console.error('[CustomerStore] fetchCustomers failed:', err);
     } finally {
       loading.value = false;
     }
@@ -45,9 +50,13 @@ export const useCustomerStore = defineStore('customer', () => {
 
   async function fetchCustomer(id: string) {
     loading.value = true;
+    error.value = null;
     try {
       const { data } = await api.get<CustomerDetail>(`/customers/${id}`);
       currentCustomer.value = data;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to fetch customer';
+      console.error('[CustomerStore] fetchCustomer failed:', err);
     } finally {
       loading.value = false;
     }
@@ -57,6 +66,7 @@ export const useCustomerStore = defineStore('customer', () => {
     customers,
     currentCustomer,
     loading,
+    error,
     total,
     fetchCustomers,
     fetchCustomer,

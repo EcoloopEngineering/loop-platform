@@ -2,11 +2,11 @@
   <q-layout view="hHh LpR fFf">
     <q-header class="admin-header" bordered>
       <q-toolbar>
-        <q-btn flat round dense icon="menu" color="grey-7" @click="drawerOpen = !drawerOpen" class="lt-md" />
+        <q-btn flat round dense icon="menu" color="grey-7" @click="drawerOpen = !drawerOpen" class="lt-md" aria-label="Toggle navigation sidebar" />
         <img src="/logo_short_dark.svg" alt="ecoLoop" style="height: 24px" class="q-mr-sm" />
         <span class="text-weight-bold text-grey-8" style="font-size: 15px">Admin</span>
         <q-space />
-        <q-btn flat round dense icon="notifications_none" color="grey-7">
+        <q-btn flat round dense icon="notifications_none" color="grey-7" aria-label="Notifications">
           <q-badge v-if="unreadCount > 0" color="negative" floating>{{ unreadCount }}</q-badge>
           <q-menu anchor="bottom right" self="top right" style="min-width: 320px; border-radius: 12px">
             <q-list>
@@ -35,7 +35,7 @@
             </q-list>
           </q-menu>
         </q-btn>
-        <q-avatar size="36px" color="primary" text-color="white" class="q-ml-sm cursor-pointer admin-avatar">
+        <q-avatar size="36px" color="primary" text-color="white" class="q-ml-sm cursor-pointer admin-avatar" role="button" aria-label="User menu" tabindex="0">
           <q-img v-if="userAvatar" :src="userAvatar" />
           <span v-else style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
           <q-menu anchor="bottom right" self="top right" style="min-width: 180px; border-radius: 12px">
@@ -55,7 +55,7 @@
       </q-toolbar>
     </q-header>
 
-    <q-drawer v-model="drawerOpen" show-if-above bordered class="admin-drawer" :width="220" :mini-width="60">
+    <q-drawer v-model="drawerOpen" show-if-above bordered class="admin-drawer" :width="220" :mini-width="60" aria-label="Navigation sidebar">
       <q-list padding>
         <q-item-label header class="text-grey-5 text-weight-bold text-uppercase" style="font-size: 11px; letter-spacing: 0.06em">
           CRM

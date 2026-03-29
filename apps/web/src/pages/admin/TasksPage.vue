@@ -3,7 +3,7 @@
     <div class="row items-center q-mb-lg">
       <div class="text-h5 text-weight-bold">Tasks</div>
       <q-space />
-      <q-btn unelevated no-caps color="primary" icon="add" label="New Task" @click="showCreate = true" style="border-radius: 10px" />
+      <q-btn unelevated no-caps color="primary" icon="add" label="New Task" @click="showCreate = true" style="border-radius: 10px" aria-label="Create a new task" />
     </div>
 
     <!-- Filters row -->
@@ -30,8 +30,8 @@
         map-options
         style="min-width: 180px"
       />
-      <q-input v-model="search" outlined dense placeholder="Search tasks..." style="min-width: 200px">
-        <template #prepend><q-icon name="search" /></template>
+      <q-input v-model="search" outlined dense placeholder="Search tasks..." style="min-width: 200px" aria-label="Search tasks">
+        <template #prepend><q-icon name="search" aria-hidden="true" /></template>
       </q-input>
     </div>
 
@@ -98,11 +98,12 @@
                 <q-btn
                   v-if="props.row.status !== 'COMPLETED' && props.row.status !== 'CANCELLED'"
                   flat dense round icon="check_circle" size="sm" color="positive"
+                  aria-label="Mark task as complete"
                   @click.stop="completeTask(props.row.id)"
                 >
                   <q-tooltip>Complete</q-tooltip>
                 </q-btn>
-                <q-btn flat dense round icon="delete" size="sm" color="negative" @click.stop="deleteTask(props.row.id)">
+                <q-btn flat dense round icon="delete" size="sm" color="negative" aria-label="Delete task" @click.stop="deleteTask(props.row.id)">
                   <q-tooltip>Delete</q-tooltip>
                 </q-btn>
               </div>
@@ -141,7 +142,7 @@
     </q-card>
 
     <!-- Create Task Dialog -->
-    <q-dialog v-model="showCreate" persistent>
+    <q-dialog v-model="showCreate" persistent @keyup.esc="showCreate = false" aria-label="Create new task dialog">
       <q-card style="min-width: 480px; border-radius: 12px">
         <q-card-section>
           <div class="text-h6 text-weight-bold">New Task</div>
@@ -176,8 +177,8 @@
         </q-card-section>
 
         <q-card-actions align="right" class="q-px-md q-pb-md">
-          <q-btn flat no-caps label="Cancel" color="grey-7" @click="showCreate = false" />
-          <q-btn unelevated no-caps label="Create" color="primary" :loading="creating" :disable="!form.title" @click="createTask" style="border-radius: 8px" />
+          <q-btn flat no-caps label="Cancel" color="grey-7" @click="showCreate = false" aria-label="Cancel task creation" />
+          <q-btn unelevated no-caps label="Create" color="primary" :loading="creating" :disable="!form.title" @click="createTask" style="border-radius: 8px" aria-label="Confirm create task" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -308,7 +309,7 @@ function priorityColor(priority: string): string {
   return map[priority] ?? 'grey-6';
 }
 
-function formatEnum(val: any): string {
+function formatEnum(val: string | number | null | undefined): string {
   const s = String(val ?? '');
   return s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
 }
@@ -328,8 +329,8 @@ async function fetchTasks() {
     const params: Record<string, string> = {};
     if (filterStatus.value) params.status = filterStatus.value;
     if (filterAssignee.value) params.assigneeId = filterAssignee.value;
-    const { data } = await api.get('/tasks', { params });
-    tasks.value = Array.isArray(data) ? data : (data as any).data ?? [];
+    const { data } = await api.get<Task[] | { data: Task[] }>('/tasks', { params });
+    tasks.value = Array.isArray(data) ? data : (data as { data: Task[] }).data ?? [];
   } catch {
     tasks.value = [];
   } finally {
@@ -339,9 +340,10 @@ async function fetchTasks() {
 
 async function fetchUsers() {
   try {
-    const { data } = await api.get('/users');
-    const users = Array.isArray(data) ? data : (data as any).data ?? [];
-    assigneeOptions.value = users.map((u: any) => ({
+    interface UserOption { id: string; firstName?: string; lastName?: string; email: string }
+    const { data } = await api.get<UserOption[] | { data: UserOption[] }>('/users');
+    const users: UserOption[] = Array.isArray(data) ? data : (data as { data: UserOption[] }).data ?? [];
+    assigneeOptions.value = users.map((u) => ({
       label: titleCase(`${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email),
       value: u.id,
     }));
@@ -353,7 +355,7 @@ async function fetchUsers() {
 async function createTask() {
   creating.value = true;
   try {
-    const payload: Record<string, any> = {
+    const payload: Record<string, string | number | null | undefined> = {
       title: form.value.title,
       description: form.value.description || undefined,
       priority: form.value.priority,
@@ -366,8 +368,9 @@ async function createTask() {
     form.value = { title: '', description: '', priority: 'MEDIUM', assigneeId: null, dueDate: '', leadId: '' };
     $q.notify({ type: 'positive', message: 'Task created successfully' });
     fetchTasks();
-  } catch (err: any) {
-    $q.notify({ type: 'negative', message: err?.response?.data?.message ?? 'Failed to create task' });
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    $q.notify({ type: 'negative', message: axErr?.response?.data?.message ?? 'Failed to create task' });
   } finally {
     creating.value = false;
   }
@@ -378,8 +381,9 @@ async function completeTask(id: string) {
     await api.patch(`/tasks/${id}/complete`);
     $q.notify({ type: 'positive', message: 'Task completed' });
     fetchTasks();
-  } catch (err: any) {
-    $q.notify({ type: 'negative', message: err?.response?.data?.message ?? 'Failed to complete task' });
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    $q.notify({ type: 'negative', message: axErr?.response?.data?.message ?? 'Failed to complete task' });
   }
 }
 
@@ -394,8 +398,9 @@ async function deleteTask(id: string) {
       await api.delete(`/tasks/${id}`);
       $q.notify({ type: 'positive', message: 'Task deleted' });
       fetchTasks();
-    } catch (err: any) {
-      $q.notify({ type: 'negative', message: err?.response?.data?.message ?? 'Failed to delete task' });
+    } catch (err: unknown) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      $q.notify({ type: 'negative', message: axErr?.response?.data?.message ?? 'Failed to delete task' });
     }
   });
 }

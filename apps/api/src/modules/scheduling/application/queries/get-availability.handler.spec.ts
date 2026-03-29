@@ -3,20 +3,26 @@ import {
   GetAvailabilityHandler,
   GetAvailabilityQuery,
 } from './get-availability.handler';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { APPOINTMENT_REPOSITORY } from '../ports/appointment.repository.port';
 import { JobberService } from '../../../../integrations/jobber/jobber.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
 
 describe('GetAvailabilityHandler', () => {
   let handler: GetAvailabilityHandler;
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
   let jobberService: { getAvailabilitySlots: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findAppointmentsInRange: jest.fn().mockResolvedValue([]),
+      update: jest.fn(),
+      findActiveByLeadId: jest.fn(),
+      findLeadWithStakeholders: jest.fn(),
+      findLeadMetadata: jest.fn(),
+      createLeadActivity: jest.fn(),
+      findConflictingAppointment: jest.fn(),
+      findLeadWithRelationsForBooking: jest.fn(),
+      createAppointment: jest.fn(),
+    };
     jobberService = {
       getAvailabilitySlots: jest.fn(),
     };
@@ -24,7 +30,7 @@ describe('GetAvailabilityHandler', () => {
     const module = await Test.createTestingModule({
       providers: [
         GetAvailabilityHandler,
-        { provide: PrismaService, useValue: prisma },
+        { provide: APPOINTMENT_REPOSITORY, useValue: repo },
         { provide: JobberService, useValue: jobberService },
       ],
     }).compile();
@@ -82,7 +88,6 @@ describe('GetAvailabilityHandler', () => {
     jobberService.getAvailabilitySlots.mockRejectedValue(
       new Error('Jobber API timeout'),
     );
-    prisma.appointment.findMany.mockResolvedValue([]);
 
     const result = await handler.execute(query);
 
@@ -93,8 +98,6 @@ describe('GetAvailabilityHandler', () => {
 
   it('should use local slots when no coordinates are provided', async () => {
     const query = new GetAvailabilityQuery('user-1', '2026-04-01');
-
-    prisma.appointment.findMany.mockResolvedValue([]);
 
     const result = await handler.execute(query);
 
@@ -112,7 +115,7 @@ describe('GetAvailabilityHandler', () => {
       duration: 60, // 60 minutes
       status: 'CONFIRMED',
     };
-    prisma.appointment.findMany.mockResolvedValue([existingAppointment]);
+    repo.findAppointmentsInRange.mockResolvedValue([existingAppointment]);
 
     const result = await handler.execute(query);
 
@@ -161,7 +164,7 @@ describe('GetAvailabilityHandler', () => {
       duration: 120,
       status: 'PENDING',
     };
-    prisma.appointment.findMany.mockResolvedValue([longAppointment]);
+    repo.findAppointmentsInRange.mockResolvedValue([longAppointment]);
 
     const result = await handler.execute(query);
 

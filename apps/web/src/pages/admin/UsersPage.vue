@@ -3,7 +3,7 @@
     <div class="row items-center q-mb-md">
       <h5 class="q-my-none text-weight-bold">Users</h5>
       <q-space />
-      <q-btn unelevated no-caps color="primary" icon="person_add" label="Create User" style="border-radius: 10px" @click="showCreateDialog = true" />
+      <q-btn unelevated no-caps color="primary" icon="person_add" label="Create User" style="border-radius: 10px" aria-label="Create a new user" @click="showCreateDialog = true" />
     </div>
 
     <!-- Tabs -->
@@ -13,9 +13,9 @@
     </q-tabs>
 
     <!-- Search -->
-    <q-input v-model="search" dense outlined placeholder="Search by name or email..." class="q-mb-md search-input">
-      <template #prepend><q-icon name="search" /></template>
-      <template #append><q-icon v-if="search" name="close" class="cursor-pointer" @click="search = ''" /></template>
+    <q-input v-model="search" dense outlined placeholder="Search by name or email..." class="q-mb-md search-input" aria-label="Search users by name or email">
+      <template #prepend><q-icon name="search" aria-hidden="true" /></template>
+      <template #append><q-icon v-if="search" name="close" class="cursor-pointer" role="button" aria-label="Clear search" @click="search = ''" /></template>
     </q-input>
 
     <div v-if="loading" class="text-center q-pa-xl">
@@ -56,6 +56,7 @@
                   dense
                   borderless
                   class="role-select"
+                  aria-label="Change user role"
                   @update:model-value="(val: string) => updateUser(props.row.id, { role: val })"
                 />
               </q-td>
@@ -73,7 +74,7 @@
 
             <template #body-cell-actions="props">
               <q-td :props="props" auto-width>
-                <q-btn flat dense round icon="more_vert" size="sm" color="grey-6">
+                <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="User actions menu">
                   <q-menu>
                     <q-list dense style="min-width: 150px">
                       <q-item clickable v-close-popup @click="editUser(props.row)">
@@ -150,7 +151,7 @@
 
             <template #body-cell-actions="props">
               <q-td :props="props" auto-width>
-                <q-btn flat dense round icon="more_vert" size="sm" color="grey-6">
+                <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="Partner actions menu">
                   <q-menu>
                     <q-list dense style="min-width: 150px">
                       <q-item clickable v-close-popup @click="editUser(props.row)">
@@ -168,7 +169,7 @@
     </q-tab-panels>
 
     <!-- Create User Dialog -->
-    <q-dialog v-model="showCreateDialog" persistent>
+    <q-dialog v-model="showCreateDialog" persistent @keyup.esc="showCreateDialog = false" aria-label="Create user dialog">
       <q-card style="min-width: 420px; border-radius: 16px">
         <q-card-section>
           <div class="text-h6 text-weight-bold">Create User</div>
@@ -198,14 +199,14 @@
         </q-card-section>
 
         <q-card-actions align="right" class="q-pa-md">
-          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
-          <q-btn unelevated no-caps label="Create User" color="primary" :loading="creating" @click="createUser" style="border-radius: 10px" />
+          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel user creation" />
+          <q-btn unelevated no-caps label="Create User" color="primary" :loading="creating" @click="createUser" style="border-radius: 10px" aria-label="Confirm create user" />
         </q-card-actions>
       </q-card>
     </q-dialog>
 
     <!-- Edit User Dialog -->
-    <q-dialog v-model="showEditDialog" persistent>
+    <q-dialog v-model="showEditDialog" persistent @keyup.esc="showEditDialog = false" aria-label="Edit user dialog">
       <q-card style="min-width: 420px; border-radius: 16px">
         <q-card-section>
           <div class="text-h6 text-weight-bold">Edit User</div>
@@ -234,8 +235,8 @@
         </q-card-section>
 
         <q-card-actions align="right" class="q-pa-md">
-          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
-          <q-btn unelevated no-caps label="Save Changes" color="primary" :loading="saving" @click="saveEdit" style="border-radius: 10px" />
+          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel editing user" />
+          <q-btn unelevated no-caps label="Save Changes" color="primary" :loading="saving" @click="saveEdit" style="border-radius: 10px" aria-label="Save user changes" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -323,7 +324,13 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/users');
     const list = Array.isArray(data) ? data : data.data ?? [];
-    allUsers.value = list.map((u: any) => ({
+    interface RawUser {
+      id: string; firstName: string; lastName: string; email: string;
+      phone?: string; role: string; nickname?: string; isActive: boolean; createdAt: string;
+      referralsReceived?: Array<{ inviter: { firstName: string; lastName: string } }>;
+      _count?: { leadAssignments?: number };
+    }
+    allUsers.value = (list as RawUser[]).map((u) => ({
       id: u.id,
       name: `${u.firstName} ${u.lastName}`,
       initials: `${u.firstName?.charAt(0) ?? ''}${u.lastName?.charAt(0) ?? ''}`.toUpperCase(),
@@ -348,7 +355,7 @@ onMounted(async () => {
 });
 
 // ---- Update User ----
-async function updateUser(userId: string, updates: Record<string, any>) {
+async function updateUser(userId: string, updates: Record<string, string | boolean>) {
   try {
     // Role changes use dedicated admin endpoint
     if (updates.role) {
@@ -359,8 +366,9 @@ async function updateUser(userId: string, updates: Record<string, any>) {
     const user = allUsers.value.find((u) => u.id === userId);
     if (user) Object.assign(user, updates);
     $q.notify({ type: 'positive', message: 'User updated' });
-  } catch (err: any) {
-    $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to update user' });
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    $q.notify({ type: 'negative', message: axErr?.response?.data?.message || 'Failed to update user' });
   }
 }
 
@@ -388,8 +396,9 @@ async function createUser() {
     showCreateDialog.value = false;
     // Reload
     location.reload();
-  } catch (err: any) {
-    $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to create user' });
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    $q.notify({ type: 'negative', message: axErr?.response?.data?.message || 'Failed to create user' });
   } finally {
     creating.value = false;
   }

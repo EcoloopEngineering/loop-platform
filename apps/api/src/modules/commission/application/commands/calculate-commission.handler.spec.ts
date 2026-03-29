@@ -4,25 +4,31 @@ import {
   CalculateCommissionHandler,
   CalculateCommissionCommand,
 } from './calculate-commission.handler';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { COMMISSION_PAYMENT_REPOSITORY } from '../ports/commission-payment.repository.port';
 import { CommissionCalculatorDomainService } from '../../domain/services/commission-calculator.domain-service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
 
 describe('CalculateCommissionHandler', () => {
   let handler: CalculateCommissionHandler;
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
   let calculator: CommissionCalculatorDomainService;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findLeadById: jest.fn(),
+      upsertCommission: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      updateStatus: jest.fn(),
+      findCommissionsByUserId: jest.fn(),
+      findCommissionsByLeadId: jest.fn(),
+      findPaidCommissionPayment: jest.fn(),
+      findSettingByKey: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         CalculateCommissionHandler,
-        { provide: PrismaService, useValue: prisma },
+        { provide: COMMISSION_PAYMENT_REPOSITORY, useValue: repo },
         CommissionCalculatorDomainService,
       ],
     }).compile();
@@ -43,7 +49,7 @@ describe('CalculateCommissionHandler', () => {
   );
 
   it('should throw NotFoundException when lead does not exist', async () => {
-    prisma.lead.findUnique.mockResolvedValue(null);
+    repo.findLeadById.mockResolvedValue(null);
 
     await expect(handler.execute(baseCommand)).rejects.toThrow(
       NotFoundException,
@@ -51,8 +57,7 @@ describe('CalculateCommissionHandler', () => {
   });
 
   it('should create a new commission when none exists', async () => {
-    prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
-    prisma.commission.findFirst.mockResolvedValue(null);
+    repo.findLeadById.mockResolvedValue({ id: 'lead-1' });
 
     const calcResult = calculator.calculate({
       epc: 4.5,
@@ -71,49 +76,21 @@ describe('CalculateCommissionHandler', () => {
       amount: calcResult.calculatedAmount,
       status: 'PENDING',
     };
-    prisma.commission.create.mockResolvedValue(createdCommission);
+    repo.upsertCommission.mockResolvedValue(createdCommission);
 
     const result = await handler.execute(baseCommand);
 
-    expect(prisma.commission.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        lead: { connect: { id: 'lead-1' } },
-        user: { connect: { id: 'user-1' } },
+    expect(repo.upsertCommission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leadId: 'lead-1',
+        userId: 'user-1',
         type: 'M1',
         splitPct: 0.6,
         amount: calcResult.calculatedAmount,
         status: 'PENDING',
       }),
-    });
+    );
     expect(result.breakdown).toEqual(calcResult);
-  });
-
-  it('should update an existing commission', async () => {
-    prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
-    prisma.commission.findFirst.mockResolvedValue({
-      id: 'comm-existing',
-      leadId: 'lead-1',
-      userId: 'user-1',
-    });
-
-    const updatedCommission = {
-      id: 'comm-existing',
-      leadId: 'lead-1',
-      userId: 'user-1',
-      status: 'PENDING',
-    };
-    prisma.commission.update.mockResolvedValue(updatedCommission);
-
-    const result = await handler.execute(baseCommand);
-
-    expect(prisma.commission.update).toHaveBeenCalledWith({
-      where: { id: 'comm-existing' },
-      data: expect.objectContaining({
-        splitPct: 0.6,
-        status: 'PENDING',
-      }),
-    });
-    expect(result.breakdown).toBeDefined();
   });
 
   it('should set status to ACTIVE when finalize is true', async () => {
@@ -128,24 +105,22 @@ describe('CalculateCommissionHandler', () => {
       true,
     );
 
-    prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
-    prisma.commission.findFirst.mockResolvedValue(null);
-    prisma.commission.create.mockResolvedValue({
+    repo.findLeadById.mockResolvedValue({ id: 'lead-1' });
+    repo.upsertCommission.mockResolvedValue({
       id: 'comm-1',
       status: 'ACTIVE',
     });
 
     await handler.execute(finalizeCommand);
 
-    expect(prisma.commission.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ status: 'ACTIVE' }),
-    });
+    expect(repo.upsertCommission).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'ACTIVE' }),
+    );
   });
 
   it('should calculate correct commission amounts', async () => {
-    prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
-    prisma.commission.findFirst.mockResolvedValue(null);
-    prisma.commission.create.mockResolvedValue({ id: 'comm-1' });
+    repo.findLeadById.mockResolvedValue({ id: 'lead-1' });
+    repo.upsertCommission.mockResolvedValue({ id: 'comm-1' });
 
     const result = await handler.execute(baseCommand);
 

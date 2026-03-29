@@ -73,7 +73,11 @@ async function saveCompany() {
   }
 }
 
-function loadData(data: any) {
+interface CompanyPayload {
+  company?: { name?: string; website?: string; supportEmail?: string };
+}
+
+function loadData(data: CompanyPayload) {
   if (data?.company) {
     company.name = data.company.name ?? company.name;
     company.website = data.company.website ?? company.website;

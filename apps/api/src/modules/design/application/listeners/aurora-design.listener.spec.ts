@@ -1,26 +1,29 @@
 import { Test } from '@nestjs/testing';
 import { AuroraDesignListener } from './aurora-design.listener';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { DESIGN_REPOSITORY } from '../ports/design.repository.port';
 import { QUEUE_DESIGN } from '../../../../infrastructure/queue/queue.module';
 import { QueueFallbackService } from '../../../../infrastructure/queue/queue-fallback.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('AuroraDesignListener', () => {
   let listener: AuroraDesignListener;
-  let prisma: MockPrismaService;
+  let repo: Record<string, jest.Mock>;
   let designQueue: { add: jest.Mock };
   let queueFallback: QueueFallbackService;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
-    prisma.leadActivity.create.mockResolvedValue({});
+    repo = {
+      findByLead: jest.fn(),
+      findById: jest.fn(),
+      createDesignRequest: jest.fn(),
+      createLeadActivity: jest.fn().mockResolvedValue({}),
+    };
     designQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
     queueFallback = new QueueFallbackService(true);
 
     const module = await Test.createTestingModule({
       providers: [
         AuroraDesignListener,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DESIGN_REPOSITORY, useValue: repo },
         { provide: QueueFallbackService, useValue: queueFallback },
         { provide: `BullQueue_${QUEUE_DESIGN}`, useValue: designQueue },
       ],
@@ -70,12 +73,12 @@ describe('AuroraDesignListener', () => {
 
     await expect(listener.handleAiDesignRequested(payload)).resolves.not.toThrow();
 
-    expect(prisma.leadActivity.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        leadId: 'l1',
-        type: 'DESIGN_REQUESTED',
-        description: expect.stringContaining('Failed to enqueue'),
-      }),
+    expect(repo.createLeadActivity).toHaveBeenCalledWith({
+      leadId: 'l1',
+      userId: 'u1',
+      type: 'DESIGN_REQUESTED',
+      description: expect.stringContaining('Failed to enqueue'),
+      metadata: { error: 'Redis down' },
     });
   });
 

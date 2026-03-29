@@ -170,7 +170,7 @@ async function fetchPayments() {
   loading.value = true;
   try {
     const { data } = await api.get<Payment[]>('/commissions/payments');
-    payments.value = Array.isArray(data) ? data : (data as any).data ?? [];
+    payments.value = Array.isArray(data) ? data : (data as { data?: Payment[] }).data ?? [];
   } catch {
     payments.value = [];
   } finally {
@@ -183,10 +183,11 @@ async function changeStatus(id: string, action: 'approve' | 'pay' | 'cancel') {
     await api.patch(`/commissions/payments/${id}/${action}`);
     $q.notify({ type: 'positive', message: `Payment ${action}d successfully` });
     await fetchPayments();
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
     $q.notify({
       type: 'negative',
-      message: err?.response?.data?.message ?? `Failed to ${action} payment`,
+      message: axErr?.response?.data?.message ?? `Failed to ${action} payment`,
     });
   }
 }

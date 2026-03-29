@@ -89,8 +89,9 @@ async function handleReset() {
       return;
     }
     success.value = true;
-  } catch (err: any) {
-    error.value = err?.response?.data?.message || 'Reset failed. The link may have expired.';
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    error.value = axErr?.response?.data?.message || 'Reset failed. The link may have expired.';
   } finally {
     loading.value = false;
   }
