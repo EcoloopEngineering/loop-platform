@@ -37,6 +37,11 @@ export class AuthService {
     if (this.jwtSecret === 'loop-platform-jwt-secret-change-in-prod') {
       this.logger.warn('JWT_SECRET is using the default insecure value — set it in .env for production');
     }
+
+    const env = this.config.get<string>('NODE_ENV', 'development');
+    if (this.jwtSecret === 'loop-platform-jwt-secret-change-in-prod' && env === 'production') {
+      throw new Error('JWT_SECRET must be configured in production — refusing to start with insecure default');
+    }
   }
 
   async register(params: {

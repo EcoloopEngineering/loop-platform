@@ -22,10 +22,12 @@ import { GetPipelineViewHandler } from './application/queries/get-pipeline-view.
 // Repository ports
 import { LEAD_REPOSITORY } from './application/ports/lead.repository.port';
 import { CUSTOMER_REPOSITORY } from './application/ports/customer.repository.port';
+import { PROPERTY_REPOSITORY } from './application/ports/property.repository.port';
 
 // Repository implementations
 import { PrismaLeadRepository } from './infrastructure/repositories/prisma-lead.repository';
 import { PrismaCustomerRepository } from './infrastructure/repositories/prisma-customer.repository';
+import { PrismaPropertyRepository } from './infrastructure/repositories/prisma-property.repository';
 
 // Listeners
 import { StageAdvanceListener } from './application/listeners/stage-advance.listener';
@@ -77,7 +79,11 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
       provide: CUSTOMER_REPOSITORY,
       useClass: PrismaCustomerRepository,
     },
+    {
+      provide: PROPERTY_REPOSITORY,
+      useClass: PrismaPropertyRepository,
+    },
   ],
-  exports: [LEAD_REPOSITORY, CUSTOMER_REPOSITORY, LeadScoringDomainService],
+  exports: [LEAD_REPOSITORY, CUSTOMER_REPOSITORY, PROPERTY_REPOSITORY, LeadScoringDomainService],
 })
 export class CrmModule {}

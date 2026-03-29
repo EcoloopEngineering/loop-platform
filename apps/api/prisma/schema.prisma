@@ -148,7 +148,6 @@ model Customer {
   email            String?
   phone            String?
   source           String?
-  hubspotContactId String?  @unique @map("hubspot_contact_id")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -314,7 +313,6 @@ model Lead {
   wonAt         DateTime?  @map("won_at")
   lostAt        DateTime?  @map("lost_at")
   lostReason    String?    @map("lost_reason")
-  hubspotDealId    String?    @unique @map("hubspot_deal_id")
   createdById      String?    @map("created_by_id") @db.Uuid
   projectManagerId String?    @map("project_manager_id") @db.Uuid
   createdAt        DateTime   @default(now()) @map("created_at")

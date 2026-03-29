@@ -10,6 +10,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsString } from 'class-validator';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { ConfigService } from '@nestjs/config';
@@ -61,6 +62,7 @@ export class PortalController {
   }
 
   @Post('auth/register')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiOperation({ summary: 'Register a new customer account' })
   async register(@Body() dto: PortalRegisterDto) {
     const existing = await this.prisma.customer.findFirst({
@@ -107,6 +109,7 @@ export class PortalController {
   }
 
   @Post('auth/login')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Customer login' })
   async login(@Body() dto: PortalLoginDto) {
@@ -187,6 +190,7 @@ export class PortalController {
   }
 
   @Post('auth/forgot-password')
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Request a password reset email' })
   async forgotPassword(@Body() dto: PortalForgotPasswordDto) {
@@ -231,6 +235,7 @@ export class PortalController {
   }
 
   @Post('auth/reset-password')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Reset customer password using token' })
   async resetPassword(@Body() dto: PortalResetPasswordDto) {

@@ -8,7 +8,9 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
+import * as jwt from 'jsonwebtoken';
 import { ChatService } from '../application/services/chat.service';
 import { FaqService } from '../application/services/faq.service';
 
@@ -22,14 +24,28 @@ import { FaqService } from '../application/services/faq.service';
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(ChatGateway.name);
+  private readonly jwtSecret: string;
 
   constructor(
     private readonly chatService: ChatService,
     private readonly faqService: FaqService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.jwtSecret = this.configService.get<string>('JWT_SECRET', 'loop-platform-jwt-secret-change-in-prod');
+  }
 
   handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+    const token = client.handshake.auth?.token || client.handshake.query?.token;
+    if (token) {
+      try {
+        client.data.user = jwt.verify(token as string, this.jwtSecret);
+        this.logger.log(`Authenticated client connected: ${client.id}`);
+      } catch {
+        this.logger.warn(`Client ${client.id} connected with invalid token`);
+      }
+    } else {
+      this.logger.log(`Anonymous client connected: ${client.id}`);
+    }
   }
 
   handleDisconnect(client: Socket) {
@@ -146,6 +162,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversationId: string; content: string; agentId: string },
   ) {
+    if (!client.data?.user) {
+      client.emit('error', { message: 'Authentication required' });
+      return;
+    }
+
     const message = await this.chatService.addMessage({
       conversationId: data.conversationId,
       senderId: data.agentId,
@@ -160,6 +181,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversationId: string; agentId: string },
   ) {
+    if (!client.data?.user) {
+      client.emit('error', { message: 'Authentication required' });
+      return;
+    }
+
     client.join(`conv:${data.conversationId}`);
     await this.chatService.assignAgent(data.conversationId, data.agentId);
 

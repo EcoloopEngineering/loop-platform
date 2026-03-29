@@ -234,7 +234,6 @@ NEW_LEAD → REQUEST_DESIGN → DESIGN_IN_PROGRESS → DESIGN_READY → PENDING_
 | AWS CloudWatch | Log aggregation | Active — combined/error/audit log streams |
 | Sentry | Error tracking | Active — exception capture + performance tracing |
 | Socket.io | Live chat | Active — FAQ bot + agent handoff |
-| HubSpot | CRM sync | Active — Cloud Functions service |
 | Discord | Notifications | Active — sales notification bot |
 
 ## Database

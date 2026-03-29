@@ -10,8 +10,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { FormField } from '../domain/entities/form.entity';
 
@@ -40,7 +42,7 @@ export class FormController {
       description?: string;
       fields: FormField[];
     },
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.prisma.form.create({
       data: {
@@ -90,6 +92,7 @@ export class FormController {
   }
 
   @Post('public/:slug/submit')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @SetMetadata('isPublic', true)
   @ApiOperation({ summary: 'Submit a form response (public, no auth)' })
   async submitPublicForm(

@@ -581,8 +581,6 @@ cd apps/api
 | `AWS_S3_BUCKET` | No | S3 bucket name (default: `loop-platform-uploads`) |
 | `SENTRY_DSN` | No | Sentry error tracking DSN |
 | `MAPBOX_ACCESS_TOKEN` | No | Mapbox geocoding token |
-| `HUBSPOT_SERVICE_URL` | No | HubSpot service URL |
-| `HUBSPOT_SERVICE_TOKEN` | No | HubSpot service auth token |
 | `DISCORD_SERVICE_URL` | No | Discord bot notification URL |
 | `DISCORD_SERVICE_TOKEN` | No | Discord bot auth token |
 | `PRIVATE_SERVICE_TOKEN` | No | Internal service-to-service auth |

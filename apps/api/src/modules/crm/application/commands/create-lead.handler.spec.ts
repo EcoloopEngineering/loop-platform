@@ -4,6 +4,7 @@ import { CreateLeadHandler } from './create-lead.handler';
 import { CreateLeadCommand } from './create-lead.command';
 import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
 import { CUSTOMER_REPOSITORY } from '../ports/customer.repository.port';
+import { PROPERTY_REPOSITORY } from '../ports/property.repository.port';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { LeadScoringDomainService } from '../../domain/services/lead-scoring.domain-service';
 import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
@@ -13,6 +14,7 @@ describe('CreateLeadHandler', () => {
   let prisma: MockPrismaService;
   let leadRepo: Record<string, jest.Mock>;
   let customerRepo: Record<string, jest.Mock>;
+  let propertyRepo: Record<string, jest.Mock>;
   let emitter: { emit: jest.Mock };
   let scoringService: { calculate: jest.Mock };
 
@@ -33,6 +35,12 @@ describe('CreateLeadHandler', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ id: 'cust-1' }),
     };
+    propertyRepo = {
+      create: jest.fn().mockResolvedValue({ id: 'prop-1' }),
+      findById: jest.fn(),
+      findByCustomerId: jest.fn(),
+      update: jest.fn(),
+    };
     emitter = { emit: jest.fn() };
     scoringService = {
       calculate: jest.fn().mockReturnValue({
@@ -44,7 +52,6 @@ describe('CreateLeadHandler', () => {
       }),
     };
 
-    prisma.property.create.mockResolvedValue({ id: 'prop-1' });
     prisma.pipeline.findFirst.mockResolvedValue({ id: 'pipe-1', isDefault: true });
     prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'rep@ecoloop.us' });
     prisma.leadScore.create.mockResolvedValue({});
@@ -57,6 +64,7 @@ describe('CreateLeadHandler', () => {
         CreateLeadHandler,
         { provide: LEAD_REPOSITORY, useValue: leadRepo },
         { provide: CUSTOMER_REPOSITORY, useValue: customerRepo },
+        { provide: PROPERTY_REPOSITORY, useValue: propertyRepo },
         { provide: PrismaService, useValue: prisma },
         { provide: LeadScoringDomainService, useValue: scoringService },
         { provide: EventEmitter2, useValue: emitter },

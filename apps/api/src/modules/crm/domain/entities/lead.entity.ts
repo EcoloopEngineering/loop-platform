@@ -17,7 +17,6 @@ export class LeadEntity {
   wonAt: Date | null;
   lostAt: Date | null;
   lostReason: string | null;
-  hubspotDealId: string | null;
   createdById: string | null;
   projectManagerId: string | null;
   createdAt: Date;

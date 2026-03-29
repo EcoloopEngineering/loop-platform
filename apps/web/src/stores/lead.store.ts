@@ -55,7 +55,6 @@ export interface Lead {
   wonAt?: string;
   lostAt?: string;
   lostReason?: string;
-  hubspotDealId?: string;
   createdAt: string;
   updatedAt: string;
   customer?: LeadCustomer;

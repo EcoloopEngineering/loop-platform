@@ -3,19 +3,18 @@ import { ConfigService } from '@nestjs/config';
 import { SalesRabbitWebhookController } from './salesrabbit-webhook.controller';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PROPERTY_REPOSITORY } from '../application/ports/property.repository.port';
 
 describe('SalesRabbitWebhookController', () => {
   let controller: SalesRabbitWebhookController;
   let prisma: any;
+  let propertyRepo: Record<string, jest.Mock>;
   let emitter: { emit: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
       customer: {
         findFirst: jest.fn(),
-        create: jest.fn(),
-      },
-      property: {
         create: jest.fn(),
       },
       pipeline: {
@@ -29,6 +28,12 @@ describe('SalesRabbitWebhookController', () => {
         create: jest.fn(),
       },
     };
+    propertyRepo = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findByCustomerId: jest.fn(),
+      update: jest.fn(),
+    };
     emitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -37,6 +42,7 @@ describe('SalesRabbitWebhookController', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: emitter },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(undefined) } },
+        { provide: PROPERTY_REPOSITORY, useValue: propertyRepo },
       ],
     }).compile();
 
@@ -47,7 +53,7 @@ describe('SalesRabbitWebhookController', () => {
     it('should create customer, property, lead and emit event', async () => {
       prisma.customer.findFirst.mockResolvedValue(null);
       prisma.customer.create.mockResolvedValue({ id: 'cust-1' });
-      prisma.property.create.mockResolvedValue({ id: 'prop-1' });
+      propertyRepo.create.mockResolvedValue({ id: 'prop-1' });
       prisma.pipeline.findFirst.mockResolvedValue({ id: 'pipe-1' });
       prisma.lead.create.mockResolvedValue({ id: 'lead-1', createdById: null });
       prisma.leadActivity.create.mockResolvedValue({});
@@ -69,7 +75,7 @@ describe('SalesRabbitWebhookController', () => {
 
       expect(result).toEqual({ leadId: 'lead-1', customerId: 'cust-1' });
       expect(prisma.customer.create).toHaveBeenCalled();
-      expect(prisma.property.create).toHaveBeenCalled();
+      expect(propertyRepo.create).toHaveBeenCalled();
       expect(prisma.lead.create).toHaveBeenCalled();
       expect(emitter.emit).toHaveBeenCalledWith('lead.created', expect.objectContaining({ leadId: 'lead-1' }));
     });

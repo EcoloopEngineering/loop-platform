@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Logger, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Logger, Headers, UnauthorizedException, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PROPERTY_REPOSITORY, PropertyRepositoryPort } from '../application/ports/property.repository.port';
 
 interface SalesRabbitLead {
   firstName?: string;
@@ -37,6 +38,7 @@ export class SalesRabbitWebhookController {
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
     private readonly config: ConfigService,
+    @Inject(PROPERTY_REPOSITORY) private readonly propertyRepo: PropertyRepositoryPort,
   ) {
     this.webhookSecret = this.config.get<string>('SALESRABBIT_WEBHOOK_SECRET');
     if (!this.webhookSecret) {
@@ -105,19 +107,17 @@ export class SalesRabbitWebhookController {
     // Find or create property
     let property = null;
     if (data.address) {
-      property = await this.prisma.property.create({
-        data: {
-          customerId: customer.id,
-          streetAddress: data.address,
-          city: data.city ?? '',
-          state: data.state ?? '',
-          zip: data.zip ?? '',
-          propertyType: 'RESIDENTIAL',
-          roofCondition: this.mapRoofAge(data.roofAge),
-          electricalService: data.electricalService,
-          hasPool: data.pool ?? false,
-          hasEV: data.electricVehicle ?? false,
-        },
+      property = await this.propertyRepo.create({
+        customerId: customer.id,
+        streetAddress: data.address,
+        city: data.city ?? '',
+        state: data.state ?? '',
+        zip: data.zip ?? '',
+        propertyType: 'RESIDENTIAL',
+        roofCondition: this.mapRoofAge(data.roofAge),
+        electricalService: data.electricalService,
+        hasPool: data.pool ?? false,
+        hasEV: data.electricVehicle ?? false,
       });
     }
 

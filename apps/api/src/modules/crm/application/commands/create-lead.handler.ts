@@ -5,6 +5,7 @@ import { CreateLeadCommand } from './create-lead.command';
 import { LeadScoringDomainService } from '../../domain/services/lead-scoring.domain-service';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 import { CUSTOMER_REPOSITORY, CustomerRepositoryPort } from '../ports/customer.repository.port';
+import { PROPERTY_REPOSITORY, PropertyRepositoryPort } from '../ports/property.repository.port';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { LeadCreatedPayload, AiDesignRequestedPayload } from '../events/lead-events.types';
 import { LeadDetail } from '../dto/lead-data.types';
@@ -18,6 +19,7 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
   constructor(
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
     @Inject(CUSTOMER_REPOSITORY) private readonly customerRepo: CustomerRepositoryPort,
+    @Inject(PROPERTY_REPOSITORY) private readonly propertyRepo: PropertyRepositoryPort,
     private readonly prisma: PrismaService,
     private readonly scoringService: LeadScoringDomainService,
     private readonly emitter: EventEmitter2,
@@ -42,24 +44,22 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
     }
 
     // 2. Create Property
-    const property = await this.prisma.property.create({
-      data: {
-        customerId: customer.id,
-        propertyType: home.propertyType,
-        streetAddress: home.streetAddress,
-        city: home.city,
-        state: home.state,
-        zip: home.zip,
-        latitude: home.latitude,
-        longitude: home.longitude,
-        roofCondition: home.roofCondition,
-        electricalService: home.electricalService,
-        hasPool: home.hasPool,
-        hasEV: home.hasEV,
-        monthlyBill: energy.monthlyBill,
-        annualKwhUsage: energy.annualKwhUsage,
-        utilityProvider: energy.utilityProvider,
-      },
+    const property = await this.propertyRepo.create({
+      customerId: customer.id,
+      propertyType: home.propertyType,
+      streetAddress: home.streetAddress,
+      city: home.city,
+      state: home.state,
+      zip: home.zip,
+      latitude: home.latitude,
+      longitude: home.longitude,
+      roofCondition: home.roofCondition,
+      electricalService: home.electricalService,
+      hasPool: home.hasPool,
+      hasEV: home.hasEV,
+      monthlyBill: energy.monthlyBill,
+      annualKwhUsage: energy.annualKwhUsage,
+      utilityProvider: energy.utilityProvider,
     });
 
     // 3. Find default pipeline

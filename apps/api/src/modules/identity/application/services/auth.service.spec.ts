@@ -43,6 +43,60 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
   });
 
+  describe('constructor — JWT_SECRET validation', () => {
+    it('should throw if default JWT_SECRET is used in production', async () => {
+      await expect(
+        Test.createTestingModule({
+          providers: [
+            AuthService,
+            { provide: PrismaService, useValue: prisma },
+            {
+              provide: ConfigService,
+              useValue: {
+                get: jest.fn((key: string, defaultVal?: string) => {
+                  if (key === 'JWT_SECRET') return 'loop-platform-jwt-secret-change-in-prod';
+                  if (key === 'JWT_EXPIRY') return '7d';
+                  if (key === 'NODE_ENV') return 'production';
+                  return defaultVal;
+                }),
+              },
+            },
+            {
+              provide: EmailService,
+              useValue: { send: jest.fn(), isConfigured: jest.fn().mockReturnValue(true) },
+            },
+          ],
+        }).compile(),
+      ).rejects.toThrow('JWT_SECRET must be configured in production');
+    });
+
+    it('should NOT throw if default JWT_SECRET is used in development', async () => {
+      const module = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          { provide: PrismaService, useValue: prisma },
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn((key: string, defaultVal?: string) => {
+                if (key === 'JWT_SECRET') return 'loop-platform-jwt-secret-change-in-prod';
+                if (key === 'JWT_EXPIRY') return '7d';
+                if (key === 'NODE_ENV') return 'development';
+                return defaultVal;
+              }),
+            },
+          },
+          {
+            provide: EmailService,
+            useValue: { send: jest.fn(), isConfigured: jest.fn().mockReturnValue(true) },
+          },
+        ],
+      }).compile();
+
+      expect(module.get(AuthService)).toBeDefined();
+    });
+  });
+
   describe('register', () => {
     it('should register a new user and return token', async () => {
       const mockUser = {

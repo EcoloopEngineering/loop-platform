@@ -5,7 +5,6 @@ export class CustomerEntity {
   email: string | null;
   phone: string | null;
   source: string | null;
-  hubspotContactId: string | null;
   createdAt: Date;
   updatedAt: Date;
 
