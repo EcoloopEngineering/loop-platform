@@ -122,11 +122,12 @@ jobs:
           fi
           cp $APP_DIR/envs/.env.api $NEW_RELEASE/apps/api/.env
 
-          echo "--- Prisma schema sync ---"
-          # NOTE: use 'prisma migrate deploy' once migrations are set up.
-          # For now: db push without --accept-data-loss so destructive changes fail loudly.
+          echo "--- Dedup commission_payments before migration ---"
           cd $NEW_RELEASE/apps/api
-          prisma db push --skip-generate
+          echo "DELETE FROM commission_payments a USING commission_payments b WHERE a.id > b.id AND a.lead_id = b.lead_id AND a.user_id = b.user_id AND a.type = b.type;" | npx prisma db execute --stdin
+
+          echo "--- Prisma migrate ---"
+          npx prisma migrate deploy
 
           echo "--- Stopping old API ---"
           pm2 kill 2>/dev/null || true
