@@ -124,7 +124,7 @@ jobs:
 
           echo "--- Dedup commission_payments before migration ---"
           cd $NEW_RELEASE/apps/api
-          echo "DELETE FROM commission_payments a USING commission_payments b WHERE a.id > b.id AND a.lead_id = b.lead_id AND a.user_id = b.user_id AND a.type = b.type;" | npx prisma db execute --stdin
+          echo "DELETE FROM commission_payments a USING commission_payments b WHERE a.id > b.id AND a.lead_id = b.lead_id AND a.user_id = b.user_id AND a.type = b.type;" | npx prisma db execute --stdin --schema ./prisma/schema.prisma
 
           echo "--- Prisma migrate ---"
           npx prisma migrate deploy
