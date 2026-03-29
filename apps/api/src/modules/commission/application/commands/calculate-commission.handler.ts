@@ -61,7 +61,7 @@ export class CalculateCommissionHandler
           data: {
             splitPct: command.splitPct,
             amount: result.calculatedAmount,
-            breakdown: result as any,
+            breakdown: result as unknown as import('@prisma/client').Prisma.InputJsonValue,
             status,
           },
         })
@@ -72,7 +72,7 @@ export class CalculateCommissionHandler
             type: 'M1',
             splitPct: command.splitPct,
             amount: result.calculatedAmount,
-            breakdown: result as any,
+            breakdown: result as unknown as import('@prisma/client').Prisma.InputJsonValue,
             status,
           },
         });

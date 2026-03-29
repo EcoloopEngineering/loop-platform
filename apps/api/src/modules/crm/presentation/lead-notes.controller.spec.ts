@@ -1,31 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadNotesController } from './lead-notes.controller';
-import { LEAD_REPOSITORY } from '../application/ports/lead.repository.port';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { LeadNoteService } from '../application/services/lead-note.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
-import { createMockPrismaService, MockPrismaService } from '../../../test/prisma-mock.helper';
 
 describe('LeadNotesController', () => {
   let controller: LeadNotesController;
-  let leadRepo: Record<string, jest.Mock>;
-  let prisma: MockPrismaService;
-  let emitter: { emit: jest.Mock };
+  let leadNoteService: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    leadRepo = { findById: jest.fn() };
-    prisma = createMockPrismaService();
-    emitter = { emit: jest.fn() };
+    leadNoteService = {
+      addNote: jest.fn(),
+      updateNote: jest.fn(),
+      deleteNote: jest.fn(),
+      getNotes: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [LeadNotesController],
-      providers: [
-        { provide: LEAD_REPOSITORY, useValue: leadRepo },
-        { provide: PrismaService, useValue: prisma },
-        { provide: EventEmitter2, useValue: emitter },
-      ],
+      providers: [{ provide: LeadNoteService, useValue: leadNoteService }],
     })
       .overrideGuard(FirebaseAuthGuard)
       .useValue({ canActivate: () => true })
@@ -37,83 +31,61 @@ describe('LeadNotesController', () => {
   });
 
   describe('addNote', () => {
-    it('should create note activity and emit event', async () => {
-      leadRepo.findById.mockResolvedValue({ id: 'lead-1' });
-      prisma.leadActivity.create.mockResolvedValue({ id: 'activity-1', description: 'Test note' });
-      prisma.lead.findUnique.mockResolvedValue({
-        id: 'lead-1',
-        customer: { firstName: 'John', lastName: 'Doe' },
-      });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'Agent', lastName: 'Smith' });
+    it('should delegate to LeadNoteService.addNote', async () => {
+      leadNoteService.addNote.mockResolvedValue({ id: 'activity-1', description: 'Test note' });
 
       const result = await controller.addNote('lead-1', 'Test note', 'user-1');
 
-      expect(prisma.leadActivity.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            leadId: 'lead-1',
-            type: 'NOTE_ADDED',
-            description: 'Test note',
-          }),
-        }),
-      );
-      expect(emitter.emit).toHaveBeenCalledWith('lead.noteAdded', expect.any(Object));
+      expect(leadNoteService.addNote).toHaveBeenCalledWith('lead-1', 'Test note', 'user-1');
       expect(result).toEqual({ id: 'activity-1', description: 'Test note' });
     });
 
-    it('should throw NotFoundException when lead not found', async () => {
-      leadRepo.findById.mockResolvedValue(null);
-      await expect(controller.addNote('bad-id', 'note', 'user-1')).rejects.toThrow(NotFoundException);
+    it('should propagate NotFoundException from service', async () => {
+      leadNoteService.addNote.mockRejectedValue(new NotFoundException('Lead not found'));
+      await expect(controller.addNote('bad-id', 'note', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('editNote', () => {
-    it('should update note content and log edit activity', async () => {
-      prisma.leadActivity.findFirst.mockResolvedValue({
-        id: 'note-1',
-        leadId: 'lead-1',
-        type: 'NOTE_ADDED',
-        description: 'Old content',
-      });
-      prisma.leadActivity.update.mockResolvedValue({ id: 'note-1', description: 'New content' });
-      prisma.leadActivity.create.mockResolvedValue({});
+    it('should delegate to LeadNoteService.updateNote', async () => {
+      leadNoteService.updateNote.mockResolvedValue({ id: 'note-1', description: 'New content' });
 
       const result = await controller.editNote('lead-1', 'note-1', 'New content', 'user-1');
 
-      expect(prisma.leadActivity.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'note-1' } }),
+      expect(leadNoteService.updateNote).toHaveBeenCalledWith(
+        'note-1',
+        'New content',
+        'lead-1',
+        'user-1',
       );
-      expect(prisma.leadActivity.create).toHaveBeenCalled();
+      expect(result).toEqual({ id: 'note-1', description: 'New content' });
     });
 
-    it('should throw NotFoundException when note not found', async () => {
-      prisma.leadActivity.findFirst.mockResolvedValue(null);
-      await expect(controller.editNote('lead-1', 'bad-id', 'content', 'user-1')).rejects.toThrow(NotFoundException);
+    it('should propagate NotFoundException from service', async () => {
+      leadNoteService.updateNote.mockRejectedValue(new NotFoundException('Note not found'));
+      await expect(
+        controller.editNote('lead-1', 'bad-id', 'content', 'user-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('deleteNote', () => {
-    it('should soft-delete note and log deletion', async () => {
-      prisma.leadActivity.findFirst.mockResolvedValue({
-        id: 'note-1',
-        leadId: 'lead-1',
-        type: 'NOTE_ADDED',
-        description: 'Original content',
-      });
-      prisma.leadActivity.update.mockResolvedValue({});
-      prisma.leadActivity.create.mockResolvedValue({});
+    it('should delegate to LeadNoteService.deleteNote', async () => {
+      leadNoteService.deleteNote.mockResolvedValue({ success: true });
 
       const result = await controller.deleteNote('lead-1', 'note-1', 'user-1');
 
-      expect(prisma.leadActivity.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ description: '[deleted]' }) }),
-      );
+      expect(leadNoteService.deleteNote).toHaveBeenCalledWith('note-1', 'lead-1', 'user-1');
       expect(result).toEqual({ success: true });
     });
 
-    it('should throw NotFoundException when note not found', async () => {
-      prisma.leadActivity.findFirst.mockResolvedValue(null);
-      await expect(controller.deleteNote('lead-1', 'bad-id', 'user-1')).rejects.toThrow(NotFoundException);
+    it('should propagate NotFoundException from service', async () => {
+      leadNoteService.deleteNote.mockRejectedValue(new NotFoundException('Note not found'));
+      await expect(controller.deleteNote('lead-1', 'bad-id', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

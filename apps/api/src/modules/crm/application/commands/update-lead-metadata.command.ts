@@ -1,5 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 
 export class UpdateLeadMetadataCommand {
@@ -25,7 +26,7 @@ export class UpdateLeadMetadataHandler implements ICommandHandler<UpdateLeadMeta
 
     const updated = await this.prisma.lead.update({
       where: { id: leadId },
-      data: { metadata: merged },
+      data: { metadata: merged as Prisma.InputJsonValue },
     });
 
     await this.prisma.leadActivity.create({
@@ -34,7 +35,7 @@ export class UpdateLeadMetadataHandler implements ICommandHandler<UpdateLeadMeta
         userId,
         type: 'STAGE_CHANGE',
         description: `Updated fields: ${Object.keys(data).join(', ')}`,
-        metadata: { fields: Object.keys(data), values: data },
+        metadata: { fields: Object.keys(data), values: data } as unknown as Prisma.InputJsonValue,
       },
     }).catch(() => {});
 

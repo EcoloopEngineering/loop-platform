@@ -34,7 +34,7 @@ export class LeadTransitionListener {
       await this.prisma.lead.update({
         where: { id: payload.leadId },
         data: {
-          currentStage: transition.nextStage as string,
+          currentStage: transition.nextStage,
           pipelineId: transition.nextPipelineId,
         },
       });

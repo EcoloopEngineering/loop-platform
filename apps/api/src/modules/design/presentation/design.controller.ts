@@ -6,13 +6,14 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { CommandBus } from '@nestjs/cqrs';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { CreateDesignRequestDto } from '../application/dto/design-request.dto';
 import { RequestDesignCommand } from '../application/commands/request-design.handler';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { DesignQueryService } from '../application/services/design-query.service';
 
 @ApiTags('designs')
 @ApiBearerAuth()
@@ -21,8 +22,7 @@ import { PrismaService } from '../../../infrastructure/database/prisma.service';
 export class DesignController {
   constructor(
     private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus,
-    private readonly prisma: PrismaService,
+    private readonly designQueryService: DesignQueryService,
   ) {}
 
   @Post('leads/:leadId/designs')
@@ -30,7 +30,7 @@ export class DesignController {
   async requestDesign(
     @Param('leadId') leadId: string,
     @Body() dto: CreateDesignRequestDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.commandBus.execute(
       new RequestDesignCommand(
@@ -46,17 +46,12 @@ export class DesignController {
   @Get('leads/:leadId/designs')
   @ApiOperation({ summary: 'Get all design requests for a lead' })
   async getDesignsByLead(@Param('leadId') leadId: string) {
-    return this.prisma.designRequest.findMany({
-      where: { leadId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.designQueryService.getDesignsByLead(leadId);
   }
 
   @Get('designs/:id')
   @ApiOperation({ summary: 'Get a design request by ID' })
   async getDesignById(@Param('id') id: string) {
-    return this.prisma.designRequest.findUniqueOrThrow({
-      where: { id },
-    });
+    return this.designQueryService.getDesignById(id);
   }
 }

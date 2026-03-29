@@ -35,7 +35,7 @@ export class StageCommissionListener {
     try {
       const setting = await this.prisma.appSetting.findUnique({ where: { key: 'commission' } });
       if (setting?.value) {
-        const v = setting.value as any;
+        const v = setting.value as Record<string, number>;
         return {
           M1: (v.m1 ?? DEFAULT_TIERS.M1 * 100) / 100,
           M2: (v.m2 ?? DEFAULT_TIERS.M2 * 100) / 100,
@@ -130,9 +130,10 @@ export class StageCommissionListener {
           `${type} commission payment created for user ${assignment.userId} on lead ${leadId} (amount: ${paymentAmount ?? 'TBD'})`,
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to create ${type} commission payments for lead ${leadId}: ${error.message}`,
+        `Failed to create ${type} commission payments for lead ${leadId}: ${message}`,
       );
     }
   }
@@ -159,9 +160,10 @@ export class StageCommissionListener {
 
       const tiers = await this.getTiers();
       await this.createCommissionPayments(leadId, 'M3', tiers.M3);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to check M3 eligibility for lead ${leadId}: ${error.message}`,
+        `Failed to check M3 eligibility for lead ${leadId}: ${message}`,
       );
     }
   }

@@ -68,9 +68,11 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   // Process-level error handlers
-  process.on('unhandledRejection', (reason: any) => {
+  process.on('unhandledRejection', (reason: unknown) => {
     const logger = new Logger('UnhandledRejection');
-    logger.error(`Unhandled Rejection: ${reason?.message ?? reason}`, reason?.stack);
+    const message = reason instanceof Error ? reason.message : String(reason);
+    const stack = reason instanceof Error ? reason.stack : undefined;
+    logger.error(`Unhandled Rejection: ${message}`, stack);
   });
   process.on('uncaughtException', (error: Error) => {
     const logger = new Logger('UncaughtException');

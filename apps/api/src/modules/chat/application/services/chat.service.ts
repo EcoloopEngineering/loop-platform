@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma, SenderType } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 
 @Injectable()
@@ -36,7 +37,7 @@ export class ChatService {
       data: {
         conversationId: params.conversationId,
         senderId: params.senderId,
-        senderType: params.senderType as any,
+        senderType: params.senderType as SenderType,
         content: params.content,
         isAutoReply: params.isAutoReply ?? false,
       },
@@ -63,8 +64,8 @@ export class ChatService {
   }
 
   async getConversations(params?: { status?: string; userId?: string }) {
-    const where: any = {};
-    if (params?.status) where.status = params.status;
+    const where: Prisma.ConversationWhereInput = {};
+    if (params?.status) where.status = params.status as Prisma.EnumConversationStatusFilter;
     if (params?.userId) where.userId = params.userId;
 
     return this.prisma.conversation.findMany({

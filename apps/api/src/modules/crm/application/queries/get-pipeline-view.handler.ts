@@ -1,6 +1,7 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
+import { LeadDetail } from '../dto/lead-data.types';
 import { STAGE_COLORS, STAGE_LABELS, PIPELINE_STAGES } from '@loop/shared';
 
 export class GetPipelineViewQuery {
@@ -18,7 +19,7 @@ export interface PipelineStageView {
   label: string;
   color: string;
   order: number;
-  leads: any[];
+  leads: LeadDetail[];
   count: number;
 }
 

@@ -3,7 +3,9 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { PrismaModule } from '../../infrastructure/database/prisma.module';
 import { NotificationController } from './presentation/notification.controller';
 import { NotificationService } from './application/services/notification.service';
-import { LeadEventListener } from './application/listeners/lead-event.listener';
+import { LeadCreatedNotificationListener } from './application/listeners/lead-created-notification.listener';
+import { LeadStageNotificationListener } from './application/listeners/lead-stage-notification.listener';
+import { LeadAssignmentNotificationListener } from './application/listeners/lead-assignment-notification.listener';
 import { StageEmailListener } from './application/listeners/stage-email.listener';
 import { GoogleChatListener } from './application/listeners/google-chat.listener';
 import { IntegrationsModule } from '../../integrations/integrations.module';
@@ -11,8 +13,14 @@ import { IntegrationsModule } from '../../integrations/integrations.module';
 @Module({
   imports: [CqrsModule, PrismaModule, IntegrationsModule],
   controllers: [NotificationController],
-  providers: [NotificationService, LeadEventListener, StageEmailListener, GoogleChatListener],
+  providers: [
+    NotificationService,
+    LeadCreatedNotificationListener,
+    LeadStageNotificationListener,
+    LeadAssignmentNotificationListener,
+    StageEmailListener,
+    GoogleChatListener,
+  ],
   exports: [NotificationService],
 })
 export class NotificationModule {}
-

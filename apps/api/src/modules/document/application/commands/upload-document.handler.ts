@@ -1,5 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { DocumentType as PrismaDocumentType } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { DocumentType } from '../../domain/entities/document.entity';
 
@@ -33,7 +34,7 @@ export class UploadDocumentHandler implements ICommandHandler<UploadDocumentComm
     return this.prisma.document.create({
       data: {
         leadId: command.leadId,
-        type: command.type as any,
+        type: command.type as unknown as PrismaDocumentType,
         fileName: command.fileName,
         mimeType: command.mimeType,
         fileSize: command.fileSize,

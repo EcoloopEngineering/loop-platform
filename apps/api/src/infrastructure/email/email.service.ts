@@ -43,8 +43,9 @@ export class EmailService {
       });
       this.logger.log(`Email sent to ${params.to}: ${params.subject}`);
       return true;
-    } catch (error: any) {
-      this.logger.error(`Failed to send email: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to send email: ${message}`);
       return false;
     }
   }

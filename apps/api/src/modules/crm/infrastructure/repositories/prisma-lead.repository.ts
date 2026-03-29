@@ -11,7 +11,7 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateLeadData): Promise<LeadEntity> {
-    const lead = await this.prisma.lead.create({ data: data as Prisma.LeadCreateInput });
+    const lead = await this.prisma.lead.create({ data: data as unknown as Prisma.LeadCreateInput });
     return new LeadEntity(lead as Partial<LeadEntity>);
   }
 
@@ -198,7 +198,7 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
   async updateStage(id: string, stage: string): Promise<LeadEntity> {
     const lead = await this.prisma.lead.update({
       where: { id },
-      data: { currentStage: stage as Prisma.EnumLeadStageFilter },
+      data: { currentStage: stage as any },
     });
     return new LeadEntity(lead as Partial<LeadEntity>);
   }

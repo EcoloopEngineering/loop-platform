@@ -1,8 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { FormController } from './form.controller';
+import { FormService } from '../application/form.service';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
+import { UserRole } from '@loop/shared';
 
 describe('FormController', () => {
   let controller: FormController;
@@ -16,6 +19,16 @@ describe('FormController', () => {
     formSubmission: {
       create: jest.Mock;
     };
+  };
+
+  const mockUser: AuthenticatedUser = {
+    id: 'user-1',
+    email: 'test@ecoloop.us',
+    firstName: 'Test',
+    lastName: 'User',
+    role: UserRole.ADMIN,
+    isActive: true,
+    profileImage: null,
   };
 
   beforeEach(async () => {
@@ -33,7 +46,10 @@ describe('FormController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [FormController],
-      providers: [{ provide: PrismaService, useValue: prisma }],
+      providers: [
+        FormService,
+        { provide: PrismaService, useValue: prisma },
+      ],
     })
       .overrideGuard(FirebaseAuthGuard)
       .useValue({ canActivate: () => true })
@@ -59,11 +75,10 @@ describe('FormController', () => {
   describe('createForm', () => {
     it('should create a new form', async () => {
       const dto = { name: 'New Form', slug: 'new-form', fields: [] };
-      const user = { id: 'user-1' };
       const created = { id: 'f1', ...dto };
       prisma.form.create.mockResolvedValue(created);
 
-      const result = await controller.createForm(dto, user);
+      const result = await controller.createForm(dto, mockUser);
 
       expect(result).toEqual(created);
       expect(prisma.form.create).toHaveBeenCalledWith({

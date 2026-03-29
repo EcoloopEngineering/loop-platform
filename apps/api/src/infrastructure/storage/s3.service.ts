@@ -70,8 +70,9 @@ export class S3Service {
         }),
       );
       this.logger.log(`Deleted from S3: ${key}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to delete from S3: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to delete from S3: ${message}`);
     }
   }
 
@@ -88,7 +89,7 @@ export class S3Service {
     return getSignedUrl(this.client, command, { expiresIn });
   }
 
-  async getObject(key: string): Promise<{ body: any; contentType: string }> {
+  async getObject(key: string): Promise<{ body: AsyncIterable<any> | undefined; contentType: string }> {
     if (!this.client) throw new Error('S3 not configured');
 
     const result = await this.client.send(
@@ -96,7 +97,7 @@ export class S3Service {
     );
 
     return {
-      body: result.Body,
+      body: result.Body as AsyncIterable<any> | undefined,
       contentType: result.ContentType ?? 'application/octet-stream',
     };
   }

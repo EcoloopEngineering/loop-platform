@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import {
   TaskRepositoryPort,
@@ -16,10 +17,10 @@ export class PrismaTaskRepository implements TaskRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(filter: TaskFilter): Promise<TaskWithAssignee[]> {
-    const where: any = {};
+    const where: Prisma.TaskWhereInput = {};
     if (filter.leadId) where.leadId = filter.leadId;
     if (filter.assigneeId) where.assigneeId = filter.assigneeId;
-    if (filter.status) where.status = filter.status;
+    if (filter.status) where.status = filter.status as any;
 
     return this.prisma.task.findMany({
       where,

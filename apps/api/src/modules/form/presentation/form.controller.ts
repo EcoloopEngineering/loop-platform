@@ -7,88 +7,50 @@ import {
   Param,
   UseGuards,
   SetMetadata,
-  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
-import { FormField } from '../domain/entities/form.entity';
+import { FormService, CreateFormDto, UpdateFormDto } from '../application/form.service';
 
 @ApiTags('forms')
 @ApiBearerAuth()
 @UseGuards(FirebaseAuthGuard)
 @Controller('forms')
 export class FormController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly formService: FormService) {}
 
   @Get()
   @ApiOperation({ summary: 'List all forms' })
   async listForms() {
-    return this.prisma.form.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.formService.listForms();
   }
 
   @Post()
   @ApiOperation({ summary: 'Create a new form' })
   async createForm(
-    @Body()
-    dto: {
-      name: string;
-      slug: string;
-      description?: string;
-      fields: FormField[];
-    },
+    @Body() dto: CreateFormDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.prisma.form.create({
-      data: {
-        name: dto.name,
-        slug: dto.slug,
-        config: dto.fields as any,
-        userId: user.id,
-      },
-    });
+    return this.formService.createForm(dto, user.id);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Update a form' })
   async updateForm(
     @Param('id') id: string,
-    @Body()
-    dto: {
-      name?: string;
-      slug?: string;
-      description?: string;
-      fields?: FormField[];
-      status?: string;
-    },
+    @Body() dto: UpdateFormDto,
   ) {
-    return this.prisma.form.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.slug !== undefined && { slug: dto.slug }),
-        ...(dto.fields !== undefined && { config: dto.fields as any }),
-        ...(dto.status !== undefined && { isActive: dto.status === 'PUBLISHED' }),
-      },
-    });
+    return this.formService.updateForm(id, dto);
   }
 
   @Get('public/:slug')
   @SetMetadata('isPublic', true)
   @ApiOperation({ summary: 'Get a published form by slug (public, no auth)' })
   async getPublicForm(@Param('slug') slug: string) {
-    const form = await this.prisma.form.findFirst({
-      where: { slug, isActive: true },
-    });
-    if (!form) {
-      throw new NotFoundException(`Form with slug "${slug}" not found`);
-    }
-    return form;
+    return this.formService.getPublicForm(slug);
   }
 
   @Post('public/:slug/submit')
@@ -97,20 +59,8 @@ export class FormController {
   @ApiOperation({ summary: 'Submit a form response (public, no auth)' })
   async submitPublicForm(
     @Param('slug') slug: string,
-    @Body() data: Record<string, any>,
+    @Body() data: Record<string, unknown>,
   ) {
-    const form = await this.prisma.form.findFirst({
-      where: { slug, isActive: true },
-    });
-    if (!form) {
-      throw new NotFoundException(`Form with slug "${slug}" not found`);
-    }
-
-    return this.prisma.formSubmission.create({
-      data: {
-        formId: form.id,
-        data: data as any,
-      },
-    });
+    return this.formService.submitPublicForm(slug, data);
   }
 }

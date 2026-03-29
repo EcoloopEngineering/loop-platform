@@ -62,15 +62,16 @@ export class GoogleChatListener {
         where: { id: payload.leadId },
         data: {
           metadata: {
-            ...(lead.metadata as any ?? {}),
+            ...((lead.metadata as Record<string, unknown>) ?? {}),
             googleChatSpaceName: space.spaceName,
           },
         },
       });
 
       this.logger.log(`Google Chat space created for lead ${payload.leadId}`);
-    } catch (error: any) {
-      this.logger.warn(`Failed to create Google Chat space: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to create Google Chat space: ${message}`);
     }
   }
 
@@ -92,7 +93,7 @@ export class GoogleChatListener {
         select: { metadata: true },
       });
 
-      const spaceName = (lead?.metadata as any)?.googleChatSpaceName;
+      const spaceName = (lead?.metadata as Record<string, unknown>)?.googleChatSpaceName as string | undefined;
       if (!spaceName) return;
 
       const formattedPrev = this.formatStage(payload.previousStage);
@@ -102,8 +103,9 @@ export class GoogleChatListener {
         spaceName,
         `📋 *Stage Update*: ${payload.customerName} moved from *${formattedPrev}* to *${formattedNew}*`,
       );
-    } catch (error: any) {
-      this.logger.warn(`Failed to send stage change to Google Chat: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send stage change to Google Chat: ${message}`);
     }
   }
 
@@ -125,15 +127,16 @@ export class GoogleChatListener {
         select: { metadata: true },
       });
 
-      const spaceName = (lead?.metadata as any)?.googleChatSpaceName;
+      const spaceName = (lead?.metadata as Record<string, unknown>)?.googleChatSpaceName as string | undefined;
       if (!spaceName) return;
 
       await this.chatService.sendMessage(
         spaceName,
         `📝 *New Note* by ${payload.addedByName}: "${payload.notePreview}"`,
       );
-    } catch (error: any) {
-      this.logger.warn(`Failed to send note to Google Chat: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send note to Google Chat: ${message}`);
     }
   }
 
@@ -154,15 +157,16 @@ export class GoogleChatListener {
         select: { metadata: true },
       });
 
-      const spaceName = (lead?.metadata as any)?.googleChatSpaceName;
+      const spaceName = (lead?.metadata as Record<string, unknown>)?.googleChatSpaceName as string | undefined;
       if (!spaceName) return;
 
       await this.chatService.sendMessage(
         spaceName,
         `👤 *PM Assigned*: ${payload.pmName} is now the Project Manager for ${payload.customerName}`,
       );
-    } catch (error: any) {
-      this.logger.warn(`Failed to send PM assignment to Google Chat: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send PM assignment to Google Chat: ${message}`);
     }
   }
 
@@ -215,8 +219,9 @@ export class GoogleChatListener {
       }
 
       this.logger.log(`Scoreboard: ${message}`);
-    } catch (error: any) {
-      this.logger.warn(`Scoreboard notification failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Scoreboard notification failed: ${message}`);
     }
   }
 

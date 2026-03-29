@@ -29,6 +29,13 @@ import { PrismaLeadRepository } from './infrastructure/repositories/prisma-lead.
 import { PrismaCustomerRepository } from './infrastructure/repositories/prisma-customer.repository';
 import { PrismaPropertyRepository } from './infrastructure/repositories/prisma-property.repository';
 
+// Application services
+import { LeadNoteService } from './application/services/lead-note.service';
+import { LeadAssignmentService } from './application/services/lead-assignment.service';
+import { LeadScoringAppService } from './application/services/lead-scoring-app.service';
+import { SalesRabbitWebhookService } from './application/services/salesrabbit-webhook.service';
+import { PortalAuthService } from './application/services/portal-auth.service';
+
 // Listeners
 import { StageAdvanceListener } from './application/listeners/stage-advance.listener';
 import { LeadTransitionListener } from './application/listeners/lead-transition.listener';
@@ -67,6 +74,11 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
   providers: [
     PrismaService,
     LeadScoringDomainService,
+    LeadNoteService,
+    LeadAssignmentService,
+    LeadScoringAppService,
+    SalesRabbitWebhookService,
+    PortalAuthService,
     ...CommandHandlers,
     ...QueryHandlers,
     ...CronHandlers,

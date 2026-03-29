@@ -77,8 +77,10 @@ export class AuroraDesignListener {
         },
       });
 
-    } catch (error: any) {
-      this.logger.error(`Aurora enrichment failed for lead ${payload.leadId}: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      const errMessage = error instanceof Error ? error.message : String(error);
+      const errStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Aurora enrichment failed for lead ${payload.leadId}: ${errMessage}`, errStack);
 
       // Log failure but do NOT change lead stage — it's already DESIGN_READY
       await this.prisma.leadActivity.create({
@@ -86,8 +88,8 @@ export class AuroraDesignListener {
           leadId: payload.leadId,
           userId: payload.userId,
           type: 'DESIGN_REQUESTED',
-          description: `Aurora integration failed: ${error.message}. Design is still valid.`,
-          metadata: { error: error.message },
+          description: `Aurora integration failed: ${errMessage}. Design is still valid.`,
+          metadata: { error: errMessage },
         },
       }).catch(() => {});
     }

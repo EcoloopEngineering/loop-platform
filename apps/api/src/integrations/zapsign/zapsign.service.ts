@@ -29,8 +29,9 @@ export class ZapSignService {
       );
       this.logger.log(`ZapSign document created: ${data.token}`);
       return data;
-    } catch (error: any) {
-      this.logger.error(`Failed to create ZapSign document: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to create ZapSign document: ${message}`);
       throw error;
     }
   }
@@ -46,8 +47,9 @@ export class ZapSignService {
       );
       this.logger.log(`ZapSign document signed: ${signerToken}`);
       return data;
-    } catch (error: any) {
-      this.logger.error(`Failed to sign document: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to sign document: ${message}`);
       throw error;
     }
   }
@@ -61,8 +63,9 @@ export class ZapSignService {
         ),
       );
       return data;
-    } catch (error: any) {
-      this.logger.error(`Failed to get document status: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to get document status: ${message}`);
       throw error;
     }
   }

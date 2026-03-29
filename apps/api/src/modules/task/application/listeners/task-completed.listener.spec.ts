@@ -75,7 +75,7 @@ describe('TaskCompletedListener', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           leadId: 'lead-1',
-          type: 'TASK_COMPLETED',
+          type: 'STAGE_CHANGE',
           userId: 'u1',
         }),
       }),

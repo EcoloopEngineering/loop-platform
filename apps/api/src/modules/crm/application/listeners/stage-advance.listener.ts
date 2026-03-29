@@ -31,7 +31,7 @@ export class StageAdvanceListener {
       // Determine next stage
       let nextStage = payload.suggestedStage ?? payload.suggestedNextStage;
       if (!nextStage) {
-        const currentIndex = PM_STAGE_ORDER.indexOf(lead.currentStage);
+        const currentIndex = PM_STAGE_ORDER.indexOf(lead.currentStage as typeof PM_STAGE_ORDER[number]);
         if (currentIndex >= 0 && currentIndex < PM_STAGE_ORDER.length - 1) {
           nextStage = PM_STAGE_ORDER[currentIndex + 1];
         }
@@ -44,7 +44,7 @@ export class StageAdvanceListener {
       // Advance the stage
       await this.prisma.lead.update({
         where: { id: payload.leadId },
-        data: { currentStage: nextStage },
+        data: { currentStage: nextStage as any },
       });
 
       // Log activity
@@ -68,8 +68,9 @@ export class StageAdvanceListener {
       });
 
       this.logger.log(`Lead ${payload.leadId} auto-advanced: ${previousStage} → ${nextStage}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to auto-advance lead: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to auto-advance lead: ${message}`);
     }
   }
 }

@@ -50,8 +50,9 @@ export class GetAvailabilityHandler implements IQueryHandler<GetAvailabilityQuer
           available: s.available,
           source: 'jobber' as const,
         }));
-      } catch (error: any) {
-        this.logger.warn(`Jobber availability failed, falling back to local: ${error.message}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Jobber availability failed, falling back to local: ${message}`);
       }
     }
 

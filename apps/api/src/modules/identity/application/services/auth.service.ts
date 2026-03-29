@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { UserRole } from '@loop/shared';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { EmailService } from '../../../../infrastructure/email/email.service';
@@ -160,7 +161,7 @@ export class AuthService {
           ...((user.metadata as Record<string, unknown>) ?? {}),
           resetTokenHash,
           resetExpiry: resetExpiry.toISOString(),
-        },
+        } as Prisma.InputJsonValue,
       },
     });
 
@@ -192,7 +193,7 @@ export class AuthService {
       where: {
         isActive: true,
         metadata: { path: ['resetTokenHash'], equals: tokenHash },
-      } as Parameters<typeof this.prisma.user.findFirst>[0]['where'],
+      } as any,
     });
 
     if (!user) throw new UnauthorizedException('Invalid or expired reset token');
@@ -208,7 +209,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash, metadata: cleanMeta },
+      data: { passwordHash, metadata: cleanMeta as Prisma.InputJsonValue },
     });
 
     this.logger.log(`Password reset completed for ${user.email}`);
@@ -219,7 +220,7 @@ export class AuthService {
     return jwt.sign(
       { sub: user.id, email: user.email, role: user.role },
       this.jwtSecret,
-      { expiresIn: this.jwtExpiry },
+      { expiresIn: this.jwtExpiry as string & jwt.SignOptions['expiresIn'] },
     );
   }
 

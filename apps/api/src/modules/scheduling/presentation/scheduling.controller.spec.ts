@@ -1,10 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { SchedulingController } from './scheduling.controller';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
-import { JobberService } from '../../../integrations/jobber/jobber.service';
+import { AppointmentService } from '../application/services/appointment.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
-import { createMockPrismaService, MockPrismaService } from '../../../test/prisma-mock.helper';
 import { GetAvailabilityQuery } from '../application/queries/get-availability.handler';
 import { BookAppointmentCommand } from '../application/commands/book-appointment.handler';
 
@@ -12,16 +10,17 @@ describe('SchedulingController', () => {
   let controller: SchedulingController;
   let commandBus: { execute: jest.Mock };
   let queryBus: { execute: jest.Mock };
-  let prisma: MockPrismaService;
-  let jobberService: { rescheduleVisit: jest.Mock; cancelVisit: jest.Mock };
+  let appointmentService: {
+    reschedule: jest.Mock;
+    cancel: jest.Mock;
+  };
 
   beforeEach(async () => {
     commandBus = { execute: jest.fn() };
     queryBus = { execute: jest.fn() };
-    prisma = createMockPrismaService();
-    jobberService = {
-      rescheduleVisit: jest.fn().mockResolvedValue({}),
-      cancelVisit: jest.fn().mockResolvedValue({}),
+    appointmentService = {
+      reschedule: jest.fn(),
+      cancel: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -29,8 +28,7 @@ describe('SchedulingController', () => {
       providers: [
         { provide: CommandBus, useValue: commandBus },
         { provide: QueryBus, useValue: queryBus },
-        { provide: PrismaService, useValue: prisma },
-        { provide: JobberService, useValue: jobberService },
+        { provide: AppointmentService, useValue: appointmentService },
       ],
     })
       .overrideGuard(FirebaseAuthGuard)
@@ -62,7 +60,7 @@ describe('SchedulingController', () => {
       const result = await controller.bookAppointment(
         'lead-1',
         { type: 'SITE_SURVEY' as any, scheduledAt: '2026-04-01T10:00:00Z', duration: 60 },
-        { id: 'user-1' },
+        { id: 'user-1', email: 'u@test.com', firstName: 'U', lastName: 'T', role: 'ADMIN' as any, isActive: true, profileImage: null },
       );
 
       expect(commandBus.execute).toHaveBeenCalledWith(
@@ -73,64 +71,36 @@ describe('SchedulingController', () => {
   });
 
   describe('reschedule', () => {
-    it('should update appointment and sync to Jobber', async () => {
-      const updated = {
-        id: 'appt-1',
-        jobberVisitId: 'jobber-1',
-        duration: 60,
-        scheduledAt: new Date('2026-04-02T10:00:00Z'),
-      };
-      prisma.appointment.update.mockResolvedValue(updated);
+    it('should delegate to AppointmentService', async () => {
+      const updated = { id: 'appt-1', status: 'PENDING' };
+      appointmentService.reschedule.mockResolvedValue(updated);
 
       const result = await controller.reschedule('appt-1', {
         scheduledAt: '2026-04-02T10:00:00Z',
         duration: 90,
       });
 
-      expect(prisma.appointment.update).toHaveBeenCalledWith({
-        where: { id: 'appt-1' },
-        data: {
-          scheduledAt: new Date('2026-04-02T10:00:00Z'),
-          duration: 90,
-          status: 'PENDING',
-        },
-      });
+      expect(appointmentService.reschedule).toHaveBeenCalledWith(
+        'appt-1',
+        '2026-04-02T10:00:00Z',
+        90,
+      );
       expect(result).toEqual(updated);
-      expect(jobberService.rescheduleVisit).toHaveBeenCalled();
-    });
-
-    it('should not sync to Jobber when no jobberVisitId', async () => {
-      const updated = { id: 'appt-1', jobberVisitId: null, duration: 60 };
-      prisma.appointment.update.mockResolvedValue(updated);
-
-      await controller.reschedule('appt-1', { scheduledAt: '2026-04-02T10:00:00Z' });
-
-      expect(jobberService.rescheduleVisit).not.toHaveBeenCalled();
     });
   });
 
   describe('cancel', () => {
-    it('should cancel appointment and sync to Jobber', async () => {
-      const cancelled = { id: 'appt-1', jobberVisitId: 'jobber-1', status: 'CANCELLED' };
-      prisma.appointment.update.mockResolvedValue(cancelled);
+    it('should delegate to AppointmentService', async () => {
+      const cancelled = { id: 'appt-1', status: 'CANCELLED' };
+      appointmentService.cancel.mockResolvedValue(cancelled);
 
       const result = await controller.cancel('appt-1', { reason: 'Customer request' });
 
-      expect(prisma.appointment.update).toHaveBeenCalledWith({
-        where: { id: 'appt-1' },
-        data: { status: 'CANCELLED', notes: 'Customer request' },
-      });
+      expect(appointmentService.cancel).toHaveBeenCalledWith(
+        'appt-1',
+        'Customer request',
+      );
       expect(result).toEqual(cancelled);
-      expect(jobberService.cancelVisit).toHaveBeenCalledWith('jobber-1');
-    });
-
-    it('should not sync to Jobber when no jobberVisitId', async () => {
-      const cancelled = { id: 'appt-1', jobberVisitId: null, status: 'CANCELLED' };
-      prisma.appointment.update.mockResolvedValue(cancelled);
-
-      await controller.cancel('appt-1', { reason: 'No show' });
-
-      expect(jobberService.cancelVisit).not.toHaveBeenCalled();
     });
   });
 });

@@ -5,7 +5,7 @@ import { google, chat_v1 } from 'googleapis';
 @Injectable()
 export class GoogleChatService {
   private readonly logger = new Logger(GoogleChatService.name);
-  private credentials: any = null;
+  private credentials: Record<string, unknown> | null = null;
 
   private readonly SCOPES = [
     'https://www.googleapis.com/auth/chat.app.spaces.create',
@@ -23,8 +23,9 @@ export class GoogleChatService {
           Buffer.from(credentialsB64, 'base64').toString(),
         );
         this.logger.log('Google Chat service configured');
-      } catch (e: any) {
-        this.logger.warn(`Google Chat credentials invalid: ${e.message}`);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        this.logger.warn(`Google Chat credentials invalid: ${message}`);
       }
     } else {
       this.logger.warn('Google Chat not configured — GOOGLE_ADMIN_CREDENTIALS missing');
@@ -37,7 +38,7 @@ export class GoogleChatService {
 
   private async getClient(): Promise<chat_v1.Chat> {
     const auth = new google.auth.GoogleAuth({
-      credentials: this.credentials,
+      credentials: this.credentials as Record<string, unknown>,
       scopes: this.SCOPES,
     });
     return google.chat({ version: 'v1', auth });
@@ -82,8 +83,9 @@ export class GoogleChatService {
               },
             });
             this.logger.debug(`Added ${email} to space ${spaceName}`);
-          } catch (err: any) {
-            this.logger.warn(`Failed to add ${email} to space: ${err.message}`);
+          } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`Failed to add ${email} to space: ${errMsg}`);
           }
           // Rate limit: 1 member per second
           await new Promise((r) => setTimeout(r, 1000));
@@ -97,8 +99,9 @@ export class GoogleChatService {
       );
 
       return { spaceName, displayName: params.displayName };
-    } catch (error: any) {
-      this.logger.error(`Failed to create Google Chat space: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to create Google Chat space: ${message}`);
       throw error;
     }
   }
@@ -124,8 +127,9 @@ export class GoogleChatService {
         requestBody: { text },
       });
       this.logger.debug(`Message sent to ${spaceName}`);
-    } catch (error: any) {
-      this.logger.warn(`Failed to send Google Chat message: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send Google Chat message: ${message}`);
     }
   }
 
@@ -171,8 +175,9 @@ export class GoogleChatService {
           ],
         },
       });
-    } catch (error: any) {
-      this.logger.warn(`Failed to send card to ${spaceName}: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send card to ${spaceName}: ${message}`);
     }
   }
 
@@ -186,8 +191,9 @@ export class GoogleChatService {
       const chatClient = await this.getClient();
       await chatClient.spaces.delete({ name: spaceName });
       this.logger.log(`Google Chat space deleted: ${spaceName}`);
-    } catch (error: any) {
-      this.logger.warn(`Failed to delete space ${spaceName}: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to delete space ${spaceName}: ${message}`);
     }
   }
 }

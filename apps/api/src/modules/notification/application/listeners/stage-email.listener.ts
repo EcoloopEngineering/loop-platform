@@ -2,6 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { EmailService } from '../../../../infrastructure/email/email.service';
+import {
+  getInstallReadyEmail,
+  getWonOwnerEmail,
+  getWonCustomerEmail,
+  getGenericStageEmail,
+} from '../templates/stage-email-templates';
 
 interface StageChangedPayload {
   leadId: string;
@@ -64,15 +70,7 @@ export class StageEmailListener {
           await this.emailService.send({
             to: ownerEmail,
             subject: `⚠️ Install Ready: ${payload.customerName}`,
-            html: `
-              <h2>Install Ready - Action Required</h2>
-              <p>Hi ${ownerName},</p>
-              <p>The installation for <strong>${payload.customerName}</strong> is ready to be scheduled.</p>
-              <p style="color: #DC2626; font-weight: bold;">⚠️ Reminder: A $1,000 no-show charge applies if the customer is not present at the scheduled installation time.</p>
-              <p>Please confirm with the customer and schedule the installation.</p>
-              <br>
-              <p style="color: #6B7280; font-size: 12px;">— ecoLoop CRM</p>
-            `,
+            html: getInstallReadyEmail({ ownerName, customerName: payload.customerName }),
           });
         }
         break;
@@ -83,14 +81,7 @@ export class StageEmailListener {
           await this.emailService.send({
             to: ownerEmail,
             subject: `🎉 Deal Won: ${payload.customerName}`,
-            html: `
-              <h2>Congratulations!</h2>
-              <p>Hi ${ownerName},</p>
-              <p>The deal for <strong>${payload.customerName}</strong> has been marked as <strong>WON</strong>! 🎉</p>
-              <p>Great work closing this deal!</p>
-              <br>
-              <p style="color: #6B7280; font-size: 12px;">— ecoLoop CRM</p>
-            `,
+            html: getWonOwnerEmail({ ownerName, customerName: payload.customerName }),
           });
         }
         // Email the customer
@@ -98,15 +89,7 @@ export class StageEmailListener {
           await this.emailService.send({
             to: lead.customer.email,
             subject: 'Welcome to ecoLoop Solar! ☀️',
-            html: `
-              <h2>Welcome to the ecoLoop Family!</h2>
-              <p>Hi ${lead.customer.firstName},</p>
-              <p>Thank you for choosing ecoLoop for your solar energy project!</p>
-              <p>Your project is now being processed and our team will be in touch shortly with next steps.</p>
-              <p>If you have any questions, reply to this email or contact us at support@ecoloop.us.</p>
-              <br>
-              <p style="color: #6B7280; font-size: 12px;">— The ecoLoop Team</p>
-            `,
+            html: getWonCustomerEmail({ customerFirstName: lead.customer.firstName }),
           });
         }
         break;
@@ -118,13 +101,11 @@ export class StageEmailListener {
           await this.emailService.send({
             to: recipients,
             subject: `Lead Update: ${payload.customerName} → ${stageName}`,
-            html: `
-              <h2>Lead Stage Updated</h2>
-              <p>The lead for <strong>${payload.customerName}</strong> has moved to <strong>${stageName}</strong>.</p>
-              <p>Previous stage: ${this.formatStage(payload.previousStage)}</p>
-              <br>
-              <p style="color: #6B7280; font-size: 12px;">— ecoLoop CRM</p>
-            `,
+            html: getGenericStageEmail({
+              customerName: payload.customerName,
+              stageName,
+              previousStageName: this.formatStage(payload.previousStage),
+            }),
           });
         }
         break;

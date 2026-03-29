@@ -1,20 +1,39 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReferralsController } from './referrals.controller';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { ReferralService } from '../application/services/referral.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
-import { createMockPrismaService, MockPrismaService } from '../../../test/prisma-mock.helper';
+import { ReferralEntity } from '../domain/entities/referral.entity';
+import { PaginatedResponse } from '../../../common/dto/pagination.dto';
+import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 
 describe('ReferralsController', () => {
   let controller: ReferralsController;
-  let prisma: MockPrismaService;
+  let referralService: jest.Mocked<ReferralService>;
+
+  const mockUser: AuthenticatedUser = {
+    id: 'user-1',
+    email: 'test@ecoloop.us',
+    firstName: 'Test',
+    lastName: 'User',
+    role: 'ADMIN' as any,
+    isActive: true,
+    profileImage: null,
+  };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    const mockReferralService = {
+      getMyReferrals: jest.fn(),
+      createReferral: jest.fn(),
+      updateCommissionSplit: jest.fn(),
+      getReferralHierarchy: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReferralsController],
-      providers: [{ provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: ReferralService, useValue: mockReferralService },
+      ],
     })
       .overrideGuard(FirebaseAuthGuard)
       .useValue({ canActivate: () => true })
@@ -23,41 +42,40 @@ describe('ReferralsController', () => {
       .compile();
 
     controller = module.get<ReferralsController>(ReferralsController);
+    referralService = module.get(ReferralService);
   });
 
   describe('findAll', () => {
-    it('should return paginated referrals for the current user', async () => {
-      const referrals = [
-        {
-          id: 'r1',
-          inviterId: 'user-1',
-          inviteeId: null,
-          tempId: null,
-          hierarchyPath: 'user-1',
-          hierarchyLevel: 0,
-          commissionSplit: null,
-          status: 'pending',
-          createdAt: new Date(),
-        },
-      ];
-      prisma.referral.findMany.mockResolvedValue(referrals);
-      prisma.referral.count.mockResolvedValue(1);
+    it('should delegate to referralService.getMyReferrals', async () => {
+      const referral = new ReferralEntity({
+        id: 'r1',
+        inviterId: 'user-1',
+        inviteeId: null,
+        tempId: null,
+        hierarchyPath: 'user-1',
+        hierarchyLevel: 0,
+        commissionSplit: null,
+        status: 'pending',
+        createdAt: new Date(),
+      });
+      const paginated = new PaginatedResponse([referral], 1, 1, 20);
+      referralService.getMyReferrals.mockResolvedValue(paginated);
 
-      const user = { id: 'user-1' } as any;
       const pagination = { page: 1, limit: 20, skip: 0 } as any;
-
-      const result = await controller.findAll(user, pagination);
+      const result = await controller.findAll(mockUser, pagination);
 
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
-      expect(prisma.referral.findMany).toHaveBeenCalled();
+      expect(referralService.getMyReferrals).toHaveBeenCalledWith(
+        mockUser,
+        pagination,
+      );
     });
   });
 
   describe('invite', () => {
-    it('should create a referral invitation with no parent', async () => {
-      prisma.referral.findFirst.mockResolvedValue(null);
-      const created = {
+    it('should delegate to referralService.createReferral', async () => {
+      const referral = new ReferralEntity({
         id: 'r1',
         inviterId: 'user-1',
         tempId: 'temp-1',
@@ -65,58 +83,42 @@ describe('ReferralsController', () => {
         hierarchyLevel: 0,
         status: 'pending',
         createdAt: new Date(),
-      };
-      prisma.referral.create.mockResolvedValue(created);
+      });
+      referralService.createReferral.mockResolvedValue(referral);
 
-      const user = { id: 'user-1' } as any;
-      const result = await controller.invite(user, { tempId: 'temp-1' });
+      const result = await controller.invite(mockUser, { tempId: 'temp-1' });
 
       expect(result.hierarchyLevel).toBe(0);
-      expect(prisma.referral.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            inviterId: 'user-1',
-            hierarchyLevel: 0,
-            status: 'pending',
-          }),
-        }),
+      expect(referralService.createReferral).toHaveBeenCalledWith(
+        mockUser,
+        'temp-1',
       );
     });
 
-    it('should create a referral with parent hierarchy', async () => {
-      prisma.referral.findFirst.mockResolvedValue({
-        hierarchyPath: 'root-user',
-        hierarchyLevel: 0,
-      });
-      const created = {
+    it('should pass undefined tempId when not provided', async () => {
+      const referral = new ReferralEntity({
         id: 'r2',
-        inviterId: 'user-2',
-        hierarchyPath: 'root-user.user-2',
-        hierarchyLevel: 1,
+        inviterId: 'user-1',
+        hierarchyPath: 'user-1',
+        hierarchyLevel: 0,
         status: 'pending',
         createdAt: new Date(),
-      };
-      prisma.referral.create.mockResolvedValue(created);
+      });
+      referralService.createReferral.mockResolvedValue(referral);
 
-      const user = { id: 'user-2' } as any;
-      const result = await controller.invite(user, {});
+      await controller.invite(mockUser, {});
 
-      expect(result.hierarchyLevel).toBe(1);
-      expect(prisma.referral.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            hierarchyPath: 'root-user.user-2',
-            hierarchyLevel: 1,
-          }),
-        }),
+      expect(referralService.createReferral).toHaveBeenCalledWith(
+        mockUser,
+        undefined,
       );
     });
   });
 
   describe('updateCommissionSplit', () => {
-    it('should update the commission split for a referral', async () => {
+    it('should delegate to referralService.updateCommissionSplit', async () => {
       const split = { inviter: 70, invitee: 30 };
-      const updated = {
+      const referral = new ReferralEntity({
         id: 'r1',
         inviterId: 'user-1',
         commissionSplit: split,
@@ -124,18 +126,18 @@ describe('ReferralsController', () => {
         hierarchyLevel: 0,
         status: 'pending',
         createdAt: new Date(),
-      };
-      prisma.referral.update.mockResolvedValue(updated);
+      });
+      referralService.updateCommissionSplit.mockResolvedValue(referral);
 
       const result = await controller.updateCommissionSplit('r1', {
         commissionSplit: split,
       });
 
       expect(result.commissionSplit).toEqual(split);
-      expect(prisma.referral.update).toHaveBeenCalledWith({
-        where: { id: 'r1' },
-        data: { commissionSplit: split },
-      });
+      expect(referralService.updateCommissionSplit).toHaveBeenCalledWith(
+        'r1',
+        split,
+      );
     });
   });
 });

@@ -1,6 +1,11 @@
 import { IsString, IsOptional, IsInt, IsBoolean, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+interface SubtaskDefinition {
+  title: string;
+  description?: string;
+}
+
 export class CreateTaskTemplateDto {
   @ApiProperty({ description: 'Pipeline stage this template applies to' })
   @IsString()
@@ -28,12 +33,12 @@ export class CreateTaskTemplateDto {
   @ApiPropertyOptional({ description: 'Array of subtask definitions [{title, description}]' })
   @IsOptional()
   @IsObject({ each: true })
-  subtasks?: any[];
+  subtasks?: SubtaskDefinition[];
 
   @ApiPropertyOptional({ description: 'Conditions to evaluate (e.g. {state: "CT", hasStructural: true})' })
   @IsOptional()
   @IsObject()
-  conditions?: Record<string, any>;
+  conditions?: Record<string, unknown>;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -75,12 +80,12 @@ export class UpdateTaskTemplateDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject({ each: true })
-  subtasks?: any[];
+  subtasks?: SubtaskDefinition[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  conditions?: Record<string, any>;
+  conditions?: Record<string, unknown>;
 
   @ApiPropertyOptional()
   @IsOptional()

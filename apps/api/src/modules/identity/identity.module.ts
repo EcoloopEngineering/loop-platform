@@ -12,6 +12,8 @@ import { UsersController } from './presentation/users.controller';
 import { ReferralsController } from './presentation/referrals.controller';
 import { AuthController } from './presentation/auth.controller';
 import { AuthService } from './application/services/auth.service';
+import { UserProfileService } from './application/services/user-profile.service';
+import { ReferralService } from './application/services/referral.service';
 
 const CommandHandlers = [CreateUserHandler];
 const QueryHandlers = [
@@ -32,6 +34,8 @@ const QueryHandlers = [
     },
     PrismaUserRepository,
     AuthService,
+    UserProfileService,
+    ReferralService,
   ],
   exports: [USER_REPOSITORY, AuthService],
 })

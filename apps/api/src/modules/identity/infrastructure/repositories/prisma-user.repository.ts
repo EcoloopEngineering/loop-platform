@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { User } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { UserRepositoryPort } from '../../application/ports/user.repository.port';
 import { UserEntity } from '../../domain/entities/user.entity';
@@ -9,19 +10,19 @@ export class PrismaUserRepository implements UserRepositoryPort {
 
   async findById(id: string): Promise<UserEntity | null> {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    return user ? new UserEntity(user as any) : null;
+    return user ? new UserEntity(user as Partial<UserEntity>) : null;
   }
 
   async findByEmail(email: string): Promise<UserEntity | null> {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    return user ? new UserEntity(user as any) : null;
+    return user ? new UserEntity(user as Partial<UserEntity>) : null;
   }
 
   async findByFirebaseUid(firebaseUid: string): Promise<UserEntity | null> {
     const user = await this.prisma.user.findUnique({
       where: { firebaseUid },
     });
-    return user ? new UserEntity(user as any) : null;
+    return user ? new UserEntity(user as Partial<UserEntity>) : null;
   }
 
   async create(data: Partial<UserEntity>): Promise<UserEntity> {
@@ -32,10 +33,10 @@ export class PrismaUserRepository implements UserRepositoryPort {
         lastName: data.lastName!,
         firebaseUid: data.firebaseUid!,
         phone: data.phone ?? null,
-        role: data.role as any,
+        role: data.role!,
       },
     });
-    return new UserEntity(user as any);
+    return new UserEntity(user as Partial<UserEntity>);
   }
 
   async update(id: string, data: Partial<UserEntity>): Promise<UserEntity> {
@@ -53,11 +54,11 @@ export class PrismaUserRepository implements UserRepositoryPort {
           closedDealEmoji: data.closedDealEmoji,
         }),
         ...(data.language !== undefined && { language: data.language }),
-        ...(data.role !== undefined && { role: data.role as any }),
+        ...(data.role !== undefined && { role: data.role }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });
-    return new UserEntity(user as any);
+    return new UserEntity(user as Partial<UserEntity>);
   }
 
   async findAll(params: {
@@ -94,10 +95,11 @@ export class PrismaUserRepository implements UserRepositoryPort {
 
     return {
       data: users.map((u) => {
-        const entity = new UserEntity(u as any);
+        const entity = new UserEntity(u as Partial<UserEntity>);
         // Preserve relations for API response
-        (entity as any).referralsReceived = (u as any).referralsReceived;
-        (entity as any)._count = (u as any)._count;
+        const extended = entity as UserEntity & { referralsReceived?: unknown; _count?: unknown };
+        extended.referralsReceived = (u as User & { referralsReceived?: unknown }).referralsReceived;
+        extended._count = (u as User & { _count?: unknown })._count;
         return entity;
       }),
       total,

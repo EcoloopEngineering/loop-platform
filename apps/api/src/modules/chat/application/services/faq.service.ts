@@ -1,5 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { FaqEntry } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+
+export interface FaqSummary {
+  id: string;
+  question: string;
+  answer: string;
+  category: string | null;
+}
 
 @Injectable()
 export class FaqService {
@@ -17,7 +25,7 @@ export class FaqService {
     });
 
     // Score each FAQ entry by keyword match
-    let bestMatch: { entry: any; score: number } | null = null;
+    let bestMatch: { entry: FaqEntry; score: number } | null = null;
 
     for (const entry of entries) {
       let score = 0;
@@ -51,7 +59,7 @@ export class FaqService {
     return null;
   }
 
-  async getAllFaqs(): Promise<any[]> {
+  async getAllFaqs(): Promise<FaqSummary[]> {
     return this.prisma.faqEntry.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },

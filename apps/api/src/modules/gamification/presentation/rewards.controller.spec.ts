@@ -1,32 +1,49 @@
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
 import { RewardsController } from './rewards.controller';
-import { CoinService } from '../application/services/coin.service';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../test/prisma-mock.helper';
+import { RewardOrderService } from '../application/services/reward-order.service';
+import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
+import { UserRole } from '@loop/shared';
 
 describe('RewardsController', () => {
   let controller: RewardsController;
-  let prisma: MockPrismaService;
-  let coinService: {
-    deductCoins: jest.Mock;
+  let service: {
+    listProducts: jest.Mock;
+    placeOrder: jest.Mock;
+    getOrders: jest.Mock;
+    createProduct: jest.Mock;
+    updateProduct: jest.Mock;
+    listAllOrders: jest.Mock;
+    fulfillOrder: jest.Mock;
+    cancelOrder: jest.Mock;
+  };
+
+  const mockUser: AuthenticatedUser = {
+    id: 'user-1',
+    email: 'john@example.com',
+    firstName: 'John',
+    lastName: 'Doe',
+    role: UserRole.SALES_REP,
+    isActive: true,
+    profileImage: null,
   };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
-    coinService = { deductCoins: jest.fn() };
+    service = {
+      listProducts: jest.fn(),
+      placeOrder: jest.fn(),
+      getOrders: jest.fn(),
+      createProduct: jest.fn(),
+      updateProduct: jest.fn(),
+      listAllOrders: jest.fn(),
+      fulfillOrder: jest.fn(),
+      cancelOrder: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RewardsController],
-      providers: [
-        { provide: PrismaService, useValue: prisma },
-        { provide: CoinService, useValue: coinService },
-      ],
+      providers: [{ provide: RewardOrderService, useValue: service }],
     })
       .overrideGuard(FirebaseAuthGuard)
       .useValue({ canActivate: () => true })
@@ -42,136 +59,102 @@ describe('RewardsController', () => {
   });
 
   describe('listProducts', () => {
-    it('should return active reward products', async () => {
+    it('should delegate to service.listProducts', async () => {
       const mockProducts = [
         { id: 'p1', code: 'TSHIRT', name: 'T-Shirt', price: 50, isActive: true },
-        { id: 'p2', code: 'HAT', name: 'Hat', price: 30, isActive: true },
       ];
-      prisma.rewardProduct.findMany.mockResolvedValue(mockProducts);
+      service.listProducts.mockResolvedValue(mockProducts);
 
       const result = await controller.listProducts();
 
+      expect(service.listProducts).toHaveBeenCalled();
       expect(result).toEqual(mockProducts);
-      expect(prisma.rewardProduct.findMany).toHaveBeenCalledWith({
-        where: { isActive: true },
-        orderBy: { price: 'asc' },
-      });
     });
   });
 
   describe('placeOrder', () => {
-    it('should deduct coins and create an order', async () => {
-      const product = { id: 'p1', code: 'TSHIRT', name: 'T-Shirt', price: 50, isActive: true };
-      prisma.rewardProduct.findUnique.mockResolvedValue(product);
-      coinService.deductCoins.mockResolvedValue(undefined);
-      prisma.rewardOrder.create.mockResolvedValue({
-        id: 'order-1',
-        userId: 'user-1',
-        productId: 'p1',
-        coinsSpent: 50,
-        product,
-      });
+    it('should delegate to service.placeOrder', async () => {
+      const order = { id: 'order-1', coinsSpent: 50 };
+      service.placeOrder.mockResolvedValue(order);
 
-      const result = await controller.placeOrder(
-        { id: 'user-1' },
-        { productId: 'p1' },
-      );
+      const result = await controller.placeOrder(mockUser, { productId: 'p1' });
 
-      expect(coinService.deductCoins).toHaveBeenCalledWith(
-        'user-1',
-        50,
-        'Reward order: T-Shirt',
-      );
-      expect(result.coinsSpent).toBe(50);
-    });
-
-    it('should throw when productId is missing', async () => {
-      await expect(
-        controller.placeOrder({ id: 'user-1' }, { productId: '' }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw when product is not found', async () => {
-      prisma.rewardProduct.findUnique.mockResolvedValue(null);
-
-      await expect(
-        controller.placeOrder({ id: 'user-1' }, { productId: 'nonexistent' }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw when product is inactive', async () => {
-      prisma.rewardProduct.findUnique.mockResolvedValue({
-        id: 'p1',
-        price: 50,
-        isActive: false,
-      });
-
-      await expect(
-        controller.placeOrder({ id: 'user-1' }, { productId: 'p1' }),
-      ).rejects.toThrow(BadRequestException);
+      expect(service.placeOrder).toHaveBeenCalledWith(mockUser, 'p1');
+      expect(result).toEqual(order);
     });
   });
 
   describe('getMyOrders', () => {
-    it('should return orders for the current user', async () => {
-      const mockOrders = [
-        { id: 'order-1', userId: 'user-1', coinsSpent: 50, product: { name: 'T-Shirt' } },
-      ];
-      prisma.rewardOrder.findMany.mockResolvedValue(mockOrders);
+    it('should delegate to service.getOrders with user id', async () => {
+      const orders = [{ id: 'order-1' }];
+      service.getOrders.mockResolvedValue(orders);
 
-      const result = await controller.getMyOrders({ id: 'user-1' });
+      const result = await controller.getMyOrders(mockUser);
 
-      expect(result).toEqual(mockOrders);
-      expect(prisma.rewardOrder.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        orderBy: { createdAt: 'desc' },
-        include: { product: true },
-      });
+      expect(service.getOrders).toHaveBeenCalledWith('user-1');
+      expect(result).toEqual(orders);
     });
   });
 
   describe('createProduct', () => {
-    it('should create a new reward product', async () => {
-      const productData = {
-        code: 'MUG',
-        name: 'Coffee Mug',
-        description: 'Nice mug',
-        price: 20,
-        imageUrl: 'https://example.com/mug.jpg',
-      };
-      prisma.rewardProduct.create.mockResolvedValue({
-        id: 'p3',
-        ...productData,
-        isActive: true,
-      });
+    it('should delegate to service.createProduct', async () => {
+      const productData = { code: 'MUG', name: 'Coffee Mug', price: 20 };
+      const created = { id: 'p3', ...productData, isActive: true };
+      service.createProduct.mockResolvedValue(created);
 
       const result = await controller.createProduct(productData);
 
-      expect(result.code).toBe('MUG');
-      expect(prisma.rewardProduct.create).toHaveBeenCalledWith({
-        data: productData,
-      });
+      expect(service.createProduct).toHaveBeenCalledWith(productData);
+      expect(result).toEqual(created);
     });
   });
 
   describe('updateProduct', () => {
-    it('should update an existing product', async () => {
-      prisma.rewardProduct.update.mockResolvedValue({
-        id: 'p1',
-        name: 'Updated T-Shirt',
-        price: 60,
-      });
+    it('should delegate to service.updateProduct', async () => {
+      const updateData = { name: 'Updated T-Shirt', price: 60 };
+      const updated = { id: 'p1', ...updateData };
+      service.updateProduct.mockResolvedValue(updated);
 
-      const result = await controller.updateProduct('p1', {
-        name: 'Updated T-Shirt',
-        price: 60,
-      });
+      const result = await controller.updateProduct('p1', updateData);
 
-      expect(result.name).toBe('Updated T-Shirt');
-      expect(prisma.rewardProduct.update).toHaveBeenCalledWith({
-        where: { id: 'p1' },
-        data: { name: 'Updated T-Shirt', price: 60 },
-      });
+      expect(service.updateProduct).toHaveBeenCalledWith('p1', updateData);
+      expect(result).toEqual(updated);
+    });
+  });
+
+  describe('getAllOrders', () => {
+    it('should delegate to service.listAllOrders', async () => {
+      const orders = [{ id: 'order-1' }];
+      service.listAllOrders.mockResolvedValue(orders);
+
+      const result = await controller.getAllOrders();
+
+      expect(service.listAllOrders).toHaveBeenCalled();
+      expect(result).toEqual(orders);
+    });
+  });
+
+  describe('fulfillOrder', () => {
+    it('should delegate to service.fulfillOrder', async () => {
+      const fulfilled = { id: 'order-1', status: 'FULFILLED' };
+      service.fulfillOrder.mockResolvedValue(fulfilled);
+
+      const result = await controller.fulfillOrder('order-1');
+
+      expect(service.fulfillOrder).toHaveBeenCalledWith('order-1');
+      expect(result).toEqual(fulfilled);
+    });
+  });
+
+  describe('cancelOrder', () => {
+    it('should delegate to service.cancelOrder', async () => {
+      const cancelled = { id: 'order-1', status: 'CANCELLED' };
+      service.cancelOrder.mockResolvedValue(cancelled);
+
+      const result = await controller.cancelOrder('order-1');
+
+      expect(service.cancelOrder).toHaveBeenCalledWith('order-1');
+      expect(result).toEqual(cancelled);
     });
   });
 });

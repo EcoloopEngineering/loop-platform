@@ -75,7 +75,7 @@ export class DocumentService {
     const doc = await this.prisma.document.create({
       data: {
         leadId,
-        type: (documentType as any) || 'OTHER',
+        type: (documentType as import('@prisma/client').DocumentType) || 'OTHER',
         fileName: file.originalname,
         mimeType: file.mimetype,
         fileSize: file.size,
@@ -112,11 +112,11 @@ export class DocumentService {
     });
 
     return docs.map((d) => {
-      const meta = (d.metadata as any) ?? {};
+      const meta = (d.metadata as Record<string, unknown>) ?? {};
       return {
         id: d.id,
         name: d.fileName,
-        url: meta.downloadUrl || `/api/v1/documents/${d.id}/download`,
+        url: (meta.downloadUrl as string) || `/api/v1/documents/${d.id}/download`,
         type: d.type,
         size: d.fileSize,
         createdAt: d.createdAt,
@@ -128,7 +128,7 @@ export class DocumentService {
     const doc = await this.prisma.document.findUnique({ where: { id } });
     if (!doc) throw new NotFoundException('Document not found');
 
-    const meta = (doc.metadata as any) ?? {};
+    const meta = (doc.metadata as Record<string, unknown>) ?? {};
 
     if (meta.storage === 's3' && this.s3.isConfigured()) {
       const signedUrl = await this.s3.getSignedUrl(doc.fileKey);
@@ -152,7 +152,7 @@ export class DocumentService {
     const doc = await this.prisma.document.findUnique({ where: { id } });
     if (!doc) throw new NotFoundException('Document not found');
 
-    const meta = (doc.metadata as any) ?? {};
+    const meta = (doc.metadata as Record<string, unknown>) ?? {};
     if (meta.storage === 's3') {
       await this.s3.delete(doc.fileKey);
     } else {

@@ -4,7 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadsController } from './leads.controller';
 import { LEAD_REPOSITORY } from '../application/ports/lead.repository.port';
-import { LeadScoringDomainService } from '../domain/services/lead-scoring.domain-service';
+import { LeadScoringAppService } from '../application/services/lead-scoring-app.service';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -17,7 +17,7 @@ describe('LeadsController', () => {
   let leadRepo: Record<string, jest.Mock>;
   let prisma: MockPrismaService;
   let emitter: { emit: jest.Mock };
-  let scoringService: { calculate: jest.Mock };
+  let leadScoringAppService: { recalculateScore: jest.Mock; getTimeline: jest.Mock };
 
   beforeEach(async () => {
     commandBus = { execute: jest.fn() };
@@ -30,7 +30,7 @@ describe('LeadsController', () => {
     };
     prisma = createMockPrismaService();
     emitter = { emit: jest.fn() };
-    scoringService = { calculate: jest.fn() };
+    leadScoringAppService = { recalculateScore: jest.fn(), getTimeline: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [LeadsController],
@@ -38,7 +38,7 @@ describe('LeadsController', () => {
         { provide: CommandBus, useValue: commandBus },
         { provide: QueryBus, useValue: queryBus },
         { provide: LEAD_REPOSITORY, useValue: leadRepo },
-        { provide: LeadScoringDomainService, useValue: scoringService },
+        { provide: LeadScoringAppService, useValue: leadScoringAppService },
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: emitter },
       ],

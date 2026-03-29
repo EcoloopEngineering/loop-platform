@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { CoinService } from '../services/coin.service';
-import { GoogleChatService } from '../../../../integrations/google-chat/google-chat.service';
 import { LeadStageChangedPayload } from '../../../crm/application/events/lead-events.types';
 
 /** Points awarded per milestone stage */
@@ -25,7 +24,6 @@ export class GamificationEventListener {
   constructor(
     private readonly prisma: PrismaService,
     private readonly coinService: CoinService,
-    private readonly chatService: GoogleChatService,
   ) {}
 
   @OnEvent('lead.stageChanged')
@@ -107,66 +105,13 @@ export class GamificationEventListener {
           event.id,
         );
       }
-
-      // Send Google Chat scoreboard message
-      await this.sendScoreboardMessage(
-        payload,
-        primaryAssignment.user,
-        stageConfig,
-        coinsEarned,
-        kw,
-      );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMessage = error instanceof Error ? error.message : String(error);
+      const errStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Gamification event failed for lead ${payload.leadId}: ${error.message}`,
-        error.stack,
+        `Gamification event failed for lead ${payload.leadId}: ${errMessage}`,
+        errStack,
       );
     }
-  }
-
-  private async sendScoreboardMessage(
-    payload: LeadStageChangedPayload,
-    user: { firstName: string; lastName: string; closedDealEmoji: string | null },
-    stageConfig: { eventType: string; points: number },
-    coinsEarned: number,
-    kw: number,
-  ): Promise<void> {
-    if (!this.chatService.isConfigured()) return;
-
-    const scoreboardSpace = process.env.GOOGLE_CHAT_SCOREBOARD_SPACE;
-    if (!scoreboardSpace) return;
-
-    const emoji = user.closedDealEmoji ?? '🎉';
-    const repName = `${user.firstName} ${user.lastName}`;
-
-    const stageEmoji: Record<string, string> = {
-      CONNECTED: '🤝',
-      WON: '🏆',
-      CUSTOMER_SUCCESS: '☀️',
-    };
-
-    try {
-      await this.chatService.sendCard(
-        scoreboardSpace,
-        `${stageEmoji[payload.newStage] ?? '📌'} ${this.formatStage(payload.newStage)}`,
-        payload.customerName,
-        [
-          { label: 'Sales Rep', value: `${emoji} ${repName}` },
-          { label: 'Points', value: `+${stageConfig.points}` },
-          ...(coinsEarned > 0
-            ? [{ label: 'Coins', value: `+${coinsEarned} (${kw} kW)` }]
-            : []),
-        ],
-      );
-    } catch (error: any) {
-      this.logger.warn(`Scoreboard notification failed: ${error.message}`);
-    }
-  }
-
-  private formatStage(s: string): string {
-    return (s || '')
-      .replace(/_/g, ' ')
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 }

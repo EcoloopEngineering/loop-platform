@@ -66,7 +66,7 @@ export class PrismaCustomerRepository implements CustomerRepositoryPort {
   }
 
   async update(id: string, data: Partial<CustomerEntity>): Promise<CustomerEntity> {
-    const { createdAt: _ca, updatedAt: _ua, ...updateData } = data as any;
+    const { createdAt: _ca, updatedAt: _ua, ...updateData } = data as Record<string, unknown>;
     const customer = await this.prisma.customer.update({
       where: { id },
       data: updateData,

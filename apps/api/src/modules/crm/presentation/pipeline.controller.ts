@@ -34,14 +34,14 @@ export class PipelineController {
     @Query('source') source?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
-  ): Promise<any> {
+  ) {
     return this.queryBus.execute(new GetPipelineViewQuery(pipelineId, search, source, dateFrom, dateTo));
   }
 
   @Get('stages')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get available pipeline stage definitions' })
-  getStages(): any {
+  getStages() {
     return {
       closer: CLOSER_PIPELINE_STAGES,
       projectManager: PM_PIPELINE_STAGES,

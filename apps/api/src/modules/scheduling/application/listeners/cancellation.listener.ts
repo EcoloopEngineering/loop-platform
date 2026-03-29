@@ -74,9 +74,10 @@ export class CancellationListener {
       this.logger.log(
         `Jobber visit ${appointment.jobberVisitId} cancelled for lead ${payload.leadId}`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to cancel Jobber appointment for lead ${payload.leadId}: ${error.message}`,
+        `Failed to cancel Jobber appointment for lead ${payload.leadId}: ${message}`,
       );
     }
   }
@@ -125,9 +126,10 @@ export class CancellationListener {
       });
 
       this.logger.log(`Cancellation email sent for lead ${payload.leadId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to send cancellation email for lead ${payload.leadId}: ${error.message}`,
+        `Failed to send cancellation email for lead ${payload.leadId}: ${message}`,
       );
     }
   }
@@ -152,9 +154,10 @@ export class CancellationListener {
           },
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to create activity log for lead ${payload.leadId}: ${error.message}`,
+        `Failed to create activity log for lead ${payload.leadId}: ${message}`,
       );
     }
   }
@@ -173,7 +176,7 @@ export class CancellationListener {
         select: { metadata: true },
       });
 
-      const spaceName = (lead?.metadata as any)?.googleChatSpaceName;
+      const spaceName = (lead?.metadata as Record<string, unknown>)?.googleChatSpaceName as string | undefined;
       if (!spaceName) return;
 
       const statusLabel = payload.newStatus === 'CANCELLED' ? 'Cancelled' : 'Lost';
@@ -182,9 +185,10 @@ export class CancellationListener {
         spaceName,
         `*${statusLabel}*: ${payload.customerName} has been marked as *${statusLabel}*. Appointments have been cancelled.`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Failed to send Google Chat cancellation message for lead ${payload.leadId}: ${error.message}`,
+        `Failed to send Google Chat cancellation message for lead ${payload.leadId}: ${message}`,
       );
     }
   }

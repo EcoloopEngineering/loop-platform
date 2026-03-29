@@ -1,5 +1,6 @@
 type MockModel = {
   findUnique: jest.Mock;
+  findUniqueOrThrow: jest.Mock;
   findFirst: jest.Mock;
   findMany: jest.Mock;
   create: jest.Mock;
@@ -14,6 +15,7 @@ type MockModel = {
 function createMockModel(): MockModel {
   return {
     findUnique: jest.fn(),
+    findUniqueOrThrow: jest.fn(),
     findFirst: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
@@ -51,6 +53,9 @@ export type MockPrismaService = {
   rewardProduct: MockModel;
   rewardOrder: MockModel;
   monthlyRecord: MockModel;
+  appSetting: MockModel;
+  form: MockModel;
+  formSubmission: MockModel;
   $connect: jest.Mock;
   $disconnect: jest.Mock;
   $transaction: jest.Mock;
@@ -82,6 +87,9 @@ export function createMockPrismaService(): MockPrismaService {
     rewardProduct: createMockModel(),
     rewardOrder: createMockModel(),
     monthlyRecord: createMockModel(),
+    appSetting: createMockModel(),
+    form: createMockModel(),
+    formSubmission: createMockModel(),
     $connect: jest.fn(),
     $disconnect: jest.fn(),
     $transaction: jest.fn(),

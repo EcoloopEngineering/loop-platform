@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { GamificationEventListener } from './gamification-event.listener';
 import { CoinService } from '../services/coin.service';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { GoogleChatService } from '../../../../integrations/google-chat/google-chat.service';
 import {
   createMockPrismaService,
   MockPrismaService,
@@ -12,19 +11,16 @@ describe('GamificationEventListener', () => {
   let listener: GamificationEventListener;
   let prisma: MockPrismaService;
   let coinService: { addCoins: jest.Mock };
-  let chatService: { isConfigured: jest.Mock; sendCard: jest.Mock };
 
   beforeEach(async () => {
     prisma = createMockPrismaService();
     coinService = { addCoins: jest.fn() };
-    chatService = { isConfigured: jest.fn().mockReturnValue(false), sendCard: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GamificationEventListener,
         { provide: PrismaService, useValue: prisma },
         { provide: CoinService, useValue: coinService },
-        { provide: GoogleChatService, useValue: chatService },
       ],
     }).compile();
 

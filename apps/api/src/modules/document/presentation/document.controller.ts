@@ -31,7 +31,7 @@ export class DocumentController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(
-    @UploadedFile() file: any,
+    @UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string; size: number },
     @Body('leadId') leadId: string,
     @Body('documentType') documentType: string,
     @CurrentUser() user: AuthenticatedUser,

@@ -29,7 +29,7 @@ import { MarkLeadCancelledCommand } from '../application/commands/mark-lead-canc
 import { UpdateLeadMetadataCommand } from '../application/commands/update-lead-metadata.command';
 import { ListLeadsQuery } from '../application/queries/list-leads.handler';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../application/ports/lead.repository.port';
-import { LeadScoringDomainService } from '../domain/services/lead-scoring.domain-service';
+import { LeadScoringAppService } from '../application/services/lead-scoring-app.service';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadUpdatedPayload } from '../application/events/lead-events.types';
@@ -44,7 +44,7 @@ export class LeadsController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
-    private readonly scoringService: LeadScoringDomainService,
+    private readonly leadScoringAppService: LeadScoringAppService,
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
   ) {}
@@ -165,79 +165,13 @@ export class LeadsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('id') userId: string,
   ): Promise<unknown> {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id },
-      include: { customer: true, property: true },
-    });
-    if (!lead) throw new NotFoundException('Lead not found');
-
-    const scoreBreakdown = this.scoringService.calculate({
-      email: lead.customer.email,
-      phone: lead.customer.phone,
-      firstName: lead.customer.firstName,
-      lastName: lead.customer.lastName,
-      source: lead.source,
-      streetAddress: lead.property.streetAddress,
-      latitude: lead.property.latitude,
-      longitude: lead.property.longitude,
-      electricalService: lead.property.electricalService,
-      hasPool: lead.property.hasPool,
-      hasEV: lead.property.hasEV,
-      propertyType: lead.property.propertyType,
-      roofCondition: lead.property.roofCondition,
-      monthlyBill: lead.property.monthlyBill ? Number(lead.property.monthlyBill) : null,
-      annualKwhUsage: lead.property.annualKwhUsage ? Number(lead.property.annualKwhUsage) : null,
-      utilityProvider: lead.property.utilityProvider,
-    });
-
-    const score = await this.prisma.leadScore.upsert({
-      where: { leadId: id },
-      update: {
-        totalScore: scoreBreakdown.totalScore,
-        roofScore: scoreBreakdown.roofScore,
-        energyScore: scoreBreakdown.energyScore,
-        contactScore: scoreBreakdown.contactScore,
-        propertyScore: scoreBreakdown.propertyScore,
-        calculatedAt: new Date(),
-      },
-      create: {
-        leadId: id,
-        totalScore: scoreBreakdown.totalScore,
-        roofScore: scoreBreakdown.roofScore,
-        energyScore: scoreBreakdown.energyScore,
-        contactScore: scoreBreakdown.contactScore,
-        propertyScore: scoreBreakdown.propertyScore,
-      },
-    });
-
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: id,
-        userId,
-        type: 'SCORE_UPDATED',
-        description: `Score recalculated: ${scoreBreakdown.totalScore}`,
-        metadata: { ...scoreBreakdown },
-      },
-    });
-
-    return score;
+    return this.leadScoringAppService.recalculateScore(id, userId);
   }
 
   @Get(':id/timeline')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get lead activity timeline' })
   async getTimeline(@Param('id', ParseUUIDPipe) id: string): Promise<unknown> {
-    const lead = await this.leadRepo.findById(id);
-    if (!lead) throw new NotFoundException('Lead not found');
-
-    return this.prisma.leadActivity.findMany({
-      where: { leadId: id },
-      include: {
-        user: {
-          select: { id: true, firstName: true, lastName: true, profileImage: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.leadScoringAppService.getTimeline(id);
   }
 }

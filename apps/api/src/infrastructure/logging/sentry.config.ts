@@ -58,7 +58,7 @@ export function initSentry() {
 /**
  * Capture an exception in Sentry with extra context
  */
-export function captureError(error: Error, context?: Record<string, any>) {
+export function captureError(error: Error, context?: Record<string, unknown>) {
   if (!process.env.SENTRY_DSN) return;
 
   Sentry.withScope((scope) => {
@@ -74,5 +74,5 @@ export function captureError(error: Error, context?: Record<string, any>) {
  */
 export function setSentryUser(user: { id: string; email: string; role: string }) {
   if (!process.env.SENTRY_DSN) return;
-  Sentry.setUser({ id: user.id, email: user.email, role: user.role } as any);
+  Sentry.setUser({ id: user.id, email: user.email, username: user.role });
 }

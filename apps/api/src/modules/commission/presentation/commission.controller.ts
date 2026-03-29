@@ -12,6 +12,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { CommissionCalculatorDomainService } from '../domain/services/commission-calculator.domain-service';
 import { CalculateCommissionCommand } from '../application/commands/calculate-commission.handler';
 
@@ -28,7 +29,7 @@ export class CommissionController {
 
   @Get('commissions')
   @ApiOperation({ summary: 'List all commissions for the current user' })
-  async listCommissions(@CurrentUser() user: any) {
+  async listCommissions(@CurrentUser() user: AuthenticatedUser) {
     return this.prisma.commission.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
@@ -75,7 +76,7 @@ export class CommissionController {
       quoteDeductions: number;
       splitPct: number;
     },
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.commandBus.execute(
       new CalculateCommissionCommand(

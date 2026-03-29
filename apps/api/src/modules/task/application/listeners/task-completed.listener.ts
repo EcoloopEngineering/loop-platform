@@ -61,7 +61,7 @@ export class TaskCompletedListener {
       await this.prisma.leadActivity.create({
         data: {
           leadId: payload.leadId,
-          type: 'TASK_COMPLETED' as any,
+          type: 'STAGE_CHANGE',
           description: `All tasks for template "${template?.title ?? payload.templateKey}" completed`,
           userId: payload.completedById,
         },
@@ -79,10 +79,12 @@ export class TaskCompletedListener {
           `Emitted lead.stageAdvance for lead ${payload.leadId} to ${templateMeta.nextStage}`,
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMessage = error instanceof Error ? error.message : String(error);
+      const errStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Failed to process task completion: ${error.message}`,
-        error.stack,
+        `Failed to process task completion: ${errMessage}`,
+        errStack,
       );
     }
   }

@@ -31,7 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const message =
       typeof exceptionResponse === 'string'
         ? exceptionResponse
-        : (exceptionResponse as any)?.message ?? 'Internal server error';
+        : (exceptionResponse as Record<string, unknown>)?.message ?? 'Internal server error';
 
     const errorName =
       exception instanceof Error ? exception.constructor.name : 'UnknownError';
@@ -48,7 +48,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       method: request?.method,
       url: request?.url,
       ip: request?.ip,
-      userId: (request as any)?.user?.id ?? 'anonymous',
+      userId: (request as Request & { user?: { id?: string } })?.user?.id ?? 'anonymous',
       userAgent: request?.get('user-agent'),
       timestamp: new Date().toISOString(),
     };
@@ -67,7 +67,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         captureError(exception, {
           url: request?.url,
           method: request?.method,
-          userId: (request as any)?.user?.id,
+          userId: (request as Request & { user?: { id?: string } })?.user?.id,
           body: this.sanitize(request?.body),
         });
       }
@@ -77,7 +77,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     // Response to client
-    const responseBody: Record<string, any> = {
+    const responseBody: Record<string, unknown> = {
       statusCode: status,
       message: Array.isArray(message) ? message : [message],
       error: errorName === 'HttpException' ? this.getHttpErrorName(status) : errorName,
@@ -109,9 +109,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     return names[status] ?? 'Error';
   }
 
-  private sanitize(body: any): any {
+  private sanitize(body: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
     if (!body || typeof body !== 'object') return body;
-    const sanitized = { ...body };
+    const sanitized: Record<string, unknown> = { ...body };
     const sensitive = ['password', 'token', 'secret', 'creditCard', 'ssn', 'passwordHash'];
     for (const key of Object.keys(sanitized)) {
       if (sensitive.some((s) => key.toLowerCase().includes(s))) {

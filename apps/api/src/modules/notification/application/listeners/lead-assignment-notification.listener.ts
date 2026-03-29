@@ -3,19 +3,6 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationService } from '../services/notification.service';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 
-interface LeadCreatedPayload {
-  leadId: string;
-  assignedTo: string;
-  customerName: string;
-}
-
-interface LeadStageChangedPayload {
-  leadId: string;
-  customerName: string;
-  previousStage: string;
-  newStage: string;
-}
-
 interface LeadAssignedPayload {
   leadId: string;
   assigneeId: string;
@@ -54,8 +41,8 @@ interface LeadNoteAddedPayload {
 }
 
 @Injectable()
-export class LeadEventListener {
-  private readonly logger = new Logger(LeadEventListener.name);
+export class LeadAssignmentNotificationListener {
+  private readonly logger = new Logger(LeadAssignmentNotificationListener.name);
 
   constructor(
     private readonly notificationService: NotificationService,
@@ -71,46 +58,6 @@ export class LeadEventListener {
     } catch {
       return true;
     }
-  }
-
-  @OnEvent('lead.created')
-  async handleLeadCreated(payload: LeadCreatedPayload): Promise<void> {
-    if (!(await this.isEnabled('lead_assigned'))) return;
-    this.logger.log(`Lead created event received: ${payload.leadId}`);
-
-    await this.notificationService.create({
-      userId: payload.assignedTo,
-      event: 'LEAD_CREATED',
-      title: 'New Lead Assigned',
-      message: `A new lead for ${payload.customerName} has been assigned to you.`,
-      data: { leadId: payload.leadId },
-    });
-  }
-
-  @OnEvent('lead.stageChanged')
-  async handleLeadStageChanged(payload: LeadStageChangedPayload): Promise<void> {
-    if (!(await this.isEnabled('stage_changes'))) return;
-    this.logger.log(
-      `Lead stage changed: ${payload.leadId} from ${payload.previousStage} to ${payload.newStage}`,
-    );
-
-    const usersToNotify = await this.getLeadStakeholders(payload.leadId);
-
-    const notifications = usersToNotify.map((userId) =>
-      this.notificationService.create({
-        userId,
-        event: 'LEAD_STAGE_CHANGED',
-        title: 'Lead Stage Updated',
-        message: `Lead for ${payload.customerName} moved from ${payload.previousStage} to ${payload.newStage}.`,
-        data: {
-          leadId: payload.leadId,
-          previousStage: payload.previousStage,
-          newStage: payload.newStage,
-        },
-      }),
-    );
-
-    await Promise.allSettled(notifications);
   }
 
   @OnEvent('lead.assigned')
@@ -225,22 +172,18 @@ export class LeadEventListener {
 
     const userIds = new Set<string>();
 
-    // All assignees (owners/reps)
     for (const assignment of lead.assignments) {
       userIds.add(assignment.userId);
     }
 
-    // Project Manager
     if (lead.projectManagerId) {
       userIds.add(lead.projectManagerId);
     }
 
-    // Creator
     if (lead.createdById) {
       userIds.add(lead.createdById);
     }
 
-    // Remove excluded users
     for (const id of excludeIds) {
       userIds.delete(id);
     }

@@ -13,12 +13,12 @@ export interface TaskWithAssignee {
   dueDate?: Date | null;
   completedAt?: Date | null;
   completedById?: string | null;
-  metadata?: Record<string, any> | null;
+  metadata?: unknown;
   createdAt: Date;
   updatedAt: Date;
   assignee?: { id: string; firstName: string; lastName: string; email: string } | null;
   lead?: { id: string; currentStage: string; customer?: { firstName: string; lastName: string } | null } | null;
-  subtasks?: any[];
+  subtasks?: TaskWithAssignee[];
   parentTask?: { id: string; title: string } | null;
 }
 

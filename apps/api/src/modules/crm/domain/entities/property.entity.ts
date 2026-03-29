@@ -13,8 +13,8 @@ export class PropertyEntity {
   electricalService: string | null;
   hasPool: boolean;
   hasEV: boolean;
-  monthlyBill: any | null;
-  annualKwhUsage: any | null;
+  monthlyBill: number | null;
+  annualKwhUsage: number | null;
   utilityProvider: string | null;
   isInsideServiceArea: boolean | null;
   notes: string | null;

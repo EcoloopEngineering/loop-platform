@@ -66,7 +66,7 @@ export function createWinstonLogger() {
           awsAccessKeyId: awsAccessKey,
           awsSecretKey: awsSecretKey,
           awsRegion: awsRegion,
-          messageFormatter: (log: any) => JSON.stringify(log),
+          messageFormatter: (log: Record<string, unknown>) => JSON.stringify(log),
           retentionInDays: 30,
           jsonMessage: true,
           level: 'info',
@@ -81,7 +81,7 @@ export function createWinstonLogger() {
           awsAccessKeyId: awsAccessKey,
           awsSecretKey: awsSecretKey,
           awsRegion: awsRegion,
-          messageFormatter: (log: any) => JSON.stringify(log),
+          messageFormatter: (log: Record<string, unknown>) => JSON.stringify(log),
           retentionInDays: 90,
           jsonMessage: true,
           level: 'error',
@@ -96,7 +96,7 @@ export function createWinstonLogger() {
           awsAccessKeyId: awsAccessKey,
           awsSecretKey: awsSecretKey,
           awsRegion: awsRegion,
-          messageFormatter: (log: any) => {
+          messageFormatter: (log: Record<string, unknown>) => {
             if (log.type === 'audit' || log.type === 'audit_error') {
               return JSON.stringify(log);
             }
@@ -109,8 +109,9 @@ export function createWinstonLogger() {
       );
 
       console.log('CloudWatch logging enabled');
-    } catch (e: any) {
-      console.warn(`CloudWatch logging not available: ${e.message}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.warn(`CloudWatch logging not available: ${message}`);
     }
   }
 

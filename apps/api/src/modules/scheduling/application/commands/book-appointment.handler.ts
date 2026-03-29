@@ -2,8 +2,14 @@ import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { Injectable, Logger, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { JobberService } from '../../../../integrations/jobber/jobber.service';
+import { Appointment, Lead, Customer, Property } from '@prisma/client';
 import { AppointmentBookedEvent } from '../../domain/events/appointment-booked.event';
 import { AppointmentType } from '../../domain/entities/appointment.entity';
+
+type LeadWithRelations = Lead & {
+  customer: Customer | null;
+  property: Property | null;
+};
 
 export class BookAppointmentCommand {
   constructor(
@@ -96,7 +102,7 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
     return appointment;
   }
 
-  private async syncToJobber(appointment: any, lead: any, endAt: Date): Promise<void> {
+  private async syncToJobber(appointment: Appointment, lead: LeadWithRelations | null, endAt: Date): Promise<void> {
     if (!lead?.customer || !lead?.property) {
       this.logger.debug('Skipping Jobber sync — missing customer or property data');
       return;
@@ -127,8 +133,9 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
       });
 
       this.logger.log(`Jobber booking created for appointment ${appointment.id}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to create Jobber booking: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to create Jobber booking: ${message}`);
       // Appointment stays as PENDING locally — Jobber sync failed but local booking is valid
     }
   }

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { LeadStage } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 
 @Injectable()
@@ -49,7 +50,7 @@ export class AutoAdvanceInstallsHandler {
 
         await this.prisma.lead.update({
           where: { id: lead.id },
-          data: { currentStage: 'COMMISSION' as any },
+          data: { currentStage: LeadStage.COMMISSION },
         });
 
         await this.prisma.leadActivity.create({
@@ -83,8 +84,9 @@ export class AutoAdvanceInstallsHandler {
 
       this.logger.log(`Auto-advance complete: ${advancedCount} leads advanced`);
       return advancedCount;
-    } catch (error: any) {
-      this.logger.error(`Auto-advance installs failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Auto-advance installs failed: ${message}`);
       return 0;
     }
   }

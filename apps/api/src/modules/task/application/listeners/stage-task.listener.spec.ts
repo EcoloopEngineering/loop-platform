@@ -65,7 +65,7 @@ describe('StageTaskListener', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           leadId: 'lead-1',
-          type: 'TASK_CREATED',
+          type: 'STAGE_CHANGE',
         }),
       }),
     );

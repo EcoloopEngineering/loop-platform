@@ -1,26 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { QueryBus } from '@nestjs/cqrs';
 import { DashboardController } from './dashboard.controller';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
-import { createMockPrismaService, MockPrismaService } from '../../../test/prisma-mock.helper';
+import { DashboardMetricsService } from '../application/services/dashboard-metrics.service';
 import { GetDashboardQuery } from '../application/queries/get-dashboard.handler';
 import { GetScoreboardQuery } from '../application/queries/get-scoreboard.handler';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
   let queryBus: { execute: jest.Mock };
-  let prisma: MockPrismaService;
+  let metricsService: { getMetrics: jest.Mock };
 
   beforeEach(async () => {
     queryBus = { execute: jest.fn() };
-    prisma = createMockPrismaService();
+    metricsService = { getMetrics: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [DashboardController],
       providers: [
         { provide: QueryBus, useValue: queryBus },
-        { provide: PrismaService, useValue: prisma },
+        { provide: DashboardMetricsService, useValue: metricsService },
       ],
     })
       .overrideGuard(FirebaseAuthGuard)
@@ -70,39 +69,20 @@ describe('DashboardController', () => {
   });
 
   describe('getMetrics', () => {
-    it('should return aggregated platform metrics', async () => {
-      prisma.lead.count
-        .mockResolvedValueOnce(100)  // totalLeads
-        .mockResolvedValueOnce(25);  // wonLeads
-      (prisma.commission as any).aggregate = jest.fn().mockResolvedValue({
-        _sum: { amount: 50000 },
-      });
-      prisma.user.count.mockResolvedValue(15);
-
-      const result = await controller.getMetrics('2026-01-01', '2026-03-31');
-
-      expect(result).toEqual({
+    it('should delegate to DashboardMetricsService', async () => {
+      const metricsData = {
         totalLeads: 100,
         wonLeads: 25,
         conversionRate: 25,
         totalCommission: 50000,
         activeUsers: 15,
-      });
-    });
-
-    it('should return 0 conversion rate when no leads exist', async () => {
-      prisma.lead.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
-      (prisma.commission as any).aggregate = jest.fn().mockResolvedValue({
-        _sum: { amount: null },
-      });
-      prisma.user.count.mockResolvedValue(5);
+      };
+      metricsService.getMetrics.mockResolvedValue(metricsData);
 
       const result = await controller.getMetrics('2026-01-01', '2026-03-31');
 
-      expect(result.conversionRate).toBe(0);
-      expect(result.totalCommission).toBe(0);
+      expect(metricsService.getMetrics).toHaveBeenCalledWith('2026-01-01', '2026-03-31');
+      expect(result).toEqual(metricsData);
     });
   });
 });

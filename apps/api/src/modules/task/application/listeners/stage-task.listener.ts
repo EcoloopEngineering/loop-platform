@@ -1,7 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { GoogleChatService } from '../../../../integrations/google-chat/google-chat.service';
+
+interface SubtaskDefinition {
+  title: string;
+  description?: string;
+}
+
+interface LeadWithMetadata {
+  id: string;
+  metadata: Record<string, unknown> | null;
+  property: { state: string } | null;
+}
 
 interface LeadStageChangedPayload {
   leadId: string;
@@ -56,7 +68,7 @@ export class StageTaskListener {
 
       for (const template of templates) {
         // 2. Evaluate conditions
-        if (!this.evaluateConditions(template.conditions, lead)) {
+        if (!this.evaluateConditions(template.conditions as Record<string, unknown> | null, lead as unknown as LeadWithMetadata)) {
           this.logger.debug(`Template "${template.title}" conditions not met, skipping`);
           continue;
         }
@@ -83,7 +95,7 @@ export class StageTaskListener {
         createdTasks.push(task.id);
 
         // Create subtasks if defined
-        const subtaskDefs = template.subtasks as any[] | null;
+        const subtaskDefs = template.subtasks as SubtaskDefinition[] | null;
         if (subtaskDefs?.length) {
           for (const sub of subtaskDefs) {
             await this.prisma.task.create({
@@ -105,7 +117,7 @@ export class StageTaskListener {
         await this.prisma.leadActivity.create({
           data: {
             leadId: payload.leadId,
-            type: 'TASK_CREATED' as any,
+            type: 'STAGE_CHANGE',
             description: `${createdTasks.length} task(s) auto-created for stage ${payload.newStage}`,
           },
         });
@@ -113,10 +125,12 @@ export class StageTaskListener {
         // 4. Send Google Chat notification
         await this.sendChatNotification(payload, createdTasks.length);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Failed to create tasks for lead ${payload.leadId}: ${error.message}`,
-        error.stack,
+        `Failed to create tasks for lead ${payload.leadId}: ${message}`,
+        stack,
       );
     }
   }
@@ -125,12 +139,12 @@ export class StageTaskListener {
    * Evaluate template conditions against lead data.
    * Returns true if all conditions match (or if no conditions defined).
    */
-  evaluateConditions(conditions: any, lead: any): boolean {
+  evaluateConditions(conditions: Record<string, unknown> | null, lead: LeadWithMetadata): boolean {
     if (!conditions || typeof conditions !== 'object' || Object.keys(conditions).length === 0) {
       return true;
     }
 
-    const metadata = (lead.metadata as Record<string, any>) ?? {};
+    const metadata = (lead.metadata as Record<string, unknown>) ?? {};
     const state = lead.property?.state;
 
     for (const [key, value] of Object.entries(conditions)) {
@@ -184,7 +198,7 @@ export class StageTaskListener {
       };
       const mappedRole = roleMap[role] ?? role;
       const user = await this.prisma.user.findFirst({
-        where: { role: mappedRole as any, isActive: true },
+        where: { role: mappedRole as UserRole, isActive: true },
         select: { id: true },
       });
       if (user) return user.id;
@@ -206,8 +220,8 @@ export class StageTaskListener {
         select: { metadata: true },
       });
 
-      const metadata = (lead?.metadata as Record<string, any>) ?? {};
-      const spaceName = metadata.googleChatSpace;
+      const metadata = (lead?.metadata as Record<string, unknown>) ?? {};
+      const spaceName = metadata.googleChatSpace as string | undefined;
 
       if (spaceName) {
         await this.googleChat.sendMessage(
@@ -215,8 +229,9 @@ export class StageTaskListener {
           `*${taskCount} new task(s)* created for *${payload.customerName}* (stage: ${payload.newStage}). Check the task list for details.`,
         );
       }
-    } catch (error: any) {
-      this.logger.warn(`Failed to send Google Chat notification: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send Google Chat notification: ${message}`);
     }
   }
 }

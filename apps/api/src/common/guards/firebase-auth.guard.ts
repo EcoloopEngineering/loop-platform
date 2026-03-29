@@ -16,7 +16,15 @@ const SAFE_USER_SELECT = {
   invitationCode: true, language: true, lastLoginAt: true,
   createdAt: true, updatedAt: true,
 };
+import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
+
+interface JwtPayload {
+  sub?: string;
+  email?: string;
+  iat?: number;
+  exp?: number;
+}
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
@@ -68,7 +76,7 @@ export class FirebaseAuthGuard implements CanActivate {
 
     // 1. Try JWT verification first (our own tokens)
     try {
-      const payload = jwt.verify(token, this.jwtSecret) as any;
+      const payload = jwt.verify(token, this.jwtSecret) as JwtPayload;
       if (payload?.sub) {
         const user = await this.prisma.user.findUnique({
           where: { id: payload.sub },
@@ -117,7 +125,7 @@ export class FirebaseAuthGuard implements CanActivate {
     throw new UnauthorizedException('Invalid token');
   }
 
-  private extractToken(request: any): string | undefined {
+  private extractToken(request: Request): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     return type === 'Bearer' ? token : undefined;
   }
