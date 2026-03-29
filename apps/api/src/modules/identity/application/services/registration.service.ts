@@ -1,4 +1,4 @@
-import { Injectable, Inject, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, Inject, ConflictException, Logger, BadRequestException } from '@nestjs/common';
 import { UserRole } from '@loop/shared';
 import {
   USER_REPOSITORY,
@@ -9,6 +9,7 @@ import {
   ReferralRepositoryPort,
 } from '../ports/referral.repository.port';
 import { AuthService } from './auth.service';
+import { validatePasswordPolicy } from '../../../../common/validators/password-policy.validator';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 
@@ -35,6 +36,8 @@ export class RegistrationService {
   }) {
     const existing = await this.userRepo.findRawByEmail(params.email.toLowerCase());
     if (existing) throw new ConflictException('Email already registered');
+
+    validatePasswordPolicy(params.password);
 
     const passwordHash = await bcrypt.hash(params.password, 12);
     const isEmployee = params.email.toLowerCase().endsWith('@ecoloop.us');

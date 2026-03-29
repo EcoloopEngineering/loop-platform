@@ -26,6 +26,7 @@ import { TaskModule } from './modules/task/task.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { HealthModule } from './infrastructure/health/health.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
+import { CacheModule } from './infrastructure/cache/cache.module';
 
 @Module({
   imports: [
@@ -38,7 +39,8 @@ import { QueueModule } from './infrastructure/queue/queue.module';
     }]),
     PrismaModule,
     FirebaseModule,
-    QueueModule,
+    QueueModule.forRoot(),
+    CacheModule,
     EmailModule,
     PdfModule,
     StorageModule,

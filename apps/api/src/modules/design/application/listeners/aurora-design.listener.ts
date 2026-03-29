@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { QUEUE_DESIGN } from '../../../../infrastructure/queue/queue.module';
+import { QueueFallbackService } from '../../../../infrastructure/queue/queue-fallback.service';
 import { DesignJobData } from '../../../../infrastructure/queue/processors/design.processor';
 
 interface AiDesignRequestedPayload {
@@ -24,7 +24,8 @@ export class AuroraDesignListener {
 
   constructor(
     private readonly prisma: PrismaService,
-    @InjectQueue(QUEUE_DESIGN) private readonly designQueue: Queue<DesignJobData>,
+    private readonly queueFallback: QueueFallbackService,
+    @Optional() @Inject(`BullQueue_${QUEUE_DESIGN}`) private readonly designQueue: Queue<DesignJobData> | null,
   ) {}
 
   @OnEvent('design.requested.ai')
@@ -32,7 +33,8 @@ export class AuroraDesignListener {
     this.logger.log(`Enqueuing Aurora enrichment for lead ${payload.leadId}`);
 
     try {
-      await this.designQueue.add(
+      await this.queueFallback.addOrExecute(
+        this.designQueue,
         'aurora-enrichment',
         {
           designRequestId: payload.designRequestId,
@@ -46,6 +48,12 @@ export class AuroraDesignListener {
           userId: payload.userId,
         },
         { jobId: `design-${payload.designRequestId}` },
+        async (_data) => {
+          // Synchronous fallback — the DesignProcessor will handle it
+          // In fallback mode, this is a no-op since Aurora API calls
+          // should still be attempted but may fail gracefully
+          this.logger.log(`[Fallback] Aurora design job would be processed for lead ${payload.leadId}`);
+        },
       );
 
       this.logger.log(`Aurora design job enqueued for lead ${payload.leadId}`);

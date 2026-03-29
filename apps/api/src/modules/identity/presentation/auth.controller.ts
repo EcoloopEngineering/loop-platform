@@ -49,7 +49,7 @@ export class AuthController {
 
   @Post('login')
   @SetMetadata('isPublic', true)
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Login with email and password' })
   async login(@Body() dto: LoginDto) {

@@ -1,25 +1,28 @@
 import { Test } from '@nestjs/testing';
-import { getQueueToken } from '@nestjs/bullmq';
 import { AuroraDesignListener } from './aurora-design.listener';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { QUEUE_DESIGN } from '../../../../infrastructure/queue/queue.module';
+import { QueueFallbackService } from '../../../../infrastructure/queue/queue-fallback.service';
 import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('AuroraDesignListener', () => {
   let listener: AuroraDesignListener;
   let prisma: MockPrismaService;
   let designQueue: { add: jest.Mock };
+  let queueFallback: QueueFallbackService;
 
   beforeEach(async () => {
     prisma = createMockPrismaService();
     prisma.leadActivity.create.mockResolvedValue({});
     designQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
+    queueFallback = new QueueFallbackService(true);
 
     const module = await Test.createTestingModule({
       providers: [
         AuroraDesignListener,
         { provide: PrismaService, useValue: prisma },
-        { provide: getQueueToken(QUEUE_DESIGN), useValue: designQueue },
+        { provide: QueueFallbackService, useValue: queueFallback },
+        { provide: `BullQueue_${QUEUE_DESIGN}`, useValue: designQueue },
       ],
     }).compile();
 

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, BadRequestException } from '@nestjs/common';
 import { RegistrationService } from './registration.service';
 import { AuthService } from './auth.service';
 import { USER_REPOSITORY } from '../ports/user.repository.port';
@@ -104,7 +104,7 @@ describe('RegistrationService', () => {
 
       const result = await service.register({
         email: 'test@example.com',
-        password: 'password123',
+        password: 'Password1',
         firstName: 'Test',
         lastName: 'User',
       });
@@ -120,13 +120,26 @@ describe('RegistrationService', () => {
       expect(decoded.email).toBe('test@example.com');
     });
 
+    it('should throw BadRequestException for weak password', async () => {
+      userRepo.findRawByEmail.mockResolvedValue(null);
+
+      await expect(
+        service.register({
+          email: 'test@example.com',
+          password: 'weak',
+          firstName: 'Test',
+          lastName: 'User',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should throw ConflictException if email already exists', async () => {
       userRepo.findRawByEmail.mockResolvedValue({ id: 'existing' });
 
       await expect(
         service.register({
           email: 'test@example.com',
-          password: 'password123',
+          password: 'Password1',
           firstName: 'Test',
           lastName: 'User',
         }),
@@ -152,7 +165,7 @@ describe('RegistrationService', () => {
 
       await service.register({
         email: 'partner@gmail.com',
-        password: 'password123',
+        password: 'Password1',
         firstName: 'Partner',
         lastName: 'User',
         inviteCode: 'invite-code-1',
@@ -182,7 +195,7 @@ describe('RegistrationService', () => {
 
       await service.register({
         email: 'john@ecoloop.us',
-        password: 'password123',
+        password: 'Password1',
         firstName: 'John',
         lastName: 'Doe',
       });
@@ -210,7 +223,7 @@ describe('RegistrationService', () => {
 
       await service.register({
         email: 'john@ecoloop.us',
-        password: 'password123',
+        password: 'Password1',
         firstName: 'John',
         lastName: 'Doe',
         inviteCode: 'some-code',
@@ -237,7 +250,7 @@ describe('RegistrationService', () => {
 
       const result = await service.register({
         email: 'partner@gmail.com',
-        password: 'password123',
+        password: 'Password1',
         firstName: 'Partner',
         lastName: 'User',
         inviteCode: 'bad-code',
@@ -264,7 +277,7 @@ describe('RegistrationService', () => {
 
       await service.register({
         email: 'partner@gmail.com',
-        password: 'password123',
+        password: 'Password1',
         firstName: 'Partner',
         lastName: 'User',
         inviteCode: 'nonexistent-code',

@@ -37,7 +37,7 @@ export function useNotificationPoller(intervalMs = 30000) {
   async function fetchNotifications() {
     try {
       const { data } = await api.get('/notifications');
-      notifications.value = Array.isArray(data) ? data : (data as any).data ?? [];
+      notifications.value = Array.isArray(data) ? data : ((data as { data?: AppNotification[] }).data ?? []);
     } catch {
       // silent — notifications are non-critical
     }

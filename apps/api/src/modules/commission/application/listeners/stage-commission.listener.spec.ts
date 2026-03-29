@@ -1,8 +1,8 @@
 import { Test } from '@nestjs/testing';
-import { getQueueToken } from '@nestjs/bullmq';
 import { StageCommissionListener } from './stage-commission.listener';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { QUEUE_COMMISSION } from '../../../../infrastructure/queue/queue.module';
+import { QueueFallbackService } from '../../../../infrastructure/queue/queue-fallback.service';
 import {
   createMockPrismaService,
   MockPrismaService,
@@ -12,16 +12,19 @@ describe('StageCommissionListener', () => {
   let listener: StageCommissionListener;
   let prisma: MockPrismaService;
   let commissionQueue: { add: jest.Mock };
+  let queueFallback: QueueFallbackService;
 
   beforeEach(async () => {
     prisma = createMockPrismaService();
     commissionQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
+    queueFallback = new QueueFallbackService(true);
 
     const module = await Test.createTestingModule({
       providers: [
         StageCommissionListener,
         { provide: PrismaService, useValue: prisma },
-        { provide: getQueueToken(QUEUE_COMMISSION), useValue: commissionQueue },
+        { provide: QueueFallbackService, useValue: queueFallback },
+        { provide: `BullQueue_${QUEUE_COMMISSION}`, useValue: commissionQueue },
       ],
     }).compile();
 

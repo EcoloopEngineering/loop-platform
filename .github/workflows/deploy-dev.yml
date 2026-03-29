@@ -140,7 +140,7 @@ jobs:
 
           echo "--- Starting API ---"
           cd $CURRENT_LINK/apps/api
-          pm2 start dist/main.js --name api --cwd $CURRENT_LINK/apps/api
+          pm2 start dist/main.js --name api -i 2 --cwd $CURRENT_LINK/apps/api
           pm2 save
 
           echo "--- Health check (5 attempts × 5s) ---"
@@ -163,7 +163,7 @@ jobs:
             if [ -n "$PREV_RELEASE" ] && [ -d "$PREV_RELEASE" ]; then
               ln -sfn $PREV_RELEASE $CURRENT_LINK
               cd $CURRENT_LINK/apps/api
-              pm2 start dist/main.js --name api --cwd $CURRENT_LINK/apps/api
+              pm2 start dist/main.js --name api -i 2 --cwd $CURRENT_LINK/apps/api
               pm2 save
               echo "Rolled back to $PREV_RELEASE"
             else

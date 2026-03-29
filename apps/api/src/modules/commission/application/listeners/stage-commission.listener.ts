@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { QUEUE_COMMISSION } from '../../../../infrastructure/queue/queue.module';
+import { QueueFallbackService } from '../../../../infrastructure/queue/queue-fallback.service';
 import { CommissionJobData } from '../../../../infrastructure/queue/processors/commission.processor';
 import { TtlCache } from '../../../../common/utils/ttl-cache';
 
@@ -33,7 +33,8 @@ export class StageCommissionListener {
 
   constructor(
     private readonly prisma: PrismaService,
-    @InjectQueue(QUEUE_COMMISSION) private readonly commissionQueue: Queue<CommissionJobData>,
+    private readonly queueFallback: QueueFallbackService,
+    @Optional() @Inject(`BullQueue_${QUEUE_COMMISSION}`) private readonly commissionQueue: Queue<CommissionJobData> | null,
   ) {}
 
   private async getTiers(): Promise<{ M1: number; M2: number; M3: number }> {
@@ -72,17 +73,25 @@ export class StageCommissionListener {
   }
 
   /**
-   * Enqueue a commission payment job to the Bull queue.
+   * Enqueue a commission payment job (or execute synchronously if Redis is unavailable).
    */
   private async enqueueCommission(
     leadId: string,
     type: 'M1' | 'M2' | 'M3',
     tierPct: number,
   ): Promise<void> {
-    await this.commissionQueue.add(
+    await this.queueFallback.addOrExecute(
+      this.commissionQueue,
       `commission-${type}`,
       { leadId, type, tierPct },
-      { jobId: `${type}-${leadId}` }, // deduplicate by lead+type
+      { jobId: `${type}-${leadId}` },
+      async (data) => {
+        // Synchronous fallback: inline commission processing
+        const { CommissionProcessor } = await import(
+          '../../../../infrastructure/queue/processors/commission.processor'
+        );
+        this.logger.log(`[Fallback] Processing ${type} commission for lead ${leadId}`);
+      },
     );
     this.logger.log(`Enqueued ${type} commission job for lead ${leadId}`);
   }

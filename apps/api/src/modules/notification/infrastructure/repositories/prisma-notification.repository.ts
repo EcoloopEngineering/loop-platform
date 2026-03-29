@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { NotificationRepositoryPort } from '../../application/ports/notification.repository.port';
+import {
+  NotificationRepositoryPort,
+  LeadStakeholders,
+} from '../../application/ports/notification.repository.port';
 
 @Injectable()
 export class PrismaNotificationRepository implements NotificationRepositoryPort {
@@ -62,5 +65,63 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
       where: { userId },
       select: { token: true },
     });
+  }
+
+  // ── Lead stakeholder lookups ────────────────────────────────────────────
+
+  async findLeadWithStakeholders(leadId: string): Promise<LeadStakeholders | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      include: {
+        customer: true,
+        assignments: {
+          where: { isPrimary: true },
+          include: { user: { select: { email: true, firstName: true } } },
+        },
+        projectManager: { select: { email: true, firstName: true } },
+        property: { select: { streetAddress: true, city: true, state: true } },
+      },
+    }) as Promise<LeadStakeholders | null>;
+  }
+
+  async findLeadMetadata(leadId: string): Promise<{ metadata: unknown } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: { metadata: true },
+    });
+  }
+
+  async findLeadWithPrimaryAssignment(leadId: string): Promise<{
+    id: string;
+    assignments: Array<{
+      isPrimary: boolean;
+      user: { firstName: string; lastName: string } | null;
+    }>;
+  } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      include: {
+        assignments: {
+          where: { isPrimary: true },
+          include: { user: { select: { firstName: true, lastName: true } } },
+        },
+      },
+    }) as any;
+  }
+
+  async updateLeadMetadata(leadId: string, metadata: Record<string, unknown>): Promise<void> {
+    await this.prisma.lead.update({
+      where: { id: leadId },
+      data: { metadata: metadata as any },
+    });
+  }
+
+  // ── Settings ────────────────────────────────────────────────────────────
+
+  async findNotificationSetting(): Promise<Record<string, boolean> | null> {
+    const setting = await this.prisma.appSetting.findUnique({
+      where: { key: 'notifications' },
+    });
+    return (setting?.value as Record<string, boolean>) ?? null;
   }
 }

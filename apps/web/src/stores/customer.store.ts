@@ -52,13 +52,22 @@ export const useCustomerStore = defineStore('customer', () => {
         '/customers',
         { params },
       );
-      const raw = Array.isArray(data) ? data : data.data ?? [];
-      customers.value = raw.map((c: any) => ({
+      interface RawCustomer extends Partial<Customer> {
+        firstName?: string;
+        lastName?: string;
+        _count?: { leads?: number };
+      }
+      const raw: RawCustomer[] = Array.isArray(data) ? data : data.data ?? [];
+      customers.value = raw.map((c) => ({
         ...c,
+        id: c.id ?? '',
         name: `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || c.name || '--',
+        email: c.email ?? '',
         leadsCount: c._count?.leads ?? c.leadsCount ?? 0,
+        propertiesCount: c.propertiesCount ?? 0,
+        createdAt: c.createdAt ?? '',
       }));
-      total.value = (data as any).total ?? (data as any).meta?.total ?? raw.length;
+      total.value = (data as { total?: number; meta?: { total: number } }).total ?? (data as { meta?: { total: number } }).meta?.total ?? raw.length;
     } finally {
       loading.value = false;
     }

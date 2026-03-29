@@ -39,6 +39,7 @@ import { LeadNoteService } from './application/services/lead-note.service';
 import { LeadAssignmentService } from './application/services/lead-assignment.service';
 import { LeadScoringAppService } from './application/services/lead-scoring-app.service';
 import { PipelineTransitionService } from './application/services/pipeline-transition.service';
+import { StageAdvanceService } from './application/services/stage-advance.service';
 
 // Listeners
 import { StageAdvanceListener } from './application/listeners/stage-advance.listener';
@@ -79,6 +80,7 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
     LeadAssignmentService,
     LeadScoringAppService,
     PipelineTransitionService,
+    StageAdvanceService,
     ...CommandHandlers,
     ...QueryHandlers,
     ...CronHandlers,

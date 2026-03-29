@@ -1,118 +1,64 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GoogleChatListener } from './google-chat.listener';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { GoogleChatService } from '../../../../integrations/google-chat/google-chat.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { GoogleChatNotificationService } from '../services/google-chat-notification.service';
 
 describe('GoogleChatListener', () => {
   let listener: GoogleChatListener;
-  let prisma: MockPrismaService;
-  let chatService: { isConfigured: jest.Mock; createSpace: jest.Mock; sendMessage: jest.Mock; sendCard: jest.Mock };
+  let service: {
+    handleLeadCreated: jest.Mock;
+    handleStageChanged: jest.Mock;
+    handleNoteAdded: jest.Mock;
+    handlePMAssigned: jest.Mock;
+    handleScoreboard: jest.Mock;
+  };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
-    chatService = {
-      isConfigured: jest.fn().mockReturnValue(true),
-      createSpace: jest.fn().mockResolvedValue({ spaceName: 'spaces/abc', displayName: 'Test' }),
-      sendMessage: jest.fn().mockResolvedValue(undefined),
-      sendCard: jest.fn().mockResolvedValue(undefined),
+    service = {
+      handleLeadCreated: jest.fn().mockResolvedValue(undefined),
+      handleStageChanged: jest.fn().mockResolvedValue(undefined),
+      handleNoteAdded: jest.fn().mockResolvedValue(undefined),
+      handlePMAssigned: jest.fn().mockResolvedValue(undefined),
+      handleScoreboard: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GoogleChatListener,
-        { provide: PrismaService, useValue: prisma },
-        { provide: GoogleChatService, useValue: chatService },
+        { provide: GoogleChatNotificationService, useValue: service },
       ],
     }).compile();
 
     listener = module.get(GoogleChatListener);
   });
 
-  it('should be defined', () => {
-    expect(listener).toBeDefined();
+  it('delegates handleLeadCreated to service', async () => {
+    const payload = { leadId: '1', assignedTo: 'u1', customerName: 'Test' };
+    await listener.handleLeadCreated(payload);
+    expect(service.handleLeadCreated).toHaveBeenCalledWith(payload);
   });
 
-  describe('handleLeadCreated', () => {
-    it('skips when not configured', async () => {
-      chatService.isConfigured.mockReturnValue(false);
-      await listener.handleLeadCreated({ leadId: '1', assignedTo: 'u1', customerName: 'Test' });
-      expect(chatService.createSpace).not.toHaveBeenCalled();
-    });
-
-    it('creates space and saves to metadata', async () => {
-      prisma.lead.findUnique.mockResolvedValue({
-        id: '1',
-        metadata: {},
-        property: { streetAddress: '123 Main', city: 'Miami', state: 'FL' },
-        assignments: [{ user: { email: 'rep@ecoloop.us' } }],
-        projectManager: { email: 'pm@ecoloop.us' },
-      });
-      prisma.lead.update.mockResolvedValue({});
-
-      await listener.handleLeadCreated({ leadId: '1', assignedTo: 'u1', customerName: 'John Doe' });
-
-      expect(chatService.createSpace).toHaveBeenCalledWith({
-        displayName: 'John Doe | 123 Main, Miami, FL',
-        members: ['rep@ecoloop.us', 'pm@ecoloop.us'],
-      });
-      expect(prisma.lead.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: { metadata: { googleChatSpaceName: 'spaces/abc' } },
-      });
-    });
+  it('delegates handleStageChanged to service', async () => {
+    const payload = { leadId: '1', customerName: 'Test', previousStage: 'NEW_LEAD', newStage: 'WON' };
+    await listener.handleStageChanged(payload);
+    expect(service.handleStageChanged).toHaveBeenCalledWith(payload);
   });
 
-  describe('handleStageChanged', () => {
-    it('sends message to space', async () => {
-      prisma.lead.findUnique.mockResolvedValue({
-        metadata: { googleChatSpaceName: 'spaces/abc' },
-      });
-
-      await listener.handleStageChanged({
-        leadId: '1',
-        customerName: 'Test',
-        previousStage: 'NEW_LEAD',
-        newStage: 'DESIGN_READY',
-      });
-
-      expect(chatService.sendMessage).toHaveBeenCalledWith(
-        'spaces/abc',
-        expect.stringContaining('New Lead'),
-      );
-    });
-
-    it('skips when no space name', async () => {
-      prisma.lead.findUnique.mockResolvedValue({ metadata: {} });
-
-      await listener.handleStageChanged({
-        leadId: '1',
-        customerName: 'Test',
-        previousStage: 'NEW_LEAD',
-        newStage: 'WON',
-      });
-
-      expect(chatService.sendMessage).not.toHaveBeenCalled();
-    });
+  it('delegates handleNoteAdded to service', async () => {
+    const payload = { leadId: '1', customerName: 'Test', addedByName: 'Rafael', notePreview: 'Note' };
+    await listener.handleNoteAdded(payload);
+    expect(service.handleNoteAdded).toHaveBeenCalledWith(payload);
   });
 
-  describe('handleNoteAdded', () => {
-    it('sends note to space', async () => {
-      prisma.lead.findUnique.mockResolvedValue({
-        metadata: { googleChatSpaceName: 'spaces/abc' },
-      });
+  it('delegates handlePMAssigned to service', async () => {
+    const payload = { leadId: '1', pmName: 'Bob', customerName: 'Test' };
+    await listener.handlePMAssigned(payload);
+    expect(service.handlePMAssigned).toHaveBeenCalledWith(payload);
+  });
 
-      await listener.handleNoteAdded({
-        leadId: '1',
-        customerName: 'Test',
-        addedByName: 'Rafael',
-        notePreview: 'Call scheduled',
-      });
-
-      expect(chatService.sendMessage).toHaveBeenCalledWith(
-        'spaces/abc',
-        expect.stringContaining('Rafael'),
-      );
-    });
+  it('catches errors without rethrowing', async () => {
+    service.handleLeadCreated.mockRejectedValue(new Error('API error'));
+    await expect(
+      listener.handleLeadCreated({ leadId: '1', assignedTo: 'u1', customerName: 'Test' }),
+    ).resolves.toBeUndefined();
   });
 });

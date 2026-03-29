@@ -4,7 +4,6 @@
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
-import { getQueueToken } from '@nestjs/bullmq';
 import { CreateLeadHandler } from '../modules/crm/application/commands/create-lead.handler';
 import { CreateLeadCommand } from '../modules/crm/application/commands/create-lead.command';
 import { ChangeLeadStageHandler, ChangeLeadStageCommand } from '../modules/crm/application/commands/change-lead-stage.command';
@@ -15,6 +14,7 @@ import { CUSTOMER_REPOSITORY } from '../modules/crm/application/ports/customer.r
 import { PROPERTY_REPOSITORY } from '../modules/crm/application/ports/property.repository.port';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { QUEUE_COMMISSION } from '../infrastructure/queue/queue.module';
+import { QueueFallbackService } from '../infrastructure/queue/queue-fallback.service';
 import {
   createMockPrismaService,
   MockPrismaService,
@@ -68,7 +68,8 @@ describe('Lead Flow Integration', () => {
         { provide: CUSTOMER_REPOSITORY, useValue: customerRepo },
         { provide: PROPERTY_REPOSITORY, useValue: propertyRepo },
         { provide: PrismaService, useValue: prisma },
-        { provide: getQueueToken(QUEUE_COMMISSION), useValue: commissionQueue },
+        { provide: QueueFallbackService, useValue: new QueueFallbackService(true) },
+        { provide: `BullQueue_${QUEUE_COMMISSION}`, useValue: commissionQueue },
       ],
     }).compile();
 

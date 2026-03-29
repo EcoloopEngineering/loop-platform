@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LeaderboardService } from './leaderboard.service';
 import { GAMIFICATION_EVENT_REPOSITORY } from '../ports/gamification-event.repository.port';
+import { CacheService } from '../../../../infrastructure/cache/cache.service';
 
 describe('LeaderboardService', () => {
   let service: LeaderboardService;
+  let cache: CacheService;
   let mockRepo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
@@ -19,10 +21,12 @@ describe('LeaderboardService', () => {
       providers: [
         LeaderboardService,
         { provide: GAMIFICATION_EVENT_REPOSITORY, useValue: mockRepo },
+        CacheService,
       ],
     }).compile();
 
     service = module.get<LeaderboardService>(LeaderboardService);
+    cache = module.get<CacheService>(CacheService);
   });
 
   it('should be defined', () => {
@@ -63,6 +67,50 @@ describe('LeaderboardService', () => {
       const result = await service.getWeeklyLeaderboard();
 
       expect(result).toEqual([]);
+    });
+
+    it('should return cached result on second call', async () => {
+      mockRepo.findByDateRange.mockResolvedValue([
+        {
+          userId: 'user-1',
+          points: 10,
+          user: { firstName: 'Alice', lastName: 'Smith' },
+        },
+      ]);
+
+      await service.getWeeklyLeaderboard();
+      mockRepo.findByDateRange.mockClear();
+
+      const result = await service.getWeeklyLeaderboard();
+
+      expect(result).toHaveLength(1);
+      expect(mockRepo.findByDateRange).not.toHaveBeenCalled();
+    });
+
+    it('should fetch fresh data after cache invalidation', async () => {
+      mockRepo.findByDateRange.mockResolvedValue([
+        {
+          userId: 'user-1',
+          points: 10,
+          user: { firstName: 'Alice', lastName: 'Smith' },
+        },
+      ]);
+
+      await service.getWeeklyLeaderboard();
+      cache.invalidateByPrefix('leaderboard:');
+
+      mockRepo.findByDateRange.mockResolvedValue([
+        {
+          userId: 'user-1',
+          points: 20,
+          user: { firstName: 'Alice', lastName: 'Smith' },
+        },
+      ]);
+
+      const result = await service.getWeeklyLeaderboard();
+
+      expect(result[0].totalPoints).toBe(20);
+      expect(mockRepo.findByDateRange).toHaveBeenCalled();
     });
   });
 

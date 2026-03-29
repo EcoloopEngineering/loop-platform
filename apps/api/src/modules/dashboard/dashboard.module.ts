@@ -12,6 +12,7 @@ import { DASHBOARD_REPOSITORY } from './application/ports/dashboard.repository.p
 import { SETTINGS_REPOSITORY } from './application/ports/settings.repository.port';
 import { PrismaDashboardRepository } from './infrastructure/repositories/prisma-dashboard.repository';
 import { PrismaSettingsRepository } from './infrastructure/repositories/prisma-settings.repository';
+import { DashboardCacheInvalidationListener } from './application/listeners/dashboard-cache-invalidation.listener';
 
 const QueryHandlers = [GetDashboardHandler, GetScoreboardHandler];
 
@@ -24,6 +25,7 @@ const QueryHandlers = [GetDashboardHandler, GetScoreboardHandler];
     SettingsService,
     { provide: DASHBOARD_REPOSITORY, useClass: PrismaDashboardRepository },
     { provide: SETTINGS_REPOSITORY, useClass: PrismaSettingsRepository },
+    DashboardCacheInvalidationListener,
   ],
 })
 export class DashboardModule {}

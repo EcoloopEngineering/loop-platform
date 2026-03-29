@@ -1,4 +1,4 @@
-import { Injectable, Inject, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, Inject, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { EmailService } from '../../../../infrastructure/email/email.service';
@@ -8,9 +8,13 @@ import {
   UserRepositoryPort,
   UserRawRecord,
 } from '../ports/user.repository.port';
+import { validatePasswordPolicy } from '../../../../common/validators/password-policy.validator';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 @Injectable()
 export class AuthService {
@@ -42,10 +46,44 @@ export class AuthService {
     if (!user?.passwordHash) throw new UnauthorizedException('Invalid email or password');
     if (!user.isActive) throw new UnauthorizedException('Account is deactivated');
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('Invalid email or password');
+    // Check account lockout
+    const meta = (user.metadata as Record<string, unknown>) ?? {};
+    const lockedUntil = meta['lockedUntil'] as string | null;
+    if (lockedUntil && new Date(lockedUntil) > new Date()) {
+      throw new UnauthorizedException('Account temporarily locked. Please try again later.');
+    }
 
-    await this.userRepo.updateRaw(user.id, { lastLoginAt: new Date() });
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      // Increment failed attempts
+      const failedAttempts = ((meta['failedAttempts'] as number) || 0) + 1;
+      const updatedMeta: Record<string, unknown> = {
+        ...meta,
+        failedAttempts,
+        lockedUntil: failedAttempts >= MAX_FAILED_ATTEMPTS
+          ? new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString()
+          : null,
+      };
+      await this.userRepo.updateRaw(user.id, { metadata: updatedMeta });
+
+      if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+        this.logger.warn(`Account locked after ${failedAttempts} failed attempts: ${email}`);
+        throw new UnauthorizedException('Account temporarily locked. Please try again later.');
+      }
+
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Successful login — reset failed attempts
+    if (meta['failedAttempts'] || meta['lockedUntil']) {
+      const { failedAttempts: _fa, lockedUntil: _lu, ...cleanMeta } = meta;
+      await this.userRepo.updateRaw(user.id, {
+        lastLoginAt: new Date(),
+        metadata: cleanMeta,
+      });
+    } else {
+      await this.userRepo.updateRaw(user.id, { lastLoginAt: new Date() });
+    }
 
     return {
       user: this.sanitizeUser(user),
@@ -127,6 +165,8 @@ export class AuthService {
     if (!expiry || new Date(expiry as string) < new Date()) {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
+
+    validatePasswordPolicy(newPassword);
 
     const { resetTokenHash: _h, resetExpiry: _e, ...cleanMeta } = meta;
     const passwordHash = await bcrypt.hash(newPassword, 12);

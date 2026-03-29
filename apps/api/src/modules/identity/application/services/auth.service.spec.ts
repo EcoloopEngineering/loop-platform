@@ -1,11 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { USER_REPOSITORY } from '../ports/user.repository.port';
 import { EmailService } from '../../../../infrastructure/email/email.service';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -123,7 +124,7 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('should login with valid credentials and return token', async () => {
-      const passwordHash = await bcrypt.hash('password123', 12);
+      const passwordHash = await bcrypt.hash('Password1', 12);
       const mockUser = {
         id: 'user-1',
         email: 'test@example.com',
@@ -133,12 +134,13 @@ describe('AuthService', () => {
         phone: null,
         role: 'SALES_REP',
         isActive: true,
+        metadata: {},
       };
 
       userRepo.findRawByEmail.mockResolvedValue(mockUser);
       userRepo.updateRaw.mockResolvedValue(mockUser);
 
-      const result = await service.login('test@example.com', 'password123');
+      const result = await service.login('test@example.com', 'Password1');
 
       expect(result.user.email).toBe('test@example.com');
       expect(result.token).toBeDefined();
@@ -152,7 +154,10 @@ describe('AuthService', () => {
         email: 'test@example.com',
         passwordHash,
         isActive: true,
+        metadata: {},
       });
+
+      userRepo.updateRaw.mockResolvedValue({});
 
       await expect(service.login('test@example.com', 'wrong-password')).rejects.toThrow(
         UnauthorizedException,
@@ -168,7 +173,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException for deactivated user', async () => {
-      const passwordHash = await bcrypt.hash('password123', 12);
+      const passwordHash = await bcrypt.hash('Password1', 12);
       userRepo.findRawByEmail.mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
@@ -176,7 +181,7 @@ describe('AuthService', () => {
         isActive: false,
       });
 
-      await expect(service.login('test@example.com', 'password123')).rejects.toThrow(
+      await expect(service.login('test@example.com', 'Password1')).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -189,9 +194,125 @@ describe('AuthService', () => {
         isActive: true,
       });
 
-      await expect(service.login('test@example.com', 'password123')).rejects.toThrow(
+      await expect(service.login('test@example.com', 'Password1')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+
+    it('should increment failedAttempts on wrong password', async () => {
+      const passwordHash = await bcrypt.hash('CorrectPass1', 12);
+      userRepo.findRawByEmail.mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        passwordHash,
+        isActive: true,
+        metadata: { failedAttempts: 2 },
+      });
+      userRepo.updateRaw.mockResolvedValue({});
+
+      await expect(service.login('test@example.com', 'WrongPass1')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', {
+        metadata: expect.objectContaining({ failedAttempts: 3, lockedUntil: null }),
+      });
+    });
+
+    it('should lock account after 5 consecutive failed attempts', async () => {
+      const passwordHash = await bcrypt.hash('CorrectPass1', 12);
+      userRepo.findRawByEmail.mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        passwordHash,
+        isActive: true,
+        metadata: { failedAttempts: 4 },
+      });
+      userRepo.updateRaw.mockResolvedValue({});
+
+      await expect(service.login('test@example.com', 'WrongPass1')).rejects.toThrow(
+        'Account temporarily locked',
+      );
+
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', {
+        metadata: expect.objectContaining({
+          failedAttempts: 5,
+          lockedUntil: expect.any(String),
+        }),
+      });
+    });
+
+    it('should reject login when account is locked', async () => {
+      const passwordHash = await bcrypt.hash('CorrectPass1', 12);
+      const lockedUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      userRepo.findRawByEmail.mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        passwordHash,
+        isActive: true,
+        metadata: { failedAttempts: 5, lockedUntil },
+      });
+
+      await expect(service.login('test@example.com', 'CorrectPass1')).rejects.toThrow(
+        'Account temporarily locked',
+      );
+
+      // Should NOT call updateRaw — rejected before password check
+      expect(userRepo.updateRaw).not.toHaveBeenCalled();
+    });
+
+    it('should allow login after lockout expires', async () => {
+      const passwordHash = await bcrypt.hash('CorrectPass1', 12);
+      const expiredLock = new Date(Date.now() - 1000).toISOString();
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        passwordHash,
+        firstName: 'Test',
+        lastName: 'User',
+        phone: null,
+        role: 'SALES_REP',
+        isActive: true,
+        metadata: { failedAttempts: 5, lockedUntil: expiredLock },
+      };
+
+      userRepo.findRawByEmail.mockResolvedValue(mockUser);
+      userRepo.updateRaw.mockResolvedValue(mockUser);
+
+      const result = await service.login('test@example.com', 'CorrectPass1');
+
+      expect(result.user.email).toBe('test@example.com');
+      expect(result.token).toBeDefined();
+      // Should clear failedAttempts/lockedUntil from metadata
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', {
+        lastLoginAt: expect.any(Date),
+        metadata: expect.not.objectContaining({ failedAttempts: expect.anything() }),
+      });
+    });
+
+    it('should reset failedAttempts on successful login', async () => {
+      const passwordHash = await bcrypt.hash('CorrectPass1', 12);
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        passwordHash,
+        firstName: 'Test',
+        lastName: 'User',
+        phone: null,
+        role: 'SALES_REP',
+        isActive: true,
+        metadata: { failedAttempts: 3, lockedUntil: null, otherData: 'keep' },
+      };
+
+      userRepo.findRawByEmail.mockResolvedValue(mockUser);
+      userRepo.updateRaw.mockResolvedValue(mockUser);
+
+      await service.login('test@example.com', 'CorrectPass1');
+
+      const updateCall = userRepo.updateRaw.mock.calls[0][1];
+      expect(updateCall.metadata).not.toHaveProperty('failedAttempts');
+      expect(updateCall.metadata).not.toHaveProperty('lockedUntil');
+      expect(updateCall.metadata).toHaveProperty('otherData', 'keep');
     });
   });
 
@@ -299,7 +420,6 @@ describe('AuthService', () => {
   describe('resetPasswordWithToken', () => {
     it('should reset password with valid token', async () => {
       const resetToken = 'valid-reset-token';
-      const crypto = require('crypto');
       const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
       const futureExpiry = new Date(Date.now() + 3600000).toISOString();
 
@@ -313,7 +433,7 @@ describe('AuthService', () => {
       userRepo.findFirstByMetadataPath.mockResolvedValue(mockUser);
       userRepo.updateRaw.mockResolvedValue(mockUser);
 
-      const result = await service.resetPasswordWithToken(resetToken, 'newPassword123');
+      const result = await service.resetPasswordWithToken(resetToken, 'NewPassword1');
 
       expect(result.message).toContain('Password reset successfully');
       expect(userRepo.updateRaw).toHaveBeenCalledWith(
@@ -326,8 +446,24 @@ describe('AuthService', () => {
       expect(updateCall.metadata).not.toHaveProperty('resetExpiry');
     });
 
+    it('should reject weak password on reset', async () => {
+      const resetToken = 'valid-reset-token';
+      const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+      const futureExpiry = new Date(Date.now() + 3600000).toISOString();
+
+      userRepo.findFirstByMetadataPath.mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+        metadata: { resetTokenHash, resetExpiry: futureExpiry },
+      });
+
+      await expect(
+        service.resetPasswordWithToken(resetToken, 'weak'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should throw UnauthorizedException for expired token', async () => {
-      const crypto = require('crypto');
       const resetToken = 'expired-token';
       const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
       const pastExpiry = new Date(Date.now() - 3600000).toISOString();

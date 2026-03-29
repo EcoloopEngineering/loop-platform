@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from '@/boot/axios';
+import type { User } from '@/types/api';
 
 const SESSION_TIMEOUT = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -9,7 +10,7 @@ export const useAuthStore = defineStore(
   () => {
     const token = ref<string | null>(null);
     const lastActivity = ref<number>(Date.now());
-    const user = ref<any>(null);
+    const user = ref<User | null>(null);
 
     const isAuthenticated = computed(() => !!token.value && !isSessionExpired());
 

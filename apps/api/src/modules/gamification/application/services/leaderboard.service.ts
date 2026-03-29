@@ -3,6 +3,7 @@ import {
   GAMIFICATION_EVENT_REPOSITORY,
   GamificationEventRepositoryPort,
 } from '../ports/gamification-event.repository.port';
+import { CacheService } from '../../../../infrastructure/cache/cache.service';
 
 /** Point values per event type */
 export const POINT_VALUES: Record<string, number> = {
@@ -19,6 +20,9 @@ export const COIN_MULTIPLIERS: Record<string, number> = {
   ASSIST: 0.5,
 };
 
+/** Leaderboard cache TTL: 120 seconds */
+const LEADERBOARD_CACHE_TTL = 120_000;
+
 export interface LeaderboardEntry {
   userId: string;
   firstName: string;
@@ -33,12 +37,17 @@ export class LeaderboardService {
   constructor(
     @Inject(GAMIFICATION_EVENT_REPOSITORY)
     private readonly eventRepo: GamificationEventRepositoryPort,
+    private readonly cache: CacheService,
   ) {}
 
   /**
    * Get leaderboard for the current week (Monday to Sunday)
    */
   async getWeeklyLeaderboard(): Promise<LeaderboardEntry[]> {
+    const cacheKey = 'leaderboard:weekly';
+    const cached = this.cache.get<LeaderboardEntry[]>(cacheKey);
+    if (cached) return cached;
+
     const now = new Date();
     const dayOfWeek = now.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -46,17 +55,25 @@ export class LeaderboardService {
     startOfWeek.setDate(now.getDate() + mondayOffset);
     startOfWeek.setHours(0, 0, 0, 0);
 
-    return this.getLeaderboard(startOfWeek, now);
+    const result = await this.getLeaderboard(startOfWeek, now);
+    this.cache.set(cacheKey, result, LEADERBOARD_CACHE_TTL);
+    return result;
   }
 
   /**
    * Get leaderboard for the current month
    */
   async getMonthlyLeaderboard(): Promise<LeaderboardEntry[]> {
+    const cacheKey = 'leaderboard:monthly';
+    const cached = this.cache.get<LeaderboardEntry[]>(cacheKey);
+    if (cached) return cached;
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    return this.getLeaderboard(startOfMonth, now);
+    const result = await this.getLeaderboard(startOfMonth, now);
+    this.cache.set(cacheKey, result, LEADERBOARD_CACHE_TTL);
+    return result;
   }
 
   /**
@@ -65,6 +82,12 @@ export class LeaderboardService {
   async getTeamLeaderboard(): Promise<
     { inviterId: string; firstName: string; lastName: string; teamPoints: number }[]
   > {
+    const cacheKey = 'leaderboard:team';
+    const cached = this.cache.get<
+      { inviterId: string; firstName: string; lastName: string; teamPoints: number }[]
+    >(cacheKey);
+    if (cached) return cached;
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -99,7 +122,7 @@ export class LeaderboardService {
 
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    return teamLeadIds
+    const result = teamLeadIds
       .map((id) => ({
         inviterId: id,
         firstName: userMap.get(id)?.firstName ?? '',
@@ -107,6 +130,9 @@ export class LeaderboardService {
         teamPoints: teamPoints.get(id) ?? 0,
       }))
       .sort((a, b) => b.teamPoints - a.teamPoints);
+
+    this.cache.set(cacheKey, result, LEADERBOARD_CACHE_TTL);
+    return result;
   }
 
   /**

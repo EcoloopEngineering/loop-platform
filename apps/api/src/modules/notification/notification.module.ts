@@ -12,6 +12,8 @@ import { IntegrationsModule } from '../../integrations/integrations.module';
 import { EmailProcessor } from '../../infrastructure/queue/processors/email.processor';
 import { NOTIFICATION_REPOSITORY } from './application/ports/notification.repository.port';
 import { PrismaNotificationRepository } from './infrastructure/repositories/prisma-notification.repository';
+import { StageEmailService } from './application/services/stage-email.service';
+import { GoogleChatNotificationService } from './application/services/google-chat-notification.service';
 
 @Module({
   imports: [CqrsModule, PrismaModule, IntegrationsModule],
@@ -23,6 +25,8 @@ import { PrismaNotificationRepository } from './infrastructure/repositories/pris
     LeadAssignmentNotificationListener,
     StageEmailListener,
     GoogleChatListener,
+    StageEmailService,
+    GoogleChatNotificationService,
     EmailProcessor,
     { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
   ],

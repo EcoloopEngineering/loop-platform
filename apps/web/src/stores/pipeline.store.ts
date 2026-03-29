@@ -43,14 +43,38 @@ export const usePipelineStore = defineStore('pipeline', () => {
       const { data } = await api.get('/pipeline', { params });
       // API returns array of stages directly, not { stages: [...] }
       const rawStages = Array.isArray(data) ? data : data.stages ?? [];
-      const stages: PipelineStage[] = rawStages.map((s: any) => ({
+      interface RawAssignment {
+        isPrimary: boolean;
+        userId?: string;
+        user?: { firstName: string; lastName: string };
+      }
+      interface RawLead {
+        id: string;
+        customer?: { firstName: string; lastName: string };
+        leadScore?: { total?: number; totalScore?: number };
+        score?: { totalScore?: number; total?: number };
+        source?: string;
+        currentStage?: string;
+        assignments?: RawAssignment[];
+        projectManager?: { firstName: string; lastName: string };
+        projectManagerId?: string | null;
+        createdAt: string;
+      }
+      interface RawStage {
+        stage: string;
+        label?: string;
+        color?: string;
+        order?: number;
+        leads?: RawLead[];
+      }
+      const stages: PipelineStage[] = (rawStages as RawStage[]).map((s) => ({
         id: s.stage,
         name: s.label || s.stage,
         color: s.color || '#6B7280',
         order: s.order ?? 0,
-        leads: (s.leads ?? []).map((l: any) => {
+        leads: (s.leads ?? []).map((l) => {
           const assignments = l.assignments ?? [];
-          const primary = assignments.find((a: any) => a.isPrimary);
+          const primary = assignments.find((a) => a.isPrimary);
           const ownerUser = primary?.user;
           const pmUser = l.projectManager;
           return {
