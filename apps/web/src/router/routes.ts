@@ -137,11 +137,13 @@ const routes: RouteRecordRaw[] = [
         path: '',
         name: 'crm',
         component: () => import('@/pages/crm/CrmDashboardPage.vue'),
+        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'pipeline',
         name: 'crm-pipeline',
         component: () => import('@/pages/crm/PipelinePage.vue'),
+        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'tasks',
@@ -153,12 +155,14 @@ const routes: RouteRecordRaw[] = [
         path: 'customers',
         name: 'crm-customers',
         component: () => import('@/pages/crm/CustomerListPage.vue'),
+        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'customers/:id',
         name: 'crm-customer-detail',
         component: () => import('@/pages/crm/CustomerDetailPage.vue'),
         props: true,
+        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'financiers',
@@ -185,6 +189,7 @@ const routes: RouteRecordRaw[] = [
         path: 'scoreboard',
         name: 'admin-scoreboard',
         component: () => import('@/pages/admin/ScoreboardPage.vue'),
+        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'rewards',

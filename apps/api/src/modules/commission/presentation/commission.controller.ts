@@ -5,11 +5,11 @@ import {
   Param,
   Query,
   Body,
-  UseGuards,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
@@ -18,7 +18,6 @@ import { CalculateCommissionCommand } from '../application/commands/calculate-co
 
 @ApiTags('commissions')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard)
 @Controller()
 export class CommissionController {
   constructor(
@@ -28,6 +27,7 @@ export class CommissionController {
   ) {}
 
   @Get('commissions')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'List all commissions for the current user' })
   async listCommissions(@CurrentUser() user: AuthenticatedUser) {
     return this.prisma.commission.findMany({
@@ -38,6 +38,7 @@ export class CommissionController {
   }
 
   @Get('leads/:leadId/commissions')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get commissions for a specific lead' })
   async getCommissionsByLead(@Param('leadId') leadId: string) {
     return this.prisma.commission.findMany({
@@ -48,6 +49,7 @@ export class CommissionController {
   }
 
   @Get('leads/:leadId/commission/calculate')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Preview commission calculation without saving' })
   async calculatePreview(
     @Param('leadId') leadId: string,
@@ -67,6 +69,7 @@ export class CommissionController {
   }
 
   @Post('leads/:leadId/commission/finalize')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Calculate and finalize commission for a lead' })
   async finalizeCommission(
     @Param('leadId') leadId: string,

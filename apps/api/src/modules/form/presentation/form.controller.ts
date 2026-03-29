@@ -5,30 +5,31 @@ import {
   Put,
   Body,
   Param,
-  UseGuards,
   SetMetadata,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { FormService, CreateFormDto, UpdateFormDto } from '../application/form.service';
 
 @ApiTags('forms')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard)
 @Controller('forms')
 export class FormController {
   constructor(private readonly formService: FormService) {}
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'List all forms' })
   async listForms() {
     return this.formService.listForms();
   }
 
   @Post()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Create a new form' })
   async createForm(
     @Body() dto: CreateFormDto,
@@ -38,6 +39,7 @@ export class FormController {
   }
 
   @Put(':id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update a form' })
   async updateForm(
     @Param('id') id: string,

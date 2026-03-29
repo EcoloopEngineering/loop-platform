@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, ParseUUIDPipe, SetMetadata } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ChatService } from '../application/services/chat.service';
 import { FaqService } from '../application/services/faq.service';
@@ -31,7 +32,7 @@ export class ChatController {
 
   // ---- Conversations ----
   @Get('chat/conversations')
-  @UseGuards(FirebaseAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List conversations (for agents)' })
   async listConversations(@Query('status') status?: string) {
@@ -39,13 +40,15 @@ export class ChatController {
   }
 
   @Get('chat/conversations/:id')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get conversation with messages' })
   async getConversation(@Param('id', ParseUUIDPipe) id: string) {
     return this.chatService.getConversation(id);
   }
 
   @Post('chat/conversations/:id/assign')
-  @UseGuards(FirebaseAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Assign agent to conversation' })
   async assignAgent(
@@ -56,7 +59,7 @@ export class ChatController {
   }
 
   @Post('chat/conversations/:id/close')
-  @UseGuards(FirebaseAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Close conversation' })
   async closeConversation(@Param('id', ParseUUIDPipe) id: string) {
@@ -65,13 +68,14 @@ export class ChatController {
 
   // ---- FAQ Management ----
   @Get('chat/faq')
+  @SetMetadata('isPublic', true)
   @ApiOperation({ summary: 'List all FAQ entries' })
   async listFaqs() {
     return this.faqService.getAllFaqs();
   }
 
   @Post('chat/faq')
-  @UseGuards(FirebaseAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create FAQ entry' })
   async createFaq(@Body() dto: CreateFaqDto) {
@@ -79,7 +83,7 @@ export class ChatController {
   }
 
   @Put('chat/faq/:id')
-  @UseGuards(FirebaseAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update FAQ entry' })
   async updateFaq(
@@ -90,7 +94,7 @@ export class ChatController {
   }
 
   @Delete('chat/faq/:id')
-  @UseGuards(FirebaseAuthGuard)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete FAQ entry' })
   async deleteFaq(@Param('id', ParseUUIDPipe) id: string) {

@@ -3,11 +3,11 @@ import {
   Post,
   Param,
   Body,
-  UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import {
@@ -18,7 +18,6 @@ import {
 
 @ApiTags('documents')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard)
 @Controller('leads')
 export class DocumentGenerationController {
   constructor(
@@ -26,6 +25,7 @@ export class DocumentGenerationController {
   ) {}
 
   @Post(':id/change-order')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Generate a Change Order PDF for a lead' })
   async generateChangeOrder(
     @Param('id', ParseUUIDPipe) id: string,
@@ -36,6 +36,7 @@ export class DocumentGenerationController {
   }
 
   @Post(':id/cap')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({
     summary: 'Generate a CAP document and optionally send for e-signature',
   })

@@ -42,8 +42,19 @@ export default route(function () {
   });
 
   Router.beforeEach(async (to, _from, next) => {
-    // Auth and portal pages are always accessible (portal has its own auth)
-    if (to.path.startsWith('/auth') || to.path.startsWith('/portal')) return next();
+    // Auth pages are always accessible
+    if (to.path.startsWith('/auth')) return next();
+
+    // Handle portal routes separately — portal has its own auth
+    if (to.path.startsWith('/portal')) {
+      if (to.path !== '/portal/login' && to.path !== '/portal/reset-password') {
+        const portalToken = localStorage.getItem('portalToken');
+        if (!portalToken) {
+          return next({ path: '/auth/login' });
+        }
+      }
+      return next();
+    }
 
     // Public pages (no auth required)
     const requiresAuth = to.matched.some((r) => r.meta.requiresAuth);

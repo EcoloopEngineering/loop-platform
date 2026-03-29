@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Logger, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Logger, Headers, UnauthorizedException, SetMetadata } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { SalesRabbitWebhookService, SalesRabbitLead } from '../application/services/salesrabbit-webhook.service';
@@ -20,6 +20,7 @@ export class SalesRabbitWebhookController {
   }
 
   @Post()
+  @SetMetadata('isPublic', true)
   @ApiOperation({ summary: 'Receive SalesRabbit webhook events' })
   async handleWebhook(
     @Body() body: { event: string; data: SalesRabbitLead },

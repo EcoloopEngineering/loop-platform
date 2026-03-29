@@ -5,6 +5,7 @@ import {
   Body,
   HttpCode,
   Req,
+  SetMetadata,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -39,6 +40,7 @@ export class PortalController {
   constructor(private readonly portalAuth: PortalAuthService) {}
 
   @Post('auth/register')
+  @SetMetadata('isPublic', true)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiOperation({ summary: 'Register a new customer account' })
   async register(@Body() dto: PortalRegisterDto) {
@@ -46,6 +48,7 @@ export class PortalController {
   }
 
   @Post('auth/login')
+  @SetMetadata('isPublic', true)
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Customer login' })
@@ -54,12 +57,14 @@ export class PortalController {
   }
 
   @Get('me')
+  @SetMetadata('isPublic', true)
   @ApiOperation({ summary: 'Get current customer profile (requires portal token)' })
   async getMe(@Req() req: { headers: { authorization?: string } }) {
     return this.portalAuth.getMe(req.headers.authorization);
   }
 
   @Post('auth/forgot-password')
+  @SetMetadata('isPublic', true)
   @Throttle({ default: { ttl: 60000, limit: 3 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Request a password reset email' })
@@ -68,6 +73,7 @@ export class PortalController {
   }
 
   @Post('auth/reset-password')
+  @SetMetadata('isPublic', true)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Reset customer password using token' })

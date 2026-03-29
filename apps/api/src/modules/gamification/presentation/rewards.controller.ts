@@ -26,12 +26,14 @@ export class RewardsController {
   constructor(private readonly rewardOrderService: RewardOrderService) {}
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'List active reward products' })
   async listProducts() {
     return this.rewardOrderService.listProducts();
   }
 
   @Post('order')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Place a reward order (deducts coins)' })
   async placeOrder(
     @CurrentUser() user: AuthenticatedUser,
@@ -41,6 +43,7 @@ export class RewardsController {
   }
 
   @Get('orders')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get my reward orders' })
   async getMyOrders(@CurrentUser() user: AuthenticatedUser) {
     return this.rewardOrderService.getOrders(user.id);

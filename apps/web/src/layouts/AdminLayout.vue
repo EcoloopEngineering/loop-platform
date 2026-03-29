@@ -248,16 +248,7 @@ function timeAgo(date: string) {
 }
 
 // Role-based navigation
-const userRole = computed(() => {
-  try {
-    const stored = localStorage.getItem('user');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed?.user?.role ?? parsed?.role ?? 'SALES_REP';
-    }
-  } catch { /* ignore */ }
-  return 'SALES_REP';
-});
+const userRole = computed(() => userStore.user?.role ?? 'SALES_REP');
 
 const navItems = [
   { label: 'Dashboard', icon: 'dashboard', route: '/crm', exact: true },

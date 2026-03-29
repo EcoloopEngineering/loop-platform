@@ -4,18 +4,15 @@ import {
   Put,
   Param,
   Query,
-  UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { NotificationService } from '../application/services/notification.service';
 
 @ApiTags('notifications')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard)
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}

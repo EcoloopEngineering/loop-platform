@@ -6,7 +6,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import {
@@ -16,8 +15,8 @@ import {
   IsObject,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import {
@@ -51,12 +50,12 @@ class UpdateCommissionSplitDto {
 
 @ApiTags('referrals')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard, RolesGuard)
 @Controller('referrals')
 export class ReferralsController {
   constructor(private readonly referralService: ReferralService) {}
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'List referrals for the current user' })
   async findAll(
     @CurrentUser() user: AuthenticatedUser,
@@ -66,6 +65,7 @@ export class ReferralsController {
   }
 
   @Post('invite')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Create a referral invitation' })
   async invite(
     @CurrentUser() user: AuthenticatedUser,
@@ -75,6 +75,7 @@ export class ReferralsController {
   }
 
   @Put(':id/commission-split')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update commission split for a referral' })
   async updateCommissionSplit(
     @Param('id') id: string,

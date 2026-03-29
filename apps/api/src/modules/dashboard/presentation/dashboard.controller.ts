@@ -1,7 +1,8 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { GetDashboardQuery } from '../application/queries/get-dashboard.handler';
@@ -10,7 +11,6 @@ import { DashboardMetricsService } from '../application/services/dashboard-metri
 
 @ApiTags('dashboard')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard)
 @Controller('dashboard')
 export class DashboardController {
   constructor(
@@ -19,6 +19,7 @@ export class DashboardController {
   ) {}
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get dashboard summary for the current user' })
   async getDashboard(
     @CurrentUser() user: AuthenticatedUser,
@@ -31,6 +32,7 @@ export class DashboardController {
   }
 
   @Get('scoreboard')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get scoreboard ranking users by won deals and commission' })
   async getScoreboard(
     @Query('startDate') startDate: string,
@@ -43,6 +45,7 @@ export class DashboardController {
   }
 
   @Get('metrics')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get aggregated platform metrics' })
   async getMetrics(
     @Query('startDate') startDate: string,

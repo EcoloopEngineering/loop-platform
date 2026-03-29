@@ -4,6 +4,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { FirebaseAuthGuard } from './common/guards/firebase-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 import { PrismaModule } from './infrastructure/database/prisma.module';
 import { FirebaseModule } from './infrastructure/firebase/firebase.module';
 import { IdentityModule } from './modules/identity/identity.module';
@@ -57,6 +59,8 @@ import { QueueModule } from './infrastructure/queue/queue.module';
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: FirebaseAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

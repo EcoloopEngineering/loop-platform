@@ -6,12 +6,12 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, IsOptional, IsInt, Min } from 'class-validator';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { BookAppointmentCommand } from '../application/commands/book-appointment.handler';
@@ -30,7 +30,6 @@ class CancelAppointmentDto {
 
 @ApiTags('scheduling')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard)
 @Controller()
 export class SchedulingController {
   constructor(
@@ -40,6 +39,7 @@ export class SchedulingController {
   ) {}
 
   @Get('scheduling/availability')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get availability slots for a user on a given date' })
   async getAvailability(
     @Query('userId') userId: string,
@@ -49,6 +49,7 @@ export class SchedulingController {
   }
 
   @Post('leads/:leadId/appointments')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Book a new appointment for a lead' })
   async bookAppointment(
     @Param('leadId') leadId: string,
@@ -73,6 +74,7 @@ export class SchedulingController {
   }
 
   @Put('appointments/:id/reschedule')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Reschedule an appointment' })
   async reschedule(
     @Param('id') id: string,
@@ -82,6 +84,7 @@ export class SchedulingController {
   }
 
   @Put('appointments/:id/cancel')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Cancel an appointment' })
   async cancel(
     @Param('id') id: string,

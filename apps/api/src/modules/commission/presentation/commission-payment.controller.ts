@@ -23,6 +23,7 @@ export class CommissionPaymentController {
   constructor(private readonly commissionPaymentService: CommissionPaymentService) {}
 
   @Get('commissions/payments')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'List all commission payments (admin) or own payments' })
   @ApiQuery({ name: 'userId', required: false })
   async listPayments(
@@ -33,6 +34,7 @@ export class CommissionPaymentController {
   }
 
   @Get('leads/:leadId/commission/payments')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get commission payments for a specific lead' })
   async getPaymentsByLead(@Param('leadId') leadId: string) {
     return this.commissionPaymentService.getPaymentsByLead(leadId);
@@ -53,6 +55,7 @@ export class CommissionPaymentController {
   }
 
   @Patch('commissions/payments/:id/cancel')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Cancel a commission payment' })
   async cancelPayment(@Param('id') id: string) {
     return this.commissionPaymentService.cancelPayment(id);

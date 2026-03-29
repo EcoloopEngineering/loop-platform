@@ -4,11 +4,11 @@ import {
   Post,
   Body,
   Param,
-  UseGuards,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { CreateDesignRequestDto } from '../application/dto/design-request.dto';
@@ -17,7 +17,6 @@ import { DesignQueryService } from '../application/services/design-query.service
 
 @ApiTags('designs')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard)
 @Controller()
 export class DesignController {
   constructor(
@@ -26,6 +25,7 @@ export class DesignController {
   ) {}
 
   @Post('leads/:leadId/designs')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Request a new design for a lead' })
   async requestDesign(
     @Param('leadId') leadId: string,
@@ -44,12 +44,14 @@ export class DesignController {
   }
 
   @Get('leads/:leadId/designs')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get all design requests for a lead' })
   async getDesignsByLead(@Param('leadId') leadId: string) {
     return this.designQueryService.getDesignsByLead(leadId);
   }
 
   @Get('designs/:id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get a design request by ID' })
   async getDesignById(@Param('id') id: string) {
     return this.designQueryService.getDesignById(id);

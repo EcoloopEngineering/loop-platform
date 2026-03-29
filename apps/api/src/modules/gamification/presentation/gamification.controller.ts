@@ -1,6 +1,7 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
+import { UserRole } from '@loop/shared';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { CoinService } from '../application/services/coin.service';
@@ -8,7 +9,6 @@ import { LeaderboardService } from '../application/services/leaderboard.service'
 
 @ApiTags('gamification')
 @ApiBearerAuth()
-@UseGuards(FirebaseAuthGuard)
 @Controller('gamification')
 export class GamificationController {
   constructor(
@@ -17,6 +17,7 @@ export class GamificationController {
   ) {}
 
   @Get('balance')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get current user coin balance' })
   async getBalance(@CurrentUser() user: AuthenticatedUser) {
     const balance = await this.coinService.getBalance(user.id);
@@ -24,6 +25,7 @@ export class GamificationController {
   }
 
   @Get('leaderboard')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get points leaderboard' })
   @ApiQuery({ name: 'period', enum: ['weekly', 'monthly'], required: false })
   async getLeaderboard(@Query('period') period?: string) {
@@ -32,6 +34,7 @@ export class GamificationController {
   }
 
   @Get('history')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get coin transaction history' })
   @ApiQuery({ name: 'limit', required: false })
   async getHistory(
@@ -42,6 +45,7 @@ export class GamificationController {
   }
 
   @Get('scoreboard')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get recent milestone events' })
   @ApiQuery({ name: 'limit', required: false })
   async getScoreboard(@Query('limit') limit?: string) {

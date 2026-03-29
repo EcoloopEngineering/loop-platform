@@ -6,6 +6,7 @@ import {
   Logger,
   HttpCode,
   BadRequestException,
+  SetMetadata,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { StripeService } from './stripe.service';
@@ -18,6 +19,7 @@ export class StripeWebhookController {
   constructor(private readonly stripeService: StripeService) {}
 
   @Post()
+  @SetMetadata('isPublic', true)
   @HttpCode(200)
   async handleWebhook(
     @Req() req: Request,
