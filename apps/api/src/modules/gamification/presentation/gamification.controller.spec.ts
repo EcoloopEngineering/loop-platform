@@ -60,7 +60,7 @@ describe('GamificationController', () => {
     it('should return current user coin balance', async () => {
       coinService.getBalance.mockResolvedValue(42);
 
-      const result = await controller.getBalance({ id: 'user-1' });
+      const result = await controller.getBalance({ id: 'user-1', email: 'user@ecoloop.us', firstName: 'Test', lastName: 'User', phone: null, role: 'SALES_REP' as any, isActive: true, profileImage: null });
 
       expect(result).toEqual({ balance: 42 });
       expect(coinService.getBalance).toHaveBeenCalledWith('user-1');
@@ -100,7 +100,7 @@ describe('GamificationController', () => {
       ];
       coinService.getHistory.mockResolvedValue(mockHistory);
 
-      const result = await controller.getHistory({ id: 'user-1' }, '20');
+      const result = await controller.getHistory({ id: 'user-1', email: 'user@ecoloop.us', firstName: 'Test', lastName: 'User', phone: null, role: 'SALES_REP' as any, isActive: true, profileImage: null }, '20');
 
       expect(result).toEqual(mockHistory);
       expect(coinService.getHistory).toHaveBeenCalledWith('user-1', 20);
@@ -109,7 +109,7 @@ describe('GamificationController', () => {
     it('should use default limit when not provided', async () => {
       coinService.getHistory.mockResolvedValue([]);
 
-      await controller.getHistory({ id: 'user-1' });
+      await controller.getHistory({ id: 'user-1', email: 'user@ecoloop.us', firstName: 'Test', lastName: 'User', phone: null, role: 'SALES_REP' as any, isActive: true, profileImage: null });
 
       expect(coinService.getHistory).toHaveBeenCalledWith('user-1', 50);
     });

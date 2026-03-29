@@ -27,4 +27,8 @@ export interface DocumentRepositoryPort {
   findDocumentById(id: string): Promise<any | null>;
 
   deleteDocument(id: string): Promise<void>;
+
+  updateLeadStage(leadId: string, stage: string): Promise<any>;
+
+  findLeadWithCustomerAndProperty(leadId: string): Promise<any | null>;
 }

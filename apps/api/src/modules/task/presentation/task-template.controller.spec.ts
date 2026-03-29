@@ -35,7 +35,7 @@ describe('TaskTemplateController', () => {
   describe('list', () => {
     it('should delegate to service.list', async () => {
       const templates = [{ id: 'tmpl-1', stage: 'DESIGN_READY', title: 'Review design' }];
-      service.list.mockResolvedValue(templates);
+      service.list.mockResolvedValue(templates as any);
 
       const result = await controller.list();
 

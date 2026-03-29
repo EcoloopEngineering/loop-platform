@@ -34,7 +34,7 @@ describe('DashboardController', () => {
       const dashboardData = { totalLeads: 10, wonDeals: 3 };
       queryBus.execute.mockResolvedValue(dashboardData);
 
-      const user = { id: 'user-1' };
+      const user = { id: 'user-1', email: 'test@test.com', firstName: 'Test', lastName: 'User', phone: '', role: 'ADMIN', isActive: true, teamId: null } as any;
       const result = await controller.getDashboard(user, '2026-01-01', '2026-03-31');
 
       expect(queryBus.execute).toHaveBeenCalledWith(

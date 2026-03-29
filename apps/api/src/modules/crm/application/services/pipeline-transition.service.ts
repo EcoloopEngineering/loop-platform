@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 import { PIPELINE_TRANSITIONS } from '@loop/shared';
 import { LeadStageChangedPayload } from '../events/lead-events.types';
 
@@ -9,7 +9,7 @@ export class PipelineTransitionService {
   private readonly logger = new Logger(PipelineTransitionService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
     private readonly emitter: EventEmitter2,
   ) {}
 
@@ -23,28 +23,24 @@ export class PipelineTransitionService {
     const transition = PIPELINE_TRANSITIONS[payload.newStage as keyof typeof PIPELINE_TRANSITIONS];
     if (!transition) return;
 
-    const lead = await this.prisma.lead.findUnique({ where: { id: payload.leadId } });
+    const lead = await this.leadRepo.findById(payload.leadId);
     if (!lead || lead.status !== 'ACTIVE') return;
 
-    await this.prisma.lead.update({
-      where: { id: payload.leadId },
-      data: {
-        currentStage: transition.nextStage,
-        pipelineId: transition.nextPipelineId,
-      },
-    });
+    await this.leadRepo.updateStageAndPipeline(
+      payload.leadId,
+      transition.nextStage,
+      transition.nextPipelineId,
+    );
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: payload.leadId,
-        userId: lead.projectManagerId ?? lead.createdById ?? '',
-        type: 'STAGE_CHANGE',
-        description: `Auto-transitioned from ${payload.newStage} to ${transition.nextStage} (pipeline transition)`,
-        metadata: {
-          previousStage: payload.newStage,
-          newStage: transition.nextStage,
-          pipelineTransition: true,
-        },
+    await this.leadRepo.createActivity({
+      leadId: payload.leadId,
+      userId: lead.projectManagerId ?? lead.createdById ?? '',
+      type: 'STAGE_CHANGE',
+      description: `Auto-transitioned from ${payload.newStage} to ${transition.nextStage} (pipeline transition)`,
+      metadata: {
+        previousStage: payload.newStage,
+        newStage: transition.nextStage,
+        pipelineTransition: true,
       },
     });
 

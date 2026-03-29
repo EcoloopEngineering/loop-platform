@@ -1,19 +1,23 @@
 import { Test } from '@nestjs/testing';
 import { TaskCreationService } from './task-creation.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { TASK_REPOSITORY, TaskRepositoryPort } from '../ports/task.repository.port';
 
 describe('TaskCreationService', () => {
   let service: TaskCreationService;
-  let prisma: MockPrismaService;
+  let taskRepo: Record<keyof Pick<TaskRepositoryPort, 'createTask' | 'findActiveUserByEmail' | 'findActiveUserByRole' | 'findLeadProjectManagerId'>, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    taskRepo = {
+      createTask: jest.fn(),
+      findActiveUserByEmail: jest.fn(),
+      findActiveUserByRole: jest.fn(),
+      findLeadProjectManagerId: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         TaskCreationService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: TASK_REPOSITORY, useValue: taskRepo },
       ],
     }).compile();
 
@@ -41,19 +45,17 @@ describe('TaskCreationService', () => {
           sortOrder: 0,
         },
       ];
-      prisma.task.create.mockResolvedValue({ id: 'task-1' });
+      taskRepo.createTask.mockResolvedValue({ id: 'task-1' });
 
       const result = await service.createTasksFromTemplates(templates, mockLead, mockPayload);
 
       expect(result).toEqual(['task-1']);
-      expect(prisma.task.create).toHaveBeenCalledTimes(1);
-      expect(prisma.task.create).toHaveBeenCalledWith(
+      expect(taskRepo.createTask).toHaveBeenCalledTimes(1);
+      expect(taskRepo.createTask).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            leadId: 'lead-1',
-            title: 'Review design',
-            templateKey: 'tmpl-1',
-          }),
+          leadId: 'lead-1',
+          title: 'Review design',
+          templateKey: 'tmpl-1',
         }),
       );
     });
@@ -75,7 +77,7 @@ describe('TaskCreationService', () => {
       const result = await service.createTasksFromTemplates(templates, mockLead, mockPayload);
 
       expect(result).toEqual([]);
-      expect(prisma.task.create).not.toHaveBeenCalled();
+      expect(taskRepo.createTask).not.toHaveBeenCalled();
     });
 
     it('should create subtasks when template has subtask definitions', async () => {
@@ -94,13 +96,13 @@ describe('TaskCreationService', () => {
           sortOrder: 0,
         },
       ];
-      prisma.task.create.mockResolvedValue({ id: 'task-1' });
+      taskRepo.createTask.mockResolvedValue({ id: 'task-1' });
 
       const result = await service.createTasksFromTemplates(templates, mockLead, mockPayload);
 
       expect(result).toEqual(['task-1']);
       // 1 parent + 2 subtasks = 3 creates
-      expect(prisma.task.create).toHaveBeenCalledTimes(3);
+      expect(taskRepo.createTask).toHaveBeenCalledTimes(3);
     });
 
     it('should return empty array when no templates match conditions', async () => {
@@ -111,20 +113,16 @@ describe('TaskCreationService', () => {
 
   describe('resolveAssignee', () => {
     it('should resolve by email first', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'user-john' });
+      taskRepo.findActiveUserByEmail.mockResolvedValue({ id: 'user-john' });
 
       const result = await service.resolveAssignee(null, 'john@ecoloop.us');
 
       expect(result).toBe('user-john');
-      expect(prisma.user.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { email: 'john@ecoloop.us', isActive: true },
-        }),
-      );
+      expect(taskRepo.findActiveUserByEmail).toHaveBeenCalledWith('john@ecoloop.us');
     });
 
     it('should resolve PM role to lead project manager', async () => {
-      prisma.lead.findUnique.mockResolvedValue({ projectManagerId: 'pm-1' });
+      taskRepo.findLeadProjectManagerId.mockResolvedValue('pm-1');
 
       const result = await service.resolveAssignee('PM', null, 'lead-1');
 
@@ -132,8 +130,8 @@ describe('TaskCreationService', () => {
     });
 
     it('should fallback to MANAGER when PM has no project manager', async () => {
-      prisma.lead.findUnique.mockResolvedValue({ projectManagerId: null });
-      prisma.user.findFirst.mockResolvedValue({ id: 'manager-1' });
+      taskRepo.findLeadProjectManagerId.mockResolvedValue(null);
+      taskRepo.findActiveUserByRole.mockResolvedValue({ id: 'manager-1' });
 
       const result = await service.resolveAssignee('PM', null, 'lead-1');
 
@@ -141,7 +139,7 @@ describe('TaskCreationService', () => {
     });
 
     it('should resolve by role', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'sales-1' });
+      taskRepo.findActiveUserByRole.mockResolvedValue({ id: 'sales-1' });
 
       const result = await service.resolveAssignee('SALES_REP');
 
@@ -149,7 +147,7 @@ describe('TaskCreationService', () => {
     });
 
     it('should return undefined when no assignee found', async () => {
-      prisma.user.findFirst.mockResolvedValue(null);
+      taskRepo.findActiveUserByRole.mockResolvedValue(null);
 
       const result = await service.resolveAssignee('ADMIN');
 
@@ -159,20 +157,18 @@ describe('TaskCreationService', () => {
 
   describe('createSubtasks', () => {
     it('should create subtasks for a parent task', async () => {
-      prisma.task.create.mockResolvedValue({ id: 'sub-1' });
+      taskRepo.createTask.mockResolvedValue({ id: 'sub-1' });
 
       await service.createSubtasks('parent-1', [
         { title: 'Sub 1', description: 'First' },
         { title: 'Sub 2' },
       ], { leadId: 'lead-1', assigneeId: 'user-1', templateKey: 'tmpl-1' });
 
-      expect(prisma.task.create).toHaveBeenCalledTimes(2);
-      expect(prisma.task.create).toHaveBeenCalledWith(
+      expect(taskRepo.createTask).toHaveBeenCalledTimes(2);
+      expect(taskRepo.createTask).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            parentTaskId: 'parent-1',
-            title: 'Sub 1',
-          }),
+          parentTaskId: 'parent-1',
+          title: 'Sub 1',
         }),
       );
     });
@@ -184,7 +180,7 @@ describe('TaskCreationService', () => {
         templateKey: 'tmpl-1',
       });
 
-      expect(prisma.task.create).not.toHaveBeenCalled();
+      expect(taskRepo.createTask).not.toHaveBeenCalled();
     });
   });
 

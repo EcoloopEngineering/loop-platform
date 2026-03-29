@@ -169,7 +169,10 @@ import PipelineBoard from '@/components/pipeline/PipelineBoard.vue';
 import PipelineFilters from '@/components/pipeline/PipelineFilters.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import { titleCase } from '@/utils/format';
+import { useLeadFormatting } from '@/composables/useLeadFormatting';
 import type { PipelineFilterValues } from '@/components/pipeline/PipelineFilters.vue';
+
+const { stageColor, formatStage, formatSource } = useLeadFormatting();
 
 const router = useRouter();
 const pipelineStore = usePipelineStore();
@@ -318,33 +321,6 @@ async function onStageChange(payload: { leadId: string; toStage: string }) {
 
 function onRowClick(_evt: Event, row: any) {
   router.push(`/crm/leads/${row.id}`);
-}
-
-const STAGE_COLORS: Record<string, string> = {
-  // Closer
-  NEW_LEAD: '#4CAF50', ALREADY_CALLED: '#8BC34A', CONNECTED: '#2196F3',
-  REQUEST_DESIGN: '#03A9F4', DESIGN_IN_PROGRESS: '#FF9800', DESIGN_READY: '#9C27B0', WON: '#00897B',
-  // PM
-  SITE_AUDIT: '#FF5722', PROGRESS_REVIEW: '#E91E63', NTP: '#9C27B0', ENGINEERING: '#3F51B5',
-  PERMIT_AND_ICE: '#2196F3', FINAL_APPROVAL: '#00BCD4', INSTALL_READY: '#009688', INSTALL: '#4CAF50',
-  COMMISSION: '#8BC34A', SITE_COMPLETE: '#CDDC39', INITIAL_SUBMISSION_AND_INSPECTION: '#FFC107',
-  WAITING_FOR_PTO: '#FF9800', FINAL_SUBMISSION: '#FF5722', CUSTOMER_SUCCESS: '#4CAF50',
-  // Finance
-  FIN_TICKETS_OPEN: '#2196F3', FIN_IN_PROGRESS: '#FF9800', FIN_POST_INITIAL_NURTURE: '#9C27B0', FIN_TICKETS_CLOSED: '#4CAF50',
-  // Maintenance
-  MAINT_TICKETS_OPEN: '#2196F3', MAINT_IN_PROGRESS: '#FF9800', MAINT_POST_INSTALL_NURTURE: '#9C27B0', MAINT_TICKETS_CLOSED: '#4CAF50',
-};
-
-function stageColor(stage: string) {
-  return STAGE_COLORS[stage] || '#6B7280';
-}
-
-function formatStage(stage: string) {
-  return (stage || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatSource(s: string) {
-  return (s || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function scoreColor(score: number) {

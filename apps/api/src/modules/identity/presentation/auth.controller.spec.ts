@@ -1,23 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../application/services/auth.service';
+import { RegistrationService } from '../application/services/registration.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let authService: jest.Mocked<Partial<AuthService>>;
+  let registrationService: jest.Mocked<Partial<RegistrationService>>;
 
   beforeEach(async () => {
     authService = {
-      register: jest.fn(),
       login: jest.fn(),
       refreshToken: jest.fn(),
+    };
+    registrationService = {
+      register: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: RegistrationService, useValue: registrationService },
       ],
     })
       .overrideGuard(FirebaseAuthGuard)
@@ -28,7 +33,7 @@ describe('AuthController', () => {
   });
 
   describe('register', () => {
-    it('should call authService.register with dto', async () => {
+    it('should call registrationService.register with dto', async () => {
       const dto = {
         firstName: 'John',
         lastName: 'Doe',
@@ -36,11 +41,11 @@ describe('AuthController', () => {
         password: 'password123',
       };
       const expected = { user: { id: '1', email: 'john@example.com' }, token: 'jwt-token' };
-      (authService.register as jest.Mock).mockResolvedValue(expected);
+      (registrationService.register as jest.Mock).mockResolvedValue(expected);
 
       const result = await controller.register(dto as any);
 
-      expect(authService.register).toHaveBeenCalledWith(dto);
+      expect(registrationService.register).toHaveBeenCalledWith(dto);
       expect(result).toEqual(expected);
     });
   });
@@ -80,10 +85,11 @@ describe('AuthController', () => {
         phone: '555-1234',
         role: 'SALES_REP',
         isActive: true,
+        profileImage: null,
         passwordHash: 'should-not-appear',
       };
 
-      const result = await controller.me(user);
+      const result = await controller.me(user as any);
 
       expect(result).toEqual({
         id: 'user-1',

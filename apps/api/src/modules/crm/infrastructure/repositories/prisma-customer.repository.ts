@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { CustomerRepositoryPort } from '../../application/ports/customer.repository.port';
+import { CustomerRepositoryPort, CustomerRaw } from '../../application/ports/customer.repository.port';
 import { CustomerEntity } from '../../domain/entities/customer.entity';
 import { Prisma } from '@prisma/client';
 
@@ -72,5 +72,74 @@ export class PrismaCustomerRepository implements CustomerRepositoryPort {
       data: updateData,
     });
     return new CustomerEntity(customer);
+  }
+
+  async createWithMetadata(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string | null;
+    metadata: Record<string, unknown>;
+  }): Promise<CustomerRaw> {
+    return this.prisma.customer.create({ data: { ...data, metadata: data.metadata as any } }) as unknown as CustomerRaw;
+  }
+
+  async findByEmailRaw(email: string): Promise<CustomerRaw | null> {
+    return this.prisma.customer.findFirst({
+      where: { email },
+    }) as unknown as CustomerRaw | null;
+  }
+
+  async findByIdRaw(id: string): Promise<CustomerRaw | null> {
+    return this.prisma.customer.findUnique({
+      where: { id },
+    }) as unknown as CustomerRaw | null;
+  }
+
+  async updateRaw(id: string, data: Record<string, unknown>): Promise<CustomerRaw> {
+    return this.prisma.customer.update({
+      where: { id },
+      data,
+    }) as unknown as CustomerRaw;
+  }
+
+  async findByMetadataPath(path: string[], value: string): Promise<CustomerRaw | null> {
+    return this.prisma.customer.findFirst({
+      where: { metadata: { path, equals: value } } as any,
+    }) as unknown as CustomerRaw | null;
+  }
+
+  async findLatestLeadForCustomer(customerId: string): Promise<{
+    id: string;
+    currentStage: string;
+    systemSize: number | null;
+    property: { streetAddress: string; city: string; state: string } | null;
+  } | null> {
+    return this.prisma.lead.findFirst({
+      where: { customerId },
+      orderBy: { createdAt: 'desc' },
+      include: { property: true },
+    }) as any;
+  }
+
+  async findLatestLeadForCustomerWithRelations(customerId: string): Promise<{
+    id: string;
+    currentStage: string;
+    systemSize: number | null;
+    property: { streetAddress: string; city: string; state: string } | null;
+    assignments: Array<{
+      user: { firstName: string; lastName: string };
+    }>;
+    projectManager: { firstName: string; lastName: string } | null;
+  } | null> {
+    return this.prisma.lead.findFirst({
+      where: { customerId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        property: true,
+        assignments: { where: { isPrimary: true }, include: { user: true } },
+        projectManager: true,
+      },
+    }) as any;
   }
 }

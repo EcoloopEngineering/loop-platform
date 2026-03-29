@@ -110,4 +110,40 @@ export class PrismaTaskRepository implements TaskRepositoryPort {
       data: { status: 'CANCELLED' },
     });
   }
+
+  /* ── used by TaskCreationService ── */
+
+  async createTask(data: {
+    leadId: string;
+    title: string;
+    description?: string | null;
+    assigneeId?: string;
+    templateKey?: string;
+    priority?: number;
+    parentTaskId?: string;
+  }): Promise<{ id: string }> {
+    return this.prisma.task.create({ data });
+  }
+
+  async findActiveUserByEmail(email: string): Promise<{ id: string } | null> {
+    return this.prisma.user.findFirst({
+      where: { email, isActive: true },
+      select: { id: true },
+    });
+  }
+
+  async findActiveUserByRole(role: string): Promise<{ id: string } | null> {
+    return this.prisma.user.findFirst({
+      where: { role: role as any, isActive: true },
+      select: { id: true },
+    });
+  }
+
+  async findLeadProjectManagerId(leadId: string): Promise<string | null> {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: { projectManagerId: true },
+    });
+    return lead?.projectManagerId ?? null;
+  }
 }

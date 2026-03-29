@@ -135,9 +135,9 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { io, Socket } from 'socket.io-client';
 import { api } from '@/boot/axios';
+import { API_URL } from '@/config/api';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 
-const API_URL = (process.env.API_URL ?? 'http://localhost:3000');
 const socket = ref<Socket | null>(null);
 const conversations = ref<any[]>([]);
 const selectedConv = ref<any>(null);

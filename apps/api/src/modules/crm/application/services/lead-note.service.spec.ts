@@ -3,25 +3,28 @@ import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadNoteService } from './lead-note.service';
 import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('LeadNoteService', () => {
   let service: LeadNoteService;
   let leadRepo: Record<string, jest.Mock>;
-  let prisma: MockPrismaService;
   let emitter: { emit: jest.Mock };
 
   beforeEach(async () => {
-    leadRepo = { findById: jest.fn() };
-    prisma = createMockPrismaService();
+    leadRepo = {
+      findById: jest.fn(),
+      createActivity: jest.fn(),
+      findActivityByIdAndLead: jest.fn(),
+      updateActivity: jest.fn(),
+      findActivities: jest.fn(),
+      findByIdWithCustomer: jest.fn(),
+      findUserNameById: jest.fn(),
+    };
     emitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LeadNoteService,
         { provide: LEAD_REPOSITORY, useValue: leadRepo },
-        { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
@@ -32,22 +35,20 @@ describe('LeadNoteService', () => {
   describe('addNote', () => {
     it('should create note activity and emit event', async () => {
       leadRepo.findById.mockResolvedValue({ id: 'lead-1' });
-      prisma.leadActivity.create.mockResolvedValue({ id: 'activity-1', description: 'Test note' });
-      prisma.lead.findUnique.mockResolvedValue({
+      leadRepo.createActivity.mockResolvedValue({ id: 'activity-1', description: 'Test note' });
+      leadRepo.findByIdWithCustomer.mockResolvedValue({
         id: 'lead-1',
         customer: { firstName: 'John', lastName: 'Doe' },
       });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'Agent', lastName: 'Smith' });
+      leadRepo.findUserNameById.mockResolvedValue({ firstName: 'Agent', lastName: 'Smith' });
 
       const result = await service.addNote('lead-1', 'Test note', 'user-1');
 
-      expect(prisma.leadActivity.create).toHaveBeenCalledWith(
+      expect(leadRepo.createActivity).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            leadId: 'lead-1',
-            type: 'NOTE_ADDED',
-            description: 'Test note',
-          }),
+          leadId: 'lead-1',
+          type: 'NOTE_ADDED',
+          description: 'Test note',
         }),
       );
       expect(emitter.emit).toHaveBeenCalledWith(
@@ -69,9 +70,9 @@ describe('LeadNoteService', () => {
 
     it('should skip event emission when lead or user lookup fails', async () => {
       leadRepo.findById.mockResolvedValue({ id: 'lead-1' });
-      prisma.leadActivity.create.mockResolvedValue({ id: 'activity-1', description: 'Test' });
-      prisma.lead.findUnique.mockResolvedValue(null);
-      prisma.user.findUnique.mockResolvedValue(null);
+      leadRepo.createActivity.mockResolvedValue({ id: 'activity-1', description: 'Test' });
+      leadRepo.findByIdWithCustomer.mockResolvedValue(null);
+      leadRepo.findUserNameById.mockResolvedValue(null);
 
       const result = await service.addNote('lead-1', 'Test', 'user-1');
 
@@ -82,26 +83,27 @@ describe('LeadNoteService', () => {
 
   describe('updateNote', () => {
     it('should update note content and log edit activity', async () => {
-      prisma.leadActivity.findFirst.mockResolvedValue({
+      leadRepo.findActivityByIdAndLead.mockResolvedValue({
         id: 'note-1',
         leadId: 'lead-1',
         type: 'NOTE_ADDED',
         description: 'Old content',
       });
-      prisma.leadActivity.update.mockResolvedValue({ id: 'note-1', description: 'New content' });
-      prisma.leadActivity.create.mockResolvedValue({});
+      leadRepo.updateActivity.mockResolvedValue({ id: 'note-1', description: 'New content' });
+      leadRepo.createActivity.mockResolvedValue({});
 
       const result = await service.updateNote('note-1', 'New content', 'lead-1', 'user-1');
 
-      expect(prisma.leadActivity.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'note-1' } }),
+      expect(leadRepo.updateActivity).toHaveBeenCalledWith(
+        'note-1',
+        expect.objectContaining({ description: 'New content' }),
       );
-      expect(prisma.leadActivity.create).toHaveBeenCalled();
+      expect(leadRepo.createActivity).toHaveBeenCalled();
       expect(result).toEqual({ id: 'note-1', description: 'New content' });
     });
 
     it('should throw NotFoundException when note not found', async () => {
-      prisma.leadActivity.findFirst.mockResolvedValue(null);
+      leadRepo.findActivityByIdAndLead.mockResolvedValue(null);
       await expect(service.updateNote('bad-id', 'content', 'lead-1', 'user-1')).rejects.toThrow(
         NotFoundException,
       );
@@ -110,27 +112,26 @@ describe('LeadNoteService', () => {
 
   describe('deleteNote', () => {
     it('should soft-delete note and log deletion', async () => {
-      prisma.leadActivity.findFirst.mockResolvedValue({
+      leadRepo.findActivityByIdAndLead.mockResolvedValue({
         id: 'note-1',
         leadId: 'lead-1',
         type: 'NOTE_ADDED',
         description: 'Original content',
       });
-      prisma.leadActivity.update.mockResolvedValue({});
-      prisma.leadActivity.create.mockResolvedValue({});
+      leadRepo.updateActivity.mockResolvedValue({});
+      leadRepo.createActivity.mockResolvedValue({});
 
       const result = await service.deleteNote('note-1', 'lead-1', 'user-1');
 
-      expect(prisma.leadActivity.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ description: '[deleted]' }),
-        }),
+      expect(leadRepo.updateActivity).toHaveBeenCalledWith(
+        'note-1',
+        expect.objectContaining({ description: '[deleted]' }),
       );
       expect(result).toEqual({ success: true });
     });
 
     it('should throw NotFoundException when note not found', async () => {
-      prisma.leadActivity.findFirst.mockResolvedValue(null);
+      leadRepo.findActivityByIdAndLead.mockResolvedValue(null);
       await expect(service.deleteNote('bad-id', 'lead-1', 'user-1')).rejects.toThrow(
         NotFoundException,
       );
@@ -143,12 +144,13 @@ describe('LeadNoteService', () => {
         { id: 'n1', description: 'Note 1', createdAt: new Date() },
         { id: 'n2', description: 'Note 2', createdAt: new Date() },
       ];
-      prisma.leadActivity.findMany.mockResolvedValue(notes);
+      leadRepo.findActivities.mockResolvedValue(notes);
 
       const result = await service.getNotes('lead-1');
 
-      expect(prisma.leadActivity.findMany).toHaveBeenCalledWith({
-        where: { leadId: 'lead-1', type: 'NOTE_ADDED' },
+      expect(leadRepo.findActivities).toHaveBeenCalledWith({
+        leadId: 'lead-1',
+        type: 'NOTE_ADDED',
         orderBy: { createdAt: 'desc' },
       });
       expect(result).toEqual(notes);

@@ -16,6 +16,7 @@ describe('RewardOrderService', () => {
     email: 'john@example.com',
     firstName: 'John',
     lastName: 'Doe',
+    phone: null,
     role: UserRole.SALES_REP,
     isActive: true,
     profileImage: null,

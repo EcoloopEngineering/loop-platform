@@ -18,6 +18,10 @@ describe('TaskService', () => {
       update: jest.fn(),
       complete: jest.fn(),
       cancel: jest.fn(),
+      createTask: jest.fn(),
+      findActiveUserByEmail: jest.fn(),
+      findActiveUserByRole: jest.fn(),
+      findLeadProjectManagerId: jest.fn(),
     };
     emitter = { emit: jest.fn() };
 

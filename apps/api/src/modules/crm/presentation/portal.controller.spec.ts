@@ -1,11 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PortalController } from './portal.controller';
 import { PortalAuthService } from '../application/services/portal-auth.service';
+import { PortalRegistrationService } from '../application/services/portal-registration.service';
+import { PortalPasswordService } from '../application/services/portal-password.service';
 
 const mockPortalAuthService = {
-  register: jest.fn(),
   login: jest.fn(),
   getMe: jest.fn(),
+};
+
+const mockPortalRegistrationService = {
+  register: jest.fn(),
+};
+
+const mockPortalPasswordService = {
   forgotPassword: jest.fn(),
   resetPassword: jest.fn(),
 };
@@ -20,6 +28,8 @@ describe('PortalController', () => {
       controllers: [PortalController],
       providers: [
         { provide: PortalAuthService, useValue: mockPortalAuthService },
+        { provide: PortalRegistrationService, useValue: mockPortalRegistrationService },
+        { provide: PortalPasswordService, useValue: mockPortalPasswordService },
       ],
     }).compile();
 
@@ -27,15 +37,15 @@ describe('PortalController', () => {
   });
 
   describe('register', () => {
-    it('delegates to PortalAuthService.register', async () => {
+    it('delegates to PortalRegistrationService.register', async () => {
       const dto = { firstName: 'Ana', lastName: 'Silva', email: 'ana@example.com', password: 'password123' };
       const expected = { token: 'tok', customer: { id: 'c1' } };
-      mockPortalAuthService.register.mockResolvedValue(expected);
+      mockPortalRegistrationService.register.mockResolvedValue(expected);
 
       const result = await controller.register(dto as any);
 
       expect(result).toBe(expected);
-      expect(mockPortalAuthService.register).toHaveBeenCalledWith(dto);
+      expect(mockPortalRegistrationService.register).toHaveBeenCalledWith(dto);
     });
   });
 
@@ -72,26 +82,26 @@ describe('PortalController', () => {
   });
 
   describe('forgotPassword', () => {
-    it('delegates to PortalAuthService.forgotPassword with email', async () => {
+    it('delegates to PortalPasswordService.forgotPassword with email', async () => {
       const expected = { message: 'If an account exists...' };
-      mockPortalAuthService.forgotPassword.mockResolvedValue(expected);
+      mockPortalPasswordService.forgotPassword.mockResolvedValue(expected);
 
       const result = await controller.forgotPassword({ email: 'ana@example.com' } as any);
 
       expect(result).toBe(expected);
-      expect(mockPortalAuthService.forgotPassword).toHaveBeenCalledWith('ana@example.com');
+      expect(mockPortalPasswordService.forgotPassword).toHaveBeenCalledWith('ana@example.com');
     });
   });
 
   describe('resetPassword', () => {
-    it('delegates to PortalAuthService.resetPassword with token and password', async () => {
+    it('delegates to PortalPasswordService.resetPassword with token and password', async () => {
       const expected = { message: 'Password reset successfully.' };
-      mockPortalAuthService.resetPassword.mockResolvedValue(expected);
+      mockPortalPasswordService.resetPassword.mockResolvedValue(expected);
 
       const result = await controller.resetPassword({ token: 'tok123', password: 'newpass12' } as any);
 
       expect(result).toBe(expected);
-      expect(mockPortalAuthService.resetPassword).toHaveBeenCalledWith('tok123', 'newpass12');
+      expect(mockPortalPasswordService.resetPassword).toHaveBeenCalledWith('tok123', 'newpass12');
     });
   });
 });

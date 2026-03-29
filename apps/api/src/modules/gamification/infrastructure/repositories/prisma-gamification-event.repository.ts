@@ -82,4 +82,48 @@ export class PrismaGamificationEventRepository implements GamificationEventRepos
       },
     });
   }
+
+  async create(data: {
+    userId: string;
+    leadId: string;
+    eventType: string;
+    points: number;
+    coins: number;
+    minuteBucket: number;
+    metadata: Record<string, unknown>;
+  }): Promise<{ id: string }> {
+    return this.prisma.gamificationEvent.create({ data: { ...data, metadata: data.metadata as any } });
+  }
+
+  async findByUniqueKey(
+    userId: string,
+    eventType: string,
+    minuteBucket: number,
+  ): Promise<{ id: string } | null> {
+    return this.prisma.gamificationEvent.findUnique({
+      where: {
+        userId_eventType_minuteBucket: { userId, eventType, minuteBucket },
+      },
+    });
+  }
+
+  async findLeadWithPrimaryAssignment(leadId: string): Promise<{
+    id: string;
+    kw: number | null;
+    assignments: Array<{
+      user: { id: string; firstName: string; lastName: string; closedDealEmoji: string | null };
+    }>;
+  } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      include: {
+        assignments: {
+          where: { isPrimary: true },
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true, closedDealEmoji: true } },
+          },
+        },
+      },
+    }) as any;
+  }
 }

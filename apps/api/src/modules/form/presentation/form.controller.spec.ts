@@ -21,6 +21,7 @@ describe('FormController', () => {
     email: 'test@ecoloop.us',
     firstName: 'Test',
     lastName: 'User',
+    phone: null,
     role: UserRole.ADMIN,
     isActive: true,
     profileImage: null,

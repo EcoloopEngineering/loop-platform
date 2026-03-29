@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { DOCUMENT_REPOSITORY, DocumentRepositoryPort } from '../ports/document.repository.port';
 import { ZapSignService } from '../../../../integrations/zapsign/zapsign.service';
 import { EmailService } from '../../../../infrastructure/email/email.service';
 
@@ -19,7 +19,7 @@ export class DocumentDeliveryService {
   private readonly logger = new Logger(DocumentDeliveryService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(DOCUMENT_REPOSITORY) private readonly documentRepo: DocumentRepositoryPort,
     private readonly zapSignService: ZapSignService,
     private readonly emailService: EmailService,
   ) {}
@@ -35,10 +35,7 @@ export class DocumentDeliveryService {
 
     if (mode === 'informative' && lead.customer.email) {
       await this.sendInformativeEmail(lead.customer.email, lead.customer.firstName, fileName, pdfBuffer);
-      await this.prisma.lead.update({
-        where: { id: lead.id },
-        data: { currentStage: 'ENGINEERING' },
-      });
+      await this.documentRepo.updateLeadStage(lead.id, 'ENGINEERING');
     }
 
     return null;

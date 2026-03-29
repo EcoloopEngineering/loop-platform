@@ -45,7 +45,7 @@ describe('DocumentService', () => {
   });
 
   describe('uploadDocument', () => {
-    const mockUser = { id: 'user-1', email: 'test@ecoloop.us', firstName: 'Test', lastName: 'User', role: 'ADMIN' as any, isActive: true, profileImage: null };
+    const mockUser = { id: 'user-1', email: 'test@ecoloop.us', firstName: 'Test', lastName: 'User', phone: null, role: 'ADMIN' as any, isActive: true, profileImage: null };
     const mockFile = {
       originalname: 'proposal.pdf',
       mimetype: 'application/pdf',
@@ -221,7 +221,7 @@ describe('DocumentService', () => {
   });
 
   describe('deleteDocument', () => {
-    const mockUser = { id: 'user-1', email: 'test@ecoloop.us', firstName: 'Test', lastName: 'User', role: 'ADMIN' as any, isActive: true, profileImage: null };
+    const mockUser = { id: 'user-1', email: 'test@ecoloop.us', firstName: 'Test', lastName: 'User', phone: null, role: 'ADMIN' as any, isActive: true, profileImage: null };
 
     it('should delete S3 doc and DB record', async () => {
       mockRepo.findDocumentById.mockResolvedValue({

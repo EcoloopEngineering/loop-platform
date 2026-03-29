@@ -1,20 +1,21 @@
 import { Test } from '@nestjs/testing';
 import { DocumentDeliveryService } from './document-delivery.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { DOCUMENT_REPOSITORY } from '../ports/document.repository.port';
 import { ZapSignService } from '../../../../integrations/zapsign/zapsign.service';
 import { EmailService } from '../../../../infrastructure/email/email.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('DocumentDeliveryService', () => {
   let service: DocumentDeliveryService;
-  let prisma: MockPrismaService;
+  let documentRepo: { updateLeadStage: jest.Mock };
   let zapSignService: { isConfigured: jest.Mock; createDocument: jest.Mock };
   let emailService: { send: jest.Mock };
 
   const mockPdfBuffer = Buffer.from('fake-pdf-content');
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    documentRepo = {
+      updateLeadStage: jest.fn().mockResolvedValue({}),
+    };
     zapSignService = {
       isConfigured: jest.fn().mockReturnValue(false),
       createDocument: jest.fn(),
@@ -24,7 +25,7 @@ describe('DocumentDeliveryService', () => {
     const module = await Test.createTestingModule({
       providers: [
         DocumentDeliveryService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DOCUMENT_REPOSITORY, useValue: documentRepo },
         { provide: ZapSignService, useValue: zapSignService },
         { provide: EmailService, useValue: emailService },
       ],
@@ -70,8 +71,6 @@ describe('DocumentDeliveryService', () => {
     });
 
     it('should send email and move to ENGINEERING in informative mode', async () => {
-      prisma.lead.update.mockResolvedValue({});
-
       const result = await service.handleCAPDelivery({
         mode: 'informative',
         lead: { id: 'lead-1', customer: { firstName: 'Jane', email: 'jane@example.com' } },
@@ -87,10 +86,7 @@ describe('DocumentDeliveryService', () => {
           subject: 'Your Solar Project Approval - ecoLoop',
         }),
       );
-      expect(prisma.lead.update).toHaveBeenCalledWith({
-        where: { id: 'lead-1' },
-        data: { currentStage: 'ENGINEERING' },
-      });
+      expect(documentRepo.updateLeadStage).toHaveBeenCalledWith('lead-1', 'ENGINEERING');
     });
 
     it('should return null when approval mode but ZapSign not configured', async () => {

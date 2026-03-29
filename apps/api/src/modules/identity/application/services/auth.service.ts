@@ -1,34 +1,26 @@
-import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, Inject, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { UserRole } from '@loop/shared';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { EmailService } from '../../../../infrastructure/email/email.service';
 import { AuthenticatedUser } from '../../../../common/types/authenticated-user.type';
+import {
+  USER_REPOSITORY,
+  UserRepositoryPort,
+  UserRawRecord,
+} from '../ports/user.repository.port';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 
-interface UserRecord {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone: string | null;
-  role: UserRole;
-  isActive: boolean;
-  passwordHash: string | null;
-  metadata: unknown;
-}
-
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly jwtSecret: string;
-  private readonly jwtExpiry: string;
+  readonly jwtSecret: string;
+  readonly jwtExpiry: string;
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(USER_REPOSITORY)
+    private readonly userRepo: UserRepositoryPort,
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
   ) {
@@ -45,89 +37,31 @@ export class AuthService {
     }
   }
 
-  async register(params: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-    phone?: string;
-    role?: string;
-    inviteCode?: string;
-  }) {
-    const existing = await this.prisma.user.findUnique({ where: { email: params.email.toLowerCase() } });
-    if (existing) throw new ConflictException('Email already registered');
-
-    const passwordHash = await bcrypt.hash(params.password, 12);
-    const isEmployee = params.email.toLowerCase().endsWith('@ecoloop.us');
-    const role: UserRole = isEmployee ? ((params.role as UserRole) || UserRole.SALES_REP) : UserRole.SALES_REP;
-
-    const user = await this.prisma.user.create({
-      data: {
-        email: params.email.toLowerCase(),
-        passwordHash,
-        firstName: params.firstName,
-        lastName: params.lastName,
-        phone: params.phone,
-        role,
-        isActive: true,
-        firebaseUid: `jwt_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
-      },
-    });
-
-    if (params.inviteCode && !isEmployee) {
-      try {
-        const inviter = await this.prisma.user.findUnique({ where: { invitationCode: params.inviteCode } });
-        if (inviter) {
-          await this.prisma.referral.create({
-            data: {
-              inviterId: inviter.id,
-              inviteeId: user.id,
-              hierarchyPath: `${inviter.id}/${user.id}`,
-              hierarchyLevel: 1,
-              status: 'ACCEPTED',
-            },
-          });
-          this.logger.log(`Referral linked: ${inviter.id} -> ${user.id}`);
-        }
-      } catch (e: unknown) {
-        this.logger.warn(`Failed to create referral: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-
-    return {
-      user: this.sanitizeUser(user as unknown as UserRecord),
-      token: this.generateToken(user as unknown as UserRecord),
-    };
-  }
-
   async login(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await this.userRepo.findRawByEmail(email.toLowerCase());
     if (!user?.passwordHash) throw new UnauthorizedException('Invalid email or password');
     if (!user.isActive) throw new UnauthorizedException('Account is deactivated');
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid email or password');
 
-    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await this.userRepo.updateRaw(user.id, { lastLoginAt: new Date() });
 
     return {
-      user: this.sanitizeUser(user as unknown as UserRecord),
-      token: this.generateToken(user as unknown as UserRecord),
+      user: this.sanitizeUser(user),
+      token: this.generateToken(user),
     };
   }
 
   async validateToken(token: string): Promise<AuthenticatedUser | null> {
     try {
       const payload = jwt.verify(token, this.jwtSecret) as { sub: string };
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: {
-          id: true, email: true, firstName: true, lastName: true,
-          phone: true, role: true, isActive: true, profileImage: true,
-          lastLoginAt: true, createdAt: true,
-        },
+      const user = await this.userRepo.findSelectById(payload.sub, {
+        id: true, email: true, firstName: true, lastName: true,
+        phone: true, role: true, isActive: true, profileImage: true,
+        lastLoginAt: true, createdAt: true,
       });
-      if (!user?.isActive) return null;
+      if (!(user as any)?.isActive) return null;
       return user as unknown as AuthenticatedUser;
     } catch {
       return null;
@@ -135,34 +69,30 @@ export class AuthService {
   }
 
   async refreshToken(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.userRepo.findRawById(userId);
     if (!user?.isActive) throw new UnauthorizedException('User not found');
-    return { token: this.generateToken(user as unknown as UserRecord) };
+    return { token: this.generateToken(user) };
   }
 
   async forgotPassword(email: string) {
     const ok = { message: 'If an account exists with that email, a reset link has been sent.' };
 
-    const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await this.userRepo.findRawByEmail(email.toLowerCase());
     if (!user?.isActive) {
       this.logger.warn(`Password reset requested for unknown email: ${email}`);
       return ok;
     }
 
-    // Token stored as SHA-256 hash — plaintext only travels in the email link, never persisted
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
     const resetExpiry = new Date(Date.now() + 3_600_000); // 1 hour
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        metadata: {
-          ...((user.metadata as Record<string, unknown>) ?? {}),
-          resetTokenHash,
-          resetExpiry: resetExpiry.toISOString(),
-        } as Prisma.InputJsonValue,
-      },
+    await this.userRepo.updateRaw(user.id, {
+      metadata: {
+        ...((user.metadata as Record<string, unknown>) ?? {}),
+        resetTokenHash,
+        resetExpiry: resetExpiry.toISOString(),
+      } as Prisma.InputJsonValue,
     });
 
     const resetUrl = `${this.config.get('APP_URL', 'http://localhost:9000')}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
@@ -186,15 +116,9 @@ export class AuthService {
   }
 
   async resetPasswordWithToken(token: string, newPassword: string) {
-    // Hash the incoming token before lookup — DB only stores the SHA-256 hash
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    const user = await this.prisma.user.findFirst({
-      where: {
-        isActive: true,
-        metadata: { path: ['resetTokenHash'], equals: tokenHash },
-      } as any,
-    });
+    const user = await this.userRepo.findFirstByMetadataPath(['resetTokenHash'], tokenHash);
 
     if (!user) throw new UnauthorizedException('Invalid or expired reset token');
 
@@ -207,16 +131,16 @@ export class AuthService {
     const { resetTokenHash: _h, resetExpiry: _e, ...cleanMeta } = meta;
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash, metadata: cleanMeta as Prisma.InputJsonValue },
+    await this.userRepo.updateRaw(user.id, {
+      passwordHash,
+      metadata: cleanMeta as Prisma.InputJsonValue,
     });
 
     this.logger.log(`Password reset completed for ${user.email}`);
     return { message: 'Password reset successfully. You can now log in.' };
   }
 
-  private generateToken(user: UserRecord): string {
+  generateToken(user: Pick<UserRawRecord, 'id' | 'email' | 'role'>): string {
     return jwt.sign(
       { sub: user.id, email: user.email, role: user.role },
       this.jwtSecret,
@@ -224,7 +148,7 @@ export class AuthService {
     );
   }
 
-  private sanitizeUser(user: UserRecord) {
+  sanitizeUser(user: Pick<UserRawRecord, 'id' | 'email' | 'firstName' | 'lastName' | 'phone' | 'role' | 'isActive'>) {
     return {
       id: user.id,
       email: user.email,

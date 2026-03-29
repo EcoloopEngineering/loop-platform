@@ -7,6 +7,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { API_URL } from '@/config/api';
 
 const props = withDefaults(
   defineProps<{
@@ -23,7 +24,7 @@ const props = withDefaults(
   },
 );
 
-const apiBase = (process.env.API_URL ?? 'http://localhost:3000');
+const apiBase = API_URL;
 const avatarUrl = ref<string | null>(null);
 const hasAvatar = ref(false);
 

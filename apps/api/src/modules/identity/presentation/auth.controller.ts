@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsString } from 'class-validator';
 import { AuthService } from '../application/services/auth.service';
+import { RegistrationService } from '../application/services/registration.service';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 
@@ -33,14 +34,17 @@ class ResetPasswordDto {
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly registrationService: RegistrationService,
+  ) {}
 
   @Post('register')
   @SetMetadata('isPublic', true)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiOperation({ summary: 'Register a new user' })
   async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+    return this.registrationService.register(dto);
   }
 
   @Post('login')

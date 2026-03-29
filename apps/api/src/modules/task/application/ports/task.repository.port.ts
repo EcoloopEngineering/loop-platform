@@ -36,6 +36,23 @@ export interface TaskRepositoryPort {
   update(id: string, data: Record<string, any>): Promise<TaskWithAssignee>;
   complete(id: string, userId: string): Promise<TaskWithAssignee>;
   cancel(id: string): Promise<TaskWithAssignee>;
+
+  /* ── used by TaskCreationService ── */
+  createTask(data: {
+    leadId: string;
+    title: string;
+    description?: string | null;
+    assigneeId?: string;
+    templateKey?: string;
+    priority?: number;
+    parentTaskId?: string;
+  }): Promise<{ id: string }>;
+
+  findActiveUserByEmail(email: string): Promise<{ id: string } | null>;
+
+  findActiveUserByRole(role: string): Promise<{ id: string } | null>;
+
+  findLeadProjectManagerId(leadId: string): Promise<string | null>;
 }
 
 export const TASK_REPOSITORY = Symbol('TASK_REPOSITORY');

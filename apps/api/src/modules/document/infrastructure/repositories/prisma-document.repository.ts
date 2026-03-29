@@ -67,4 +67,18 @@ export class PrismaDocumentRepository implements DocumentRepositoryPort {
   async deleteDocument(id: string): Promise<void> {
     await this.prisma.document.delete({ where: { id } });
   }
+
+  async updateLeadStage(leadId: string, stage: string): Promise<any> {
+    return this.prisma.lead.update({
+      where: { id: leadId },
+      data: { currentStage: stage as any },
+    });
+  }
+
+  async findLeadWithCustomerAndProperty(leadId: string): Promise<any | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      include: { customer: true, property: true },
+    });
+  }
 }

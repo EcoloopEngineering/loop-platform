@@ -1,6 +1,5 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 import {
   LeadAssignedPayload,
@@ -12,7 +11,6 @@ import {
 export class LeadAssignmentService {
   constructor(
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
-    private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
   ) {}
 
@@ -20,9 +18,7 @@ export class LeadAssignmentService {
     const lead = await this.leadRepo.findById(leadId);
     if (!lead) throw new NotFoundException('Lead not found');
 
-    return this.prisma.leadAssignment.findMany({
-      where: { leadId },
-    });
+    return this.leadRepo.findAssignments(leadId);
   }
 
   async setAssignments(
@@ -35,31 +31,24 @@ export class LeadAssignmentService {
 
     const { assigneeId, splitPct = 100, isPrimary = false } = assignment;
 
-    const result = await this.prisma.leadAssignment.upsert({
-      where: { leadId_userId: { leadId, userId: assigneeId } },
-      update: { splitPct, isPrimary },
-      create: { leadId, userId: assigneeId, splitPct, isPrimary },
+    const result = await this.leadRepo.upsertAssignment({
+      leadId,
+      userId: assigneeId,
+      splitPct,
+      isPrimary,
     });
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId,
-        type: 'ASSIGNMENT_CHANGED',
-        description: `User ${assigneeId} assigned to lead`,
-        metadata: { assigneeId, splitPct, isPrimary },
-      },
+    await this.leadRepo.createActivity({
+      leadId,
+      userId,
+      type: 'ASSIGNMENT_CHANGED',
+      description: `User ${assigneeId} assigned to lead`,
+      metadata: { assigneeId, splitPct, isPrimary },
     });
 
     const [leadWithCustomer, currentUser] = await Promise.all([
-      this.prisma.lead.findUnique({
-        where: { id: leadId },
-        include: { customer: { select: { firstName: true, lastName: true } } },
-      }),
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { firstName: true, lastName: true },
-      }),
+      this.leadRepo.findByIdWithCustomer(leadId),
+      this.leadRepo.findUserNameById(userId),
     ]);
 
     if (!leadWithCustomer || !currentUser) return result;
@@ -77,39 +66,26 @@ export class LeadAssignmentService {
   }
 
   async setPm(leadId: string, pmId: string | null, userId: string) {
-    const previousLead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
-      select: { projectManagerId: true },
-    });
+    const previousLead = await this.leadRepo.findById(leadId);
     if (!previousLead) throw new NotFoundException('Lead not found');
 
-    const lead = await this.prisma.lead.update({
-      where: { id: leadId },
-      data: { projectManagerId: pmId || null },
-      include: {
-        projectManager: true,
-        customer: { select: { firstName: true, lastName: true } },
-      },
-    });
+    const previousPmId = previousLead.projectManagerId;
+
+    const lead = await this.leadRepo.updatePm(leadId, pmId);
 
     const desc = pmId
       ? `Project Manager assigned: ${lead.projectManager?.firstName} ${lead.projectManager?.lastName}`
       : 'Project Manager removed';
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId,
-        type: 'ASSIGNMENT_CHANGED',
-        description: desc,
-        metadata: { projectManagerId: pmId },
-      },
+    await this.leadRepo.createActivity({
+      leadId,
+      userId,
+      type: 'ASSIGNMENT_CHANGED',
+      description: desc,
+      metadata: { projectManagerId: pmId },
     });
 
-    const currentUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { firstName: true, lastName: true },
-    });
+    const currentUser = await this.leadRepo.findUserNameById(userId);
     if (!currentUser) return lead;
 
     const customerName = `${lead.customer.firstName} ${lead.customer.lastName}`;
@@ -123,10 +99,10 @@ export class LeadAssignmentService {
         assignedByName: `${currentUser.firstName} ${currentUser.lastName}`,
       };
       this.emitter.emit('lead.pmAssigned', payload);
-    } else if (previousLead.projectManagerId) {
+    } else if (previousPmId) {
       const payload: LeadPmRemovedPayload = {
         leadId,
-        pmId: previousLead.projectManagerId,
+        pmId: previousPmId,
         customerName,
         removedByName: `${currentUser.firstName} ${currentUser.lastName}`,
       };

@@ -60,7 +60,7 @@ describe('SchedulingController', () => {
       const result = await controller.bookAppointment(
         'lead-1',
         { type: 'SITE_SURVEY' as any, scheduledAt: '2026-04-01T10:00:00Z', duration: 60 },
-        { id: 'user-1', email: 'u@test.com', firstName: 'U', lastName: 'T', role: 'ADMIN' as any, isActive: true, profileImage: null },
+        { id: 'user-1', email: 'u@test.com', firstName: 'U', lastName: 'T', phone: null, role: 'ADMIN' as any, isActive: true, profileImage: null },
       );
 
       expect(commandBus.execute).toHaveBeenCalledWith(

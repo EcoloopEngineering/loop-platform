@@ -100,6 +100,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { io, Socket } from 'socket.io-client';
+import { API_URL } from '@/config/api';
 
 interface ChatMessage {
   id: string;
@@ -119,7 +120,6 @@ interface FaqItem {
 }
 
 const STORAGE_KEY = 'ecoloop_chat_conversation';
-const API_URL = (process.env.API_URL ?? 'http://localhost:3000');
 const socket = ref<Socket | null>(null);
 const conversationId = ref<string | null>(localStorage.getItem(STORAGE_KEY));
 const messages = ref<ChatMessage[]>([]);

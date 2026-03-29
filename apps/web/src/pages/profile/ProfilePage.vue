@@ -67,6 +67,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useUserStore } from '@/stores/user.store';
 import { api } from '@/boot/axios';
+import { API_URL } from '@/config/api';
 import EHeader from '@/components/common/EHeader.vue';
 import EInput from '@/components/common/EInput.vue';
 import EBtn from '@/components/common/EBtn.vue';
@@ -114,7 +115,7 @@ onMounted(async () => {
     const img = data.profileImage ?? '';
     // Convert relative API path to full URL
     form.value.avatarUrl = img.startsWith('/api/')
-      ? `${(process.env.API_URL ?? 'http://localhost:3000')}${img}`
+      ? `${API_URL}${img}`
       : img;
     form.value.language = data.language ?? 'en';
   } catch {
@@ -172,7 +173,7 @@ function uploadAvatar() {
       const { data } = await api.post<{ url: string }>('/users/me/avatar', fd);
       // Convert relative path to full URL for display
       form.value.avatarUrl = data.url.startsWith('/api/')
-        ? `${(process.env.API_URL ?? 'http://localhost:3000')}${data.url}`
+        ? `${API_URL}${data.url}`
         : data.url;
       $q.notify({ type: 'positive', message: 'Avatar updated!' });
     } catch {

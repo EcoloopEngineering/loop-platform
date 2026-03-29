@@ -44,7 +44,7 @@ describe('PrismaLeadRepository', () => {
 
   describe('create', () => {
     it('should create and return a LeadEntity', async () => {
-      const data = { customerId: 'c1', propertyId: 'p1', currentStage: 'NEW_LEAD' };
+      const data = { customerId: 'c1', propertyId: 'p1', currentStage: 'NEW_LEAD', pipelineId: 'pip-1', source: 'WEBSITE', createdById: 'u1' };
       const created = { id: 'lead-1', ...data };
       prisma.lead.create.mockResolvedValue(created);
 
@@ -150,6 +150,254 @@ describe('PrismaLeadRepository', () => {
         where: { id: 'lead-1' },
         data: { isActive: false },
       });
+    });
+  });
+
+  // ── New methods ────────────────────────────────────────────────────────
+
+  describe('updateStageAndPipeline', () => {
+    it('should update stage and pipelineId together', async () => {
+      prisma.lead.update.mockResolvedValue({ id: 'lead-1', currentStage: 'SITE_AUDIT', pipelineId: 'pipe-2' });
+
+      const result = await repository.updateStageAndPipeline('lead-1', 'SITE_AUDIT', 'pipe-2');
+
+      expect(result).toBeInstanceOf(LeadEntity);
+      expect(prisma.lead.update).toHaveBeenCalledWith({
+        where: { id: 'lead-1' },
+        data: { currentStage: 'SITE_AUDIT', pipelineId: 'pipe-2' },
+      });
+    });
+  });
+
+  describe('findByIdWithCustomer', () => {
+    it('should return lead with customer and projectManager names', async () => {
+      const data = {
+        id: 'lead-1',
+        customer: { firstName: 'John', lastName: 'Doe' },
+        projectManager: { firstName: 'PM', lastName: 'One' },
+      };
+      prisma.lead.findUnique.mockResolvedValue(data);
+
+      const result = await repository.findByIdWithCustomer('lead-1');
+
+      expect(result).toEqual(data);
+      expect(prisma.lead.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'lead-1' },
+          include: expect.objectContaining({
+            customer: { select: { firstName: true, lastName: true } },
+          }),
+        }),
+      );
+    });
+
+    it('should return null when lead does not exist', async () => {
+      prisma.lead.findUnique.mockResolvedValue(null);
+
+      const result = await repository.findByIdWithCustomer('nonexistent');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('updatePm', () => {
+    it('should update projectManagerId and return lead with relations', async () => {
+      const data = {
+        id: 'lead-1',
+        projectManagerId: 'pm-1',
+        projectManager: { firstName: 'PM', lastName: 'One' },
+        customer: { firstName: 'John', lastName: 'Doe' },
+      };
+      prisma.lead.update.mockResolvedValue(data);
+
+      const result = await repository.updatePm('lead-1', 'pm-1');
+
+      expect(result).toEqual(data);
+      expect(prisma.lead.update).toHaveBeenCalledWith({
+        where: { id: 'lead-1' },
+        data: { projectManagerId: 'pm-1' },
+        include: expect.objectContaining({
+          projectManager: { select: { firstName: true, lastName: true } },
+          customer: { select: { firstName: true, lastName: true } },
+        }),
+      });
+    });
+  });
+
+  describe('createLeadRaw', () => {
+    it('should create a lead with raw data and return LeadEntity', async () => {
+      const rawData = { customer: { connect: { id: 'c1' } }, source: 'PUBLIC_FORM' };
+      prisma.lead.create.mockResolvedValue({ id: 'lead-1', source: 'PUBLIC_FORM' });
+
+      const result = await repository.createLeadRaw(rawData);
+
+      expect(result).toBeInstanceOf(LeadEntity);
+      expect(prisma.lead.create).toHaveBeenCalledWith({ data: rawData });
+    });
+  });
+
+  describe('deactivateByCustomerId', () => {
+    it('should soft-delete all active leads for a customer', async () => {
+      prisma.lead.updateMany.mockResolvedValue({ count: 2 });
+
+      await repository.deactivateByCustomerId('cust-1');
+
+      expect(prisma.lead.updateMany).toHaveBeenCalledWith({
+        where: { customerId: 'cust-1', isActive: true },
+        data: { isActive: false, lostReason: 'Deleted from SalesRabbit' },
+      });
+    });
+  });
+
+  describe('createActivity', () => {
+    it('should create a lead activity', async () => {
+      const activityData = {
+        leadId: 'lead-1',
+        userId: 'user-1',
+        type: 'NOTE_ADDED',
+        description: 'Test note',
+      };
+      prisma.leadActivity.create.mockResolvedValue({ id: 'act-1', ...activityData });
+
+      const result = await repository.createActivity(activityData);
+
+      expect(result).toEqual({ id: 'act-1', ...activityData });
+      expect(prisma.leadActivity.create).toHaveBeenCalledWith({ data: activityData });
+    });
+  });
+
+  describe('findActivityByIdAndLead', () => {
+    it('should find activity by id and leadId', async () => {
+      const activity = { id: 'act-1', leadId: 'lead-1', type: 'NOTE_ADDED' };
+      prisma.leadActivity.findFirst.mockResolvedValue(activity);
+
+      const result = await repository.findActivityByIdAndLead('act-1', 'lead-1', 'NOTE_ADDED');
+
+      expect(result).toEqual(activity);
+      expect(prisma.leadActivity.findFirst).toHaveBeenCalledWith({
+        where: { id: 'act-1', leadId: 'lead-1', type: 'NOTE_ADDED' },
+      });
+    });
+
+    it('should return null when not found', async () => {
+      prisma.leadActivity.findFirst.mockResolvedValue(null);
+
+      const result = await repository.findActivityByIdAndLead('bad-id', 'lead-1');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('updateActivity', () => {
+    it('should update an activity', async () => {
+      const updated = { id: 'act-1', description: 'Updated' };
+      prisma.leadActivity.update.mockResolvedValue(updated);
+
+      const result = await repository.updateActivity('act-1', { description: 'Updated' });
+
+      expect(result).toEqual(updated);
+      expect(prisma.leadActivity.update).toHaveBeenCalledWith({
+        where: { id: 'act-1' },
+        data: { description: 'Updated' },
+      });
+    });
+  });
+
+  describe('findActivities', () => {
+    it('should find activities by leadId and type with orderBy', async () => {
+      const activities = [{ id: 'a1' }, { id: 'a2' }];
+      prisma.leadActivity.findMany.mockResolvedValue(activities);
+
+      const result = await repository.findActivities({
+        leadId: 'lead-1',
+        type: 'NOTE_ADDED',
+        orderBy: { createdAt: 'desc' },
+      });
+
+      expect(result).toEqual(activities);
+      expect(prisma.leadActivity.findMany).toHaveBeenCalledWith({
+        where: { leadId: 'lead-1', type: 'NOTE_ADDED' },
+        orderBy: { createdAt: 'desc' },
+      });
+    });
+
+    it('should find activities without type filter', async () => {
+      prisma.leadActivity.findMany.mockResolvedValue([]);
+
+      await repository.findActivities({ leadId: 'lead-1' });
+
+      expect(prisma.leadActivity.findMany).toHaveBeenCalledWith({
+        where: { leadId: 'lead-1' },
+      });
+    });
+  });
+
+  describe('findAssignments', () => {
+    it('should return assignments for a lead', async () => {
+      const assignments = [{ leadId: 'lead-1', userId: 'user-1', isPrimary: true, splitPct: 100 }];
+      prisma.leadAssignment.findMany.mockResolvedValue(assignments);
+
+      const result = await repository.findAssignments('lead-1');
+
+      expect(result).toEqual([{ leadId: 'lead-1', userId: 'user-1', isPrimary: true, splitPct: 100 }]);
+      expect(prisma.leadAssignment.findMany).toHaveBeenCalledWith({ where: { leadId: 'lead-1' } });
+    });
+  });
+
+  describe('upsertAssignment', () => {
+    it('should upsert a lead assignment', async () => {
+      const data = { leadId: 'lead-1', userId: 'user-1', splitPct: 100, isPrimary: true };
+      prisma.leadAssignment.upsert.mockResolvedValue(data);
+
+      const result = await repository.upsertAssignment(data);
+
+      expect(result).toEqual(data);
+      expect(prisma.leadAssignment.upsert).toHaveBeenCalledWith({
+        where: { leadId_userId: { leadId: 'lead-1', userId: 'user-1' } },
+        update: { splitPct: 100, isPrimary: true },
+        create: data,
+      });
+    });
+  });
+
+  describe('findUserNameById', () => {
+    it('should return user name', async () => {
+      prisma.user.findUnique.mockResolvedValue({ firstName: 'John', lastName: 'Doe' });
+
+      const result = await repository.findUserNameById('user-1');
+
+      expect(result).toEqual({ firstName: 'John', lastName: 'Doe' });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        select: { firstName: true, lastName: true },
+      });
+    });
+
+    it('should return null when user not found', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await repository.findUserNameById('bad-id');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findDefaultPipeline', () => {
+    it('should return the default pipeline', async () => {
+      prisma.pipeline.findFirst.mockResolvedValue({ id: 'pipe-1', isDefault: true });
+
+      const result = await repository.findDefaultPipeline();
+
+      expect(result).toEqual({ id: 'pipe-1', isDefault: true });
+      expect(prisma.pipeline.findFirst).toHaveBeenCalledWith({ where: { isDefault: true } });
+    });
+
+    it('should return null when no default pipeline exists', async () => {
+      prisma.pipeline.findFirst.mockResolvedValue(null);
+
+      const result = await repository.findDefaultPipeline();
+
+      expect(result).toBeNull();
     });
   });
 });

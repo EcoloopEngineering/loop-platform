@@ -1,7 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { DOCUMENT_REPOSITORY, DocumentRepositoryPort } from './ports/document.repository.port';
 import { PdfService } from '../../../infrastructure/pdf/pdf.service';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { DocumentDeliveryService } from './services/document-delivery.service';
@@ -45,7 +45,7 @@ export class DocumentGenerationService {
   private readonly logger = new Logger(DocumentGenerationService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(DOCUMENT_REPOSITORY) private readonly documentRepo: DocumentRepositoryPort,
     private readonly pdfService: PdfService,
     private readonly deliveryService: DocumentDeliveryService,
   ) {}
@@ -55,10 +55,7 @@ export class DocumentGenerationService {
     dto: ChangeOrderDto,
     user: AuthenticatedUser,
   ): Promise<DocumentResult> {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
-      include: { customer: true, property: true },
-    });
+    const lead = await this.documentRepo.findLeadWithCustomerAndProperty(leadId);
     if (!lead) {
       throw new NotFoundException('Lead not found');
     }
@@ -81,26 +78,23 @@ export class DocumentGenerationService {
     const fileName = `change-order-${leadId}-${Date.now()}.pdf`;
     this.savePdfLocally(leadId, fileName, pdfBuffer);
 
-    const doc = await this.prisma.document.create({
-      data: {
-        leadId,
-        type: 'CONTRACT',
-        fileName,
-        mimeType: 'application/pdf',
-        fileSize: pdfBuffer.length,
-        fileKey: `${leadId}/${fileName}`,
-        uploadedById: user.id,
-      },
+    const doc = await this.documentRepo.createDocument({
+      leadId,
+      type: 'CONTRACT',
+      fileName,
+      mimeType: 'application/pdf',
+      fileSize: pdfBuffer.length,
+      fileKey: `${leadId}/${fileName}`,
+      uploadedById: user.id,
+      metadata: {},
     });
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId: user.id,
-        type: 'DOCUMENT_UPLOADED',
-        description: 'Change Order generated',
-        metadata: { documentId: doc.id, type: 'change_order' },
-      },
+    await this.documentRepo.createLeadActivity({
+      leadId,
+      userId: user.id,
+      type: 'DOCUMENT_UPLOADED',
+      description: 'Change Order generated',
+      metadata: { documentId: doc.id, type: 'change_order' },
     });
 
     return {
@@ -116,10 +110,7 @@ export class DocumentGenerationService {
     dto: CAPDto,
     user: AuthenticatedUser,
   ): Promise<CAPResult> {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
-      include: { customer: true, property: true },
-    });
+    const lead = await this.documentRepo.findLeadWithCustomerAndProperty(leadId);
     if (!lead) {
       throw new NotFoundException('Lead not found');
     }
@@ -143,16 +134,15 @@ export class DocumentGenerationService {
     const fileName = `cap-${leadId}-${Date.now()}.pdf`;
     this.savePdfLocally(leadId, fileName, pdfBuffer);
 
-    const doc = await this.prisma.document.create({
-      data: {
-        leadId,
-        type: 'CONTRACT',
-        fileName,
-        mimeType: 'application/pdf',
-        fileSize: pdfBuffer.length,
-        fileKey: `${leadId}/${fileName}`,
-        uploadedById: user.id,
-      },
+    const doc = await this.documentRepo.createDocument({
+      leadId,
+      type: 'CONTRACT',
+      fileName,
+      mimeType: 'application/pdf',
+      fileSize: pdfBuffer.length,
+      fileKey: `${leadId}/${fileName}`,
+      uploadedById: user.id,
+      metadata: {},
     });
 
     const zapSignResult = await this.deliveryService.handleCAPDelivery({
@@ -163,18 +153,16 @@ export class DocumentGenerationService {
       pdfBuffer,
     });
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId: user.id,
-        type: 'DOCUMENT_UPLOADED',
-        description: `CAP generated (${dto.mode}) ${zapSignResult ? '-- sent for e-signature' : ''}`,
-        metadata: {
-          documentId: doc.id,
-          type: 'cap',
-          mode: dto.mode,
-          zapSignToken: zapSignResult?.token ?? null,
-        },
+    await this.documentRepo.createLeadActivity({
+      leadId,
+      userId: user.id,
+      type: 'DOCUMENT_UPLOADED',
+      description: `CAP generated (${dto.mode}) ${zapSignResult ? '-- sent for e-signature' : ''}`,
+      metadata: {
+        documentId: doc.id,
+        type: 'cap',
+        mode: dto.mode,
+        zapSignToken: zapSignResult?.token ?? null,
       },
     });
 

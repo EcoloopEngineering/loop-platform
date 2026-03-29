@@ -15,6 +15,7 @@ describe('UsersController', () => {
     email: 'test@test.com',
     firstName: 'Test',
     lastName: 'User',
+    phone: null,
     role: UserRole.SALES_REP,
     isActive: true,
     profileImage: null,
@@ -88,7 +89,7 @@ describe('UsersController', () => {
     it('should return error when no file provided', async () => {
       userProfileService.uploadAvatar.mockResolvedValue({ error: 'No file provided' });
 
-      const result = await controller.uploadAvatar(undefined, 'user-1');
+      const result = await controller.uploadAvatar(undefined as any, 'user-1');
 
       expect(result).toEqual({ error: 'No file provided' });
     });
@@ -112,7 +113,7 @@ describe('UsersController', () => {
       });
       const res = mockRes();
 
-      await controller.getAvatar('nonexistent', res);
+      await controller.getAvatar('nonexistent', res as any);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ error: 'User not found' });
@@ -127,7 +128,7 @@ describe('UsersController', () => {
       });
       const res = mockRes();
 
-      await controller.getAvatar('user-1', res);
+      await controller.getAvatar('user-1', res as any);
 
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
       expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=86400');

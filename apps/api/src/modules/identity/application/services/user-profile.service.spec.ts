@@ -2,16 +2,29 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { QueryBus } from '@nestjs/cqrs';
 import { NotFoundException } from '@nestjs/common';
 import { UserProfileService } from './user-profile.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { USER_REPOSITORY } from '../ports/user.repository.port';
 import { S3Service } from '../../../../infrastructure/storage/s3.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 import { UserRole } from '@loop/shared';
 import { AuthenticatedUser } from '../../../../common/types/authenticated-user.type';
 
 describe('UserProfileService', () => {
   let service: UserProfileService;
   let queryBus: { execute: jest.Mock };
-  let prisma: MockPrismaService;
+  let userRepo: {
+    findRawById: jest.Mock;
+    findRawByEmail: jest.Mock;
+    findSelectById: jest.Mock;
+    updateRaw: jest.Mock;
+    findById: jest.Mock;
+    findByEmail: jest.Mock;
+    findByFirebaseUid: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    findAll: jest.Mock;
+    findByInvitationCode: jest.Mock;
+    createRaw: jest.Mock;
+    findFirstByMetadataPath: jest.Mock;
+  };
   let s3Service: {
     isConfigured: jest.Mock;
     upload: jest.Mock;
@@ -23,6 +36,7 @@ describe('UserProfileService', () => {
     email: 'test@test.com',
     firstName: 'Test',
     lastName: 'User',
+    phone: null,
     role: UserRole.SALES_REP,
     isActive: true,
     profileImage: null,
@@ -30,7 +44,21 @@ describe('UserProfileService', () => {
 
   beforeEach(async () => {
     queryBus = { execute: jest.fn() };
-    prisma = createMockPrismaService();
+    userRepo = {
+      findRawById: jest.fn(),
+      findRawByEmail: jest.fn(),
+      findSelectById: jest.fn(),
+      updateRaw: jest.fn(),
+      findById: jest.fn(),
+      findByEmail: jest.fn(),
+      findByFirebaseUid: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      findAll: jest.fn(),
+      findByInvitationCode: jest.fn(),
+      createRaw: jest.fn(),
+      findFirstByMetadataPath: jest.fn(),
+    };
     s3Service = {
       isConfigured: jest.fn().mockReturnValue(false),
       upload: jest.fn().mockResolvedValue('https://s3.example.com/key'),
@@ -41,7 +69,7 @@ describe('UserProfileService', () => {
       providers: [
         UserProfileService,
         { provide: QueryBus, useValue: queryBus },
-        { provide: PrismaService, useValue: prisma },
+        { provide: USER_REPOSITORY, useValue: userRepo },
         { provide: S3Service, useValue: s3Service },
       ],
     }).compile();
@@ -67,7 +95,7 @@ describe('UserProfileService', () => {
 
       const result = await service.getProfile('user-1');
 
-      expect(result.id).toBe('user-1');
+      expect((result as any).id).toBe('user-1');
       expect(result.darkMode).toBe(true);
       expect(result.compactView).toBe(false);
       expect((result as any).passwordHash).toBeUndefined();
@@ -102,21 +130,18 @@ describe('UserProfileService', () => {
         socialSecurityNumber: null,
         firebaseUid: 'fb',
       };
-      prisma.user.update.mockResolvedValue(updated);
+      userRepo.updateRaw.mockResolvedValue(updated);
 
       const result = await service.updateProfile(mockUser, { firstName: 'Updated' });
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-        data: { firstName: 'Updated' },
-      });
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', { firstName: 'Updated' });
       expect(result.firstName).toBe('Updated');
       expect((result as any).passwordHash).toBeUndefined();
     });
 
     it('should merge metadata when darkMode or compactView are provided', async () => {
-      prisma.user.findUnique.mockResolvedValue({ metadata: { existing: 'value' } });
-      prisma.user.update.mockResolvedValue({
+      userRepo.findSelectById.mockResolvedValue({ metadata: { existing: 'value' } });
+      userRepo.updateRaw.mockResolvedValue({
         id: 'user-1',
         metadata: { existing: 'value', darkMode: true },
         passwordHash: 'h',
@@ -126,19 +151,15 @@ describe('UserProfileService', () => {
 
       await service.updateProfile(mockUser, { darkMode: true } as any);
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-        select: { metadata: true },
-      });
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-        data: { metadata: { existing: 'value', darkMode: true } },
+      expect(userRepo.findSelectById).toHaveBeenCalledWith('user-1', { metadata: true });
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', {
+        metadata: { existing: 'value', darkMode: true },
       });
     });
 
     it('should handle null metadata when merging preferences', async () => {
-      prisma.user.findUnique.mockResolvedValue({ metadata: null });
-      prisma.user.update.mockResolvedValue({
+      userRepo.findSelectById.mockResolvedValue({ metadata: null });
+      userRepo.updateRaw.mockResolvedValue({
         id: 'user-1',
         metadata: { compactView: true },
         passwordHash: 'h',
@@ -148,9 +169,8 @@ describe('UserProfileService', () => {
 
       await service.updateProfile(mockUser, { compactView: true } as any);
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-        data: { metadata: { compactView: true } },
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', {
+        metadata: { compactView: true },
       });
     });
   });
@@ -170,8 +190,8 @@ describe('UserProfileService', () => {
         originalname: 'photo.png',
         buffer: Buffer.from('image-data'),
         mimetype: 'image/png',
-      } as Express.Multer.File;
-      prisma.user.update.mockResolvedValue({});
+      } as any;
+      userRepo.updateRaw.mockResolvedValue({});
 
       const result = await service.uploadAvatar(mockFile, 'user-1');
 
@@ -181,12 +201,10 @@ describe('UserProfileService', () => {
           contentType: 'image/png',
         }),
       );
-      expect(prisma.user.update).toHaveBeenCalledWith(
+      expect(userRepo.updateRaw).toHaveBeenCalledWith(
+        'user-1',
         expect.objectContaining({
-          where: { id: 'user-1' },
-          data: expect.objectContaining({
-            profileImage: '/api/v1/users/avatar/user-1',
-          }),
+          profileImage: '/api/v1/users/avatar/user-1',
         }),
       );
       expect(result).toEqual({ url: '/api/v1/users/avatar/user-1' });
@@ -198,13 +216,13 @@ describe('UserProfileService', () => {
         originalname: 'photo.jpg',
         buffer: Buffer.from('data'),
         mimetype: 'image/jpeg',
-      } as Express.Multer.File;
-      prisma.user.update.mockResolvedValue({});
+      } as any;
+      userRepo.updateRaw.mockResolvedValue({});
 
       const result = await service.uploadAvatar(mockFile, 'user-1');
 
       expect(s3Service.upload).not.toHaveBeenCalled();
-      expect(prisma.user.update).toHaveBeenCalled();
+      expect(userRepo.updateRaw).toHaveBeenCalled();
       expect(result).toEqual({ url: '/api/v1/users/avatar/user-1' });
     });
   });
@@ -229,8 +247,8 @@ describe('UserProfileService', () => {
   /* ------------------------------------------------------------------ */
   describe('toggleActive', () => {
     it('should toggle isActive from true to false', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', isActive: true });
-      prisma.user.update.mockResolvedValue({
+      userRepo.findRawById.mockResolvedValue({ id: 'user-1', isActive: true });
+      userRepo.updateRaw.mockResolvedValue({
         id: 'user-1',
         isActive: false,
         passwordHash: 'h',
@@ -241,16 +259,13 @@ describe('UserProfileService', () => {
 
       const result = await service.toggleActive('user-1');
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-        data: { isActive: false },
-      });
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', { isActive: false });
       expect((result as any).isActive).toBe(false);
     });
 
     it('should toggle isActive from false to true', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', isActive: false });
-      prisma.user.update.mockResolvedValue({
+      userRepo.findRawById.mockResolvedValue({ id: 'user-1', isActive: false });
+      userRepo.updateRaw.mockResolvedValue({
         id: 'user-1',
         isActive: true,
         passwordHash: 'h',
@@ -261,15 +276,12 @@ describe('UserProfileService', () => {
 
       const result = await service.toggleActive('user-1');
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-        data: { isActive: true },
-      });
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', { isActive: true });
       expect((result as any).isActive).toBe(true);
     });
 
     it('should throw NotFoundException when user not found', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+      userRepo.findRawById.mockResolvedValue(null);
 
       await expect(service.toggleActive('nonexistent')).rejects.toThrow(NotFoundException);
     });

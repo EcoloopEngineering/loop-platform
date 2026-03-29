@@ -1,18 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SalesRabbitWebhookService } from './salesrabbit-webhook.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
+import { CUSTOMER_REPOSITORY } from '../ports/customer.repository.port';
 import { PROPERTY_REPOSITORY } from '../ports/property.repository.port';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('SalesRabbitWebhookService', () => {
   let service: SalesRabbitWebhookService;
-  let prisma: MockPrismaService;
+  let leadRepo: Record<string, jest.Mock>;
+  let customerRepo: Record<string, jest.Mock>;
   let propertyRepo: Record<string, jest.Mock>;
   let emitter: { emit: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    leadRepo = {
+      findById: jest.fn(),
+      createLeadRaw: jest.fn(),
+      createActivity: jest.fn(),
+      findDefaultPipeline: jest.fn(),
+      deactivateByCustomerId: jest.fn(),
+    };
+    customerRepo = {
+      findByEmail: jest.fn(),
+      create: jest.fn(),
+    };
     propertyRepo = {
       create: jest.fn(),
       findById: jest.fn(),
@@ -24,7 +35,8 @@ describe('SalesRabbitWebhookService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesRabbitWebhookService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: LEAD_REPOSITORY, useValue: leadRepo },
+        { provide: CUSTOMER_REPOSITORY, useValue: customerRepo },
         { provide: EventEmitter2, useValue: emitter },
         { provide: PROPERTY_REPOSITORY, useValue: propertyRepo },
       ],
@@ -35,12 +47,12 @@ describe('SalesRabbitWebhookService', () => {
 
   describe('processEvent - lead.created', () => {
     it('should create customer, property, lead and emit event', async () => {
-      prisma.customer.findFirst.mockResolvedValue(null);
-      prisma.customer.create.mockResolvedValue({ id: 'cust-1' });
+      customerRepo.findByEmail.mockResolvedValue(null);
+      customerRepo.create.mockResolvedValue({ id: 'cust-1' });
       propertyRepo.create.mockResolvedValue({ id: 'prop-1' });
-      prisma.pipeline.findFirst.mockResolvedValue({ id: 'pipe-1' });
-      prisma.lead.create.mockResolvedValue({ id: 'lead-1', createdById: null });
-      prisma.leadActivity.create.mockResolvedValue({});
+      leadRepo.findDefaultPipeline.mockResolvedValue({ id: 'pipe-1' });
+      leadRepo.createLeadRaw.mockResolvedValue({ id: 'lead-1', createdById: null });
+      leadRepo.createActivity.mockResolvedValue({});
 
       const result = await service.processEvent('lead.created', {
         firstName: 'John',
@@ -55,9 +67,9 @@ describe('SalesRabbitWebhookService', () => {
       });
 
       expect(result).toEqual({ leadId: 'lead-1', customerId: 'cust-1' });
-      expect(prisma.customer.create).toHaveBeenCalled();
+      expect(customerRepo.create).toHaveBeenCalled();
       expect(propertyRepo.create).toHaveBeenCalled();
-      expect(prisma.lead.create).toHaveBeenCalled();
+      expect(leadRepo.createLeadRaw).toHaveBeenCalled();
       expect(emitter.emit).toHaveBeenCalledWith(
         'lead.created',
         expect.objectContaining({ leadId: 'lead-1' }),
@@ -70,7 +82,7 @@ describe('SalesRabbitWebhookService', () => {
       });
 
       expect(result).toEqual({ skipped: true, reason: 'no contact info' });
-      expect(prisma.customer.create).not.toHaveBeenCalled();
+      expect(customerRepo.create).not.toHaveBeenCalled();
     });
 
     it('should skip disqualified leads (statusId in DISQUALIFIED_STATUSES)', async () => {
@@ -83,10 +95,10 @@ describe('SalesRabbitWebhookService', () => {
     });
 
     it('should use existing customer if found by email', async () => {
-      prisma.customer.findFirst.mockResolvedValue({ id: 'existing-cust' });
-      prisma.pipeline.findFirst.mockResolvedValue({ id: 'pipe-1' });
-      prisma.lead.create.mockResolvedValue({ id: 'lead-2', createdById: null });
-      prisma.leadActivity.create.mockResolvedValue({});
+      customerRepo.findByEmail.mockResolvedValue({ id: 'existing-cust' });
+      leadRepo.findDefaultPipeline.mockResolvedValue({ id: 'pipe-1' });
+      leadRepo.createLeadRaw.mockResolvedValue({ id: 'lead-2', createdById: null });
+      leadRepo.createActivity.mockResolvedValue({});
 
       const result = await service.processEvent('lead.created', {
         email: 'existing@example.com',
@@ -94,13 +106,13 @@ describe('SalesRabbitWebhookService', () => {
       });
 
       expect(result).toEqual({ leadId: 'lead-2', customerId: 'existing-cust' });
-      expect(prisma.customer.create).not.toHaveBeenCalled();
+      expect(customerRepo.create).not.toHaveBeenCalled();
     });
 
     it('should return error when no default pipeline exists', async () => {
-      prisma.customer.findFirst.mockResolvedValue(null);
-      prisma.customer.create.mockResolvedValue({ id: 'cust-1' });
-      prisma.pipeline.findFirst.mockResolvedValue(null);
+      customerRepo.findByEmail.mockResolvedValue(null);
+      customerRepo.create.mockResolvedValue({ id: 'cust-1' });
+      leadRepo.findDefaultPipeline.mockResolvedValue(null);
 
       const result = await service.processEvent('lead.created', {
         email: 'test@test.com',
@@ -112,18 +124,15 @@ describe('SalesRabbitWebhookService', () => {
 
   describe('processEvent - lead.deleted', () => {
     it('should soft-delete leads for the customer', async () => {
-      prisma.customer.findFirst.mockResolvedValue({ id: 'cust-1' });
-      prisma.lead.updateMany.mockResolvedValue({ count: 2 });
+      customerRepo.findByEmail.mockResolvedValue({ id: 'cust-1' });
+      leadRepo.deactivateByCustomerId.mockResolvedValue(undefined);
 
       const result = await service.processEvent('lead.deleted', {
         email: 'john@example.com',
       });
 
       expect(result).toEqual({ deleted: true });
-      expect(prisma.lead.updateMany).toHaveBeenCalledWith({
-        where: { customerId: 'cust-1', isActive: true },
-        data: { isActive: false, lostReason: 'Deleted from SalesRabbit' },
-      });
+      expect(leadRepo.deactivateByCustomerId).toHaveBeenCalledWith('cust-1');
     });
 
     it('should skip deletion when email is missing', async () => {

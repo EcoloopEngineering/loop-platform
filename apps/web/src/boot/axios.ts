@@ -1,5 +1,6 @@
 import { boot } from 'quasar/wrappers';
 import axios, { type AxiosInstance } from 'axios';
+import { API_BASE } from '@/config/api';
 
 declare module 'vue' {
   interface ComponentCustomProperties {
@@ -9,7 +10,7 @@ declare module 'vue' {
 }
 
 const api = axios.create({
-  baseURL: (process.env.API_URL ?? 'http://localhost:3000') + '/api/v1',
+  baseURL: API_BASE,
 });
 
 export default boot(({ app, router }) => {

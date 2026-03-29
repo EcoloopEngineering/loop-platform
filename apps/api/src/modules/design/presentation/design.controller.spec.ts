@@ -4,7 +4,7 @@ import { DesignController } from './design.controller';
 import { DesignQueryService } from '../application/services/design-query.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RequestDesignCommand } from '../application/commands/request-design.handler';
-import { DesignType } from '@loop/shared';
+import { DesignType } from '../domain/entities/design-request.entity';
 
 describe('DesignController', () => {
   let controller: DesignController;

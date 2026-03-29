@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { User } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
+import { UserRole } from '@loop/shared';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { UserRepositoryPort } from '../../application/ports/user.repository.port';
+import {
+  UserRepositoryPort,
+  UserRawRecord,
+} from '../../application/ports/user.repository.port';
 import { UserEntity } from '../../domain/entities/user.entity';
 
 @Injectable()
@@ -96,7 +100,6 @@ export class PrismaUserRepository implements UserRepositoryPort {
     return {
       data: users.map((u) => {
         const entity = new UserEntity(u as Partial<UserEntity>);
-        // Preserve relations for API response
         const extended = entity as UserEntity & { referralsReceived?: unknown; _count?: unknown };
         extended.referralsReceived = (u as User & { referralsReceived?: unknown }).referralsReceived;
         extended._count = (u as User & { _count?: unknown })._count;
@@ -104,5 +107,75 @@ export class PrismaUserRepository implements UserRepositoryPort {
       }),
       total,
     };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  New methods for auth / profile services                            */
+  /* ------------------------------------------------------------------ */
+
+  async findRawById(id: string): Promise<UserRawRecord | null> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    return user as UserRawRecord | null;
+  }
+
+  async findRawByEmail(email: string): Promise<UserRawRecord | null> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    return user as UserRawRecord | null;
+  }
+
+  async findByInvitationCode(code: string): Promise<UserRawRecord | null> {
+    const user = await this.prisma.user.findUnique({ where: { invitationCode: code } });
+    return user as UserRawRecord | null;
+  }
+
+  async createRaw(data: {
+    email: string;
+    passwordHash: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    role: UserRole;
+    isActive: boolean;
+    firebaseUid: string;
+  }): Promise<UserRawRecord> {
+    const user = await this.prisma.user.create({
+      data: {
+        email: data.email,
+        passwordHash: data.passwordHash,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+        role: data.role,
+        isActive: data.isActive,
+        firebaseUid: data.firebaseUid,
+      },
+    });
+    return user as UserRawRecord;
+  }
+
+  async updateRaw(id: string, data: Record<string, unknown>): Promise<UserRawRecord> {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: data as Prisma.UserUpdateInput,
+    });
+    return user as UserRawRecord;
+  }
+
+  async findFirstByMetadataPath(path: string[], value: unknown): Promise<UserRawRecord | null> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        isActive: true,
+        metadata: { path, equals: value },
+      } as any,
+    });
+    return user as UserRawRecord | null;
+  }
+
+  async findSelectById(id: string, select: Record<string, boolean>): Promise<Record<string, unknown> | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select,
+    });
+    return user as Record<string, unknown> | null;
   }
 }

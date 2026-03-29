@@ -1,13 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { DocumentGenerationService } from './document-generation.service';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { DOCUMENT_REPOSITORY } from './ports/document.repository.port';
 import { PdfService } from '../../../infrastructure/pdf/pdf.service';
 import { DocumentDeliveryService } from './services/document-delivery.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../test/prisma-mock.helper';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 
 jest.mock('fs', () => ({
@@ -18,7 +14,11 @@ jest.mock('fs', () => ({
 
 describe('DocumentGenerationService', () => {
   let service: DocumentGenerationService;
-  let prisma: MockPrismaService;
+  let documentRepo: {
+    findLeadWithCustomerAndProperty: jest.Mock;
+    createDocument: jest.Mock;
+    createLeadActivity: jest.Mock;
+  };
   let pdfService: { generateChangeOrder: jest.Mock; generateCAP: jest.Mock };
   let deliveryService: { handleCAPDelivery: jest.Mock };
 
@@ -27,6 +27,7 @@ describe('DocumentGenerationService', () => {
     email: 'rep@ecoloop.us',
     firstName: 'John',
     lastName: 'Doe',
+    phone: null,
     role: 'SALES_REP' as any,
     isActive: true,
     profileImage: null,
@@ -52,7 +53,11 @@ describe('DocumentGenerationService', () => {
   const mockPdfBuffer = Buffer.from('fake-pdf-content');
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    documentRepo = {
+      findLeadWithCustomerAndProperty: jest.fn(),
+      createDocument: jest.fn(),
+      createLeadActivity: jest.fn(),
+    };
     pdfService = {
       generateChangeOrder: jest.fn().mockResolvedValue(mockPdfBuffer),
       generateCAP: jest.fn().mockResolvedValue(mockPdfBuffer),
@@ -64,7 +69,7 @@ describe('DocumentGenerationService', () => {
     const module = await Test.createTestingModule({
       providers: [
         DocumentGenerationService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DOCUMENT_REPOSITORY, useValue: documentRepo },
         { provide: PdfService, useValue: pdfService },
         { provide: DocumentDeliveryService, useValue: deliveryService },
       ],
@@ -75,9 +80,9 @@ describe('DocumentGenerationService', () => {
 
   describe('generateChangeOrder', () => {
     it('should generate a change order PDF and return document info', async () => {
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.document.create.mockResolvedValue({ id: 'doc-1' });
-      prisma.leadActivity.create.mockResolvedValue({});
+      documentRepo.findLeadWithCustomerAndProperty.mockResolvedValue(mockLead);
+      documentRepo.createDocument.mockResolvedValue({ id: 'doc-1' });
+      documentRepo.createLeadActivity.mockResolvedValue({});
 
       const result = await service.generateChangeOrder(
         'lead-1',
@@ -101,29 +106,25 @@ describe('DocumentGenerationService', () => {
         }),
       );
 
-      expect(prisma.document.create).toHaveBeenCalledWith(
+      expect(documentRepo.createDocument).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            leadId: 'lead-1',
-            type: 'CONTRACT',
-            uploadedById: 'user-1',
-          }),
+          leadId: 'lead-1',
+          type: 'CONTRACT',
+          uploadedById: 'user-1',
         }),
       );
 
-      expect(prisma.leadActivity.create).toHaveBeenCalledWith(
+      expect(documentRepo.createLeadActivity).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            leadId: 'lead-1',
-            userId: 'user-1',
-            type: 'DOCUMENT_UPLOADED',
-          }),
+          leadId: 'lead-1',
+          userId: 'user-1',
+          type: 'DOCUMENT_UPLOADED',
         }),
       );
     });
 
     it('should throw NotFoundException when lead is not found', async () => {
-      prisma.lead.findUnique.mockResolvedValue(null);
+      documentRepo.findLeadWithCustomerAndProperty.mockResolvedValue(null);
 
       await expect(
         service.generateChangeOrder('nonexistent', { changes: [] }, mockUser),
@@ -133,9 +134,9 @@ describe('DocumentGenerationService', () => {
 
   describe('generateCAP', () => {
     it('should delegate delivery to DocumentDeliveryService for approval mode', async () => {
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.document.create.mockResolvedValue({ id: 'doc-2' });
-      prisma.leadActivity.create.mockResolvedValue({});
+      documentRepo.findLeadWithCustomerAndProperty.mockResolvedValue(mockLead);
+      documentRepo.createDocument.mockResolvedValue({ id: 'doc-2' });
+      documentRepo.createLeadActivity.mockResolvedValue({});
       deliveryService.handleCAPDelivery.mockResolvedValue({
         token: 'zap-token-123',
         status: 'pending',
@@ -160,9 +161,9 @@ describe('DocumentGenerationService', () => {
     });
 
     it('should delegate delivery to DocumentDeliveryService for informative mode', async () => {
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.document.create.mockResolvedValue({ id: 'doc-3' });
-      prisma.leadActivity.create.mockResolvedValue({});
+      documentRepo.findLeadWithCustomerAndProperty.mockResolvedValue(mockLead);
+      documentRepo.createDocument.mockResolvedValue({ id: 'doc-3' });
+      documentRepo.createLeadActivity.mockResolvedValue({});
       deliveryService.handleCAPDelivery.mockResolvedValue(null);
 
       const result = await service.generateCAP(
@@ -180,7 +181,7 @@ describe('DocumentGenerationService', () => {
     });
 
     it('should throw NotFoundException when lead is not found', async () => {
-      prisma.lead.findUnique.mockResolvedValue(null);
+      documentRepo.findLeadWithCustomerAndProperty.mockResolvedValue(null);
 
       await expect(
         service.generateCAP('nonexistent', { mode: 'approval' }, mockUser),

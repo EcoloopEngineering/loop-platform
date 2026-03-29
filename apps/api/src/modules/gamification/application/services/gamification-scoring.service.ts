@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CoinService } from './coin.service';
 import { LeadStageChangedPayload } from '../../../crm/application/events/lead-events.types';
+import {
+  GAMIFICATION_EVENT_REPOSITORY,
+  GamificationEventRepositoryPort,
+} from '../ports/gamification-event.repository.port';
 
 /** Points awarded per milestone stage */
 const STAGE_POINTS: Record<string, { eventType: string; points: number }> = {
@@ -21,7 +24,8 @@ export class GamificationScoringService {
   private readonly logger = new Logger(GamificationScoringService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(GAMIFICATION_EVENT_REPOSITORY)
+    private readonly eventRepo: GamificationEventRepositoryPort,
     private readonly coinService: CoinService,
   ) {}
 
@@ -29,15 +33,7 @@ export class GamificationScoringService {
     const stageConfig = STAGE_POINTS[payload.newStage];
     if (!stageConfig) return;
 
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: payload.leadId },
-      include: {
-        assignments: {
-          where: { isPrimary: true },
-          include: { user: { select: { id: true, firstName: true, lastName: true, closedDealEmoji: true } } },
-        },
-      },
-    });
+    const lead = await this.eventRepo.findLeadWithPrimaryAssignment(payload.leadId);
 
     if (!lead) return;
 
@@ -52,20 +48,18 @@ export class GamificationScoringService {
 
     const coinsEarned = this.calculateCoins(payload.newStage, Number(lead.kw ?? 0));
 
-    const event = await this.prisma.gamificationEvent.create({
-      data: {
-        userId,
-        leadId: payload.leadId,
-        eventType: stageConfig.eventType,
-        points: stageConfig.points,
-        coins: coinsEarned,
-        minuteBucket: Math.floor(Date.now() / 60000),
-        metadata: {
-          customerName: payload.customerName,
-          previousStage: payload.previousStage,
-          newStage: payload.newStage,
-          kw: Number(lead.kw ?? 0),
-        },
+    const event = await this.eventRepo.create({
+      userId,
+      leadId: payload.leadId,
+      eventType: stageConfig.eventType,
+      points: stageConfig.points,
+      coins: coinsEarned,
+      minuteBucket: Math.floor(Date.now() / 60000),
+      metadata: {
+        customerName: payload.customerName,
+        previousStage: payload.previousStage,
+        newStage: payload.newStage,
+        kw: Number(lead.kw ?? 0),
       },
     });
 
@@ -86,15 +80,7 @@ export class GamificationScoringService {
   async isDuplicate(userId: string, eventType: string): Promise<boolean> {
     const minuteBucket = Math.floor(Date.now() / 60000);
 
-    const existing = await this.prisma.gamificationEvent.findUnique({
-      where: {
-        userId_eventType_minuteBucket: {
-          userId,
-          eventType,
-          minuteBucket,
-        },
-      },
-    });
+    const existing = await this.eventRepo.findByUniqueKey(userId, eventType, minuteBucket);
 
     if (existing) {
       this.logger.debug(

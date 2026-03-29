@@ -1,30 +1,32 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Injectable, Inject } from '@nestjs/common';
 import { AuthenticatedUser } from '../../../../common/types/authenticated-user.type';
 import {
   PaginationDto,
   PaginatedResponse,
 } from '../../../../common/dto/pagination.dto';
 import { ReferralEntity } from '../../domain/entities/referral.entity';
+import {
+  REFERRAL_REPOSITORY,
+  ReferralRepositoryPort,
+} from '../ports/referral.repository.port';
 
 @Injectable()
 export class ReferralService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(REFERRAL_REPOSITORY)
+    private readonly referralRepo: ReferralRepositoryPort,
+  ) {}
 
   async getMyReferrals(
     user: AuthenticatedUser,
     pagination: PaginationDto,
   ): Promise<PaginatedResponse<ReferralEntity>> {
-    const where = { inviterId: user.id };
-
     const [referrals, total] = await Promise.all([
-      this.prisma.referral.findMany({
-        where,
+      this.referralRepo.findManyByInviter(user.id, {
         skip: pagination.skip,
         take: pagination.limit,
-        orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.referral.count({ where }),
+      this.referralRepo.countByInviter(user.id),
     ]);
 
     return new PaginatedResponse(
@@ -39,10 +41,7 @@ export class ReferralService {
     user: AuthenticatedUser,
     tempId?: string,
   ): Promise<ReferralEntity> {
-    const parentReferral = await this.prisma.referral.findFirst({
-      where: { inviteeId: user.id },
-      orderBy: { createdAt: 'desc' },
-    });
+    const parentReferral = await this.referralRepo.findFirstByInvitee(user.id);
 
     const hierarchyPath = parentReferral
       ? `${parentReferral.hierarchyPath}.${user.id}`
@@ -51,14 +50,12 @@ export class ReferralService {
       ? parentReferral.hierarchyLevel + 1
       : 0;
 
-    const referral = await this.prisma.referral.create({
-      data: {
-        inviterId: user.id,
-        tempId: tempId ?? null,
-        hierarchyPath,
-        hierarchyLevel,
-        status: 'pending',
-      },
+    const referral = await this.referralRepo.create({
+      inviterId: user.id,
+      tempId: tempId ?? null,
+      hierarchyPath,
+      hierarchyLevel,
+      status: 'pending',
     });
 
     return new ReferralEntity(referral as unknown as Partial<ReferralEntity>);
@@ -68,21 +65,13 @@ export class ReferralService {
     referralId: string,
     commissionSplit: Record<string, number>,
   ): Promise<ReferralEntity> {
-    const referral = await this.prisma.referral.update({
-      where: { id: referralId },
-      data: { commissionSplit },
-    });
+    const referral = await this.referralRepo.update(referralId, { commissionSplit });
 
     return new ReferralEntity(referral as unknown as Partial<ReferralEntity>);
   }
 
   async getReferralHierarchy(userId: string): Promise<ReferralEntity[]> {
-    const referrals = await this.prisma.referral.findMany({
-      where: {
-        hierarchyPath: { contains: userId },
-      },
-      orderBy: { hierarchyLevel: 'asc' },
-    });
+    const referrals = await this.referralRepo.findManyByHierarchyPath(userId);
 
     return referrals.map((r) => new ReferralEntity(r as unknown as Partial<ReferralEntity>));
   }

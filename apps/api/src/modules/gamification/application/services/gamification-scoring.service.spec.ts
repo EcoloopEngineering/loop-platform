@@ -1,25 +1,29 @@
 import { Test } from '@nestjs/testing';
 import { GamificationScoringService } from './gamification-scoring.service';
 import { CoinService } from './coin.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
+import { GAMIFICATION_EVENT_REPOSITORY } from '../ports/gamification-event.repository.port';
 
 describe('GamificationScoringService', () => {
   let service: GamificationScoringService;
-  let prisma: MockPrismaService;
+  let eventRepo: {
+    create: jest.Mock;
+    findByUniqueKey: jest.Mock;
+    findLeadWithPrimaryAssignment: jest.Mock;
+  };
   let coinService: { addCoins: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    eventRepo = {
+      create: jest.fn(),
+      findByUniqueKey: jest.fn(),
+      findLeadWithPrimaryAssignment: jest.fn(),
+    };
     coinService = { addCoins: jest.fn() };
 
     const module = await Test.createTestingModule({
       providers: [
         GamificationScoringService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: GAMIFICATION_EVENT_REPOSITORY, useValue: eventRepo },
         { provide: CoinService, useValue: coinService },
       ],
     }).compile();
@@ -48,9 +52,9 @@ describe('GamificationScoringService', () => {
 
   describe('processStageChange', () => {
     it('should create gamification event for WON stage with coins', async () => {
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.gamificationEvent.findUnique.mockResolvedValue(null);
-      prisma.gamificationEvent.create.mockResolvedValue({ id: 'event-1' });
+      eventRepo.findLeadWithPrimaryAssignment.mockResolvedValue(mockLead);
+      eventRepo.findByUniqueKey.mockResolvedValue(null);
+      eventRepo.create.mockResolvedValue({ id: 'event-1' });
 
       await service.processStageChange({
         leadId: 'lead-1',
@@ -59,14 +63,14 @@ describe('GamificationScoringService', () => {
         newStage: 'WON',
       });
 
-      expect(prisma.gamificationEvent.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(eventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
           userId: 'user-1',
           eventType: 'SALE',
           points: 4,
           coins: 17, // 2 * 8.5
         }),
-      });
+      );
 
       expect(coinService.addCoins).toHaveBeenCalledWith(
         'user-1',
@@ -84,11 +88,11 @@ describe('GamificationScoringService', () => {
         newStage: 'REQUEST_DESIGN',
       });
 
-      expect(prisma.lead.findUnique).not.toHaveBeenCalled();
+      expect(eventRepo.findLeadWithPrimaryAssignment).not.toHaveBeenCalled();
     });
 
     it('should skip if lead not found', async () => {
-      prisma.lead.findUnique.mockResolvedValue(null);
+      eventRepo.findLeadWithPrimaryAssignment.mockResolvedValue(null);
 
       await service.processStageChange({
         leadId: 'lead-1',
@@ -97,11 +101,11 @@ describe('GamificationScoringService', () => {
         newStage: 'WON',
       });
 
-      expect(prisma.gamificationEvent.create).not.toHaveBeenCalled();
+      expect(eventRepo.create).not.toHaveBeenCalled();
     });
 
     it('should skip if no primary assignment', async () => {
-      prisma.lead.findUnique.mockResolvedValue({ ...mockLead, assignments: [] });
+      eventRepo.findLeadWithPrimaryAssignment.mockResolvedValue({ ...mockLead, assignments: [] });
 
       await service.processStageChange({
         leadId: 'lead-1',
@@ -110,12 +114,12 @@ describe('GamificationScoringService', () => {
         newStage: 'WON',
       });
 
-      expect(prisma.gamificationEvent.create).not.toHaveBeenCalled();
+      expect(eventRepo.create).not.toHaveBeenCalled();
     });
 
     it('should skip duplicate events', async () => {
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.gamificationEvent.findUnique.mockResolvedValue({ id: 'existing' });
+      eventRepo.findLeadWithPrimaryAssignment.mockResolvedValue(mockLead);
+      eventRepo.findByUniqueKey.mockResolvedValue({ id: 'existing' });
 
       await service.processStageChange({
         leadId: 'lead-1',
@@ -124,13 +128,13 @@ describe('GamificationScoringService', () => {
         newStage: 'WON',
       });
 
-      expect(prisma.gamificationEvent.create).not.toHaveBeenCalled();
+      expect(eventRepo.create).not.toHaveBeenCalled();
     });
 
     it('should not award coins for CONNECTED stage', async () => {
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
-      prisma.gamificationEvent.findUnique.mockResolvedValue(null);
-      prisma.gamificationEvent.create.mockResolvedValue({ id: 'event-1' });
+      eventRepo.findLeadWithPrimaryAssignment.mockResolvedValue(mockLead);
+      eventRepo.findByUniqueKey.mockResolvedValue(null);
+      eventRepo.create.mockResolvedValue({ id: 'event-1' });
 
       await service.processStageChange({
         leadId: 'lead-1',
@@ -139,13 +143,13 @@ describe('GamificationScoringService', () => {
         newStage: 'CONNECTED',
       });
 
-      expect(prisma.gamificationEvent.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(eventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
           eventType: 'CONNECTED',
           points: 2,
           coins: 0,
         }),
-      });
+      );
       expect(coinService.addCoins).not.toHaveBeenCalled();
     });
   });
@@ -166,12 +170,12 @@ describe('GamificationScoringService', () => {
 
   describe('isDuplicate', () => {
     it('should return true when event exists', async () => {
-      prisma.gamificationEvent.findUnique.mockResolvedValue({ id: 'existing' });
+      eventRepo.findByUniqueKey.mockResolvedValue({ id: 'existing' });
       expect(await service.isDuplicate('user-1', 'SALE')).toBe(true);
     });
 
     it('should return false when no existing event', async () => {
-      prisma.gamificationEvent.findUnique.mockResolvedValue(null);
+      eventRepo.findByUniqueKey.mockResolvedValue(null);
       expect(await service.isDuplicate('user-1', 'SALE')).toBe(false);
     });
   });

@@ -1,22 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PipelineTransitionService } from './pipeline-transition.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService } from '../../../../test/prisma-mock.helper';
+import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
 
 describe('PipelineTransitionService', () => {
   let service: PipelineTransitionService;
-  let prisma: ReturnType<typeof createMockPrismaService>;
+  let leadRepo: Record<string, jest.Mock>;
   let emitter: { emit: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    leadRepo = {
+      findById: jest.fn(),
+      updateStageAndPipeline: jest.fn(),
+      createActivity: jest.fn(),
+    };
     emitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PipelineTransitionService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: LEAD_REPOSITORY, useValue: leadRepo },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
@@ -29,14 +32,14 @@ describe('PipelineTransitionService', () => {
   });
 
   it('should auto-transition WON to SITE_AUDIT', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
+    leadRepo.findById.mockResolvedValue({
       id: 'lead-1',
       status: 'ACTIVE',
       projectManagerId: 'pm-1',
       createdById: 'user-1',
     });
-    prisma.lead.update.mockResolvedValue({});
-    prisma.leadActivity.create.mockResolvedValue({});
+    leadRepo.updateStageAndPipeline.mockResolvedValue({});
+    leadRepo.createActivity.mockResolvedValue({});
 
     await service.handleTransition({
       leadId: 'lead-1',
@@ -45,27 +48,32 @@ describe('PipelineTransitionService', () => {
       newStage: 'WON',
     });
 
-    expect(prisma.lead.update).toHaveBeenCalledWith({
-      where: { id: 'lead-1' },
-      data: {
-        currentStage: 'SITE_AUDIT',
-        pipelineId: '00000000-0000-0000-0000-000000000002',
-      },
-    });
+    expect(leadRepo.updateStageAndPipeline).toHaveBeenCalledWith(
+      'lead-1',
+      'SITE_AUDIT',
+      '00000000-0000-0000-0000-000000000002',
+    );
+    expect(leadRepo.createActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leadId: 'lead-1',
+        type: 'STAGE_CHANGE',
+        metadata: expect.objectContaining({ pipelineTransition: true }),
+      }),
+    );
     expect(emitter.emit).toHaveBeenCalledWith('lead.stageChanged', expect.objectContaining({
       newStage: 'SITE_AUDIT',
     }));
   });
 
   it('should auto-transition CUSTOMER_SUCCESS to FIN_TICKETS_OPEN', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
+    leadRepo.findById.mockResolvedValue({
       id: 'lead-2',
       status: 'ACTIVE',
       projectManagerId: null,
       createdById: 'user-1',
     });
-    prisma.lead.update.mockResolvedValue({});
-    prisma.leadActivity.create.mockResolvedValue({});
+    leadRepo.updateStageAndPipeline.mockResolvedValue({});
+    leadRepo.createActivity.mockResolvedValue({});
 
     await service.handleTransition({
       leadId: 'lead-2',
@@ -74,13 +82,11 @@ describe('PipelineTransitionService', () => {
       newStage: 'CUSTOMER_SUCCESS',
     });
 
-    expect(prisma.lead.update).toHaveBeenCalledWith({
-      where: { id: 'lead-2' },
-      data: {
-        currentStage: 'FIN_TICKETS_OPEN',
-        pipelineId: '00000000-0000-0000-0000-000000000003',
-      },
-    });
+    expect(leadRepo.updateStageAndPipeline).toHaveBeenCalledWith(
+      'lead-2',
+      'FIN_TICKETS_OPEN',
+      '00000000-0000-0000-0000-000000000003',
+    );
   });
 
   it('should not transition non-terminal stages', async () => {
@@ -91,11 +97,11 @@ describe('PipelineTransitionService', () => {
       newStage: 'ALREADY_CALLED',
     });
 
-    expect(prisma.lead.findUnique).not.toHaveBeenCalled();
+    expect(leadRepo.findById).not.toHaveBeenCalled();
   });
 
   it('should not transition LOST leads', async () => {
-    prisma.lead.findUnique.mockResolvedValue({
+    leadRepo.findById.mockResolvedValue({
       id: 'lead-4',
       status: 'LOST',
       projectManagerId: null,
@@ -109,7 +115,7 @@ describe('PipelineTransitionService', () => {
       newStage: 'WON',
     });
 
-    expect(prisma.lead.update).not.toHaveBeenCalled();
+    expect(leadRepo.updateStageAndPipeline).not.toHaveBeenCalled();
   });
 
   it('should stop at max depth', async () => {
@@ -121,6 +127,6 @@ describe('PipelineTransitionService', () => {
       depth: 5,
     });
 
-    expect(prisma.lead.findUnique).not.toHaveBeenCalled();
+    expect(leadRepo.findById).not.toHaveBeenCalled();
   });
 });

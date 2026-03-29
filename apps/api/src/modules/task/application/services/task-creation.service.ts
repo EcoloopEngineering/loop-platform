@@ -1,6 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { TASK_REPOSITORY, TaskRepositoryPort } from '../ports/task.repository.port';
 
 interface SubtaskDefinition {
   title: string;
@@ -34,7 +33,9 @@ interface TaskCreationPayload {
 export class TaskCreationService {
   private readonly logger = new Logger(TaskCreationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(TASK_REPOSITORY) private readonly taskRepo: TaskRepositoryPort,
+  ) {}
 
   async createTasksFromTemplates(
     templates: TaskTemplate[],
@@ -55,15 +56,13 @@ export class TaskCreationService {
         payload.leadId,
       );
 
-      const task = await this.prisma.task.create({
-        data: {
-          leadId: payload.leadId,
-          title: template.title,
-          description: template.description,
-          assigneeId,
-          templateKey: template.id,
-          priority: template.sortOrder,
-        },
+      const task = await this.taskRepo.createTask({
+        leadId: payload.leadId,
+        title: template.title,
+        description: template.description,
+        assigneeId,
+        templateKey: template.id,
+        priority: template.sortOrder,
       });
 
       createdTasks.push(task.id);
@@ -84,23 +83,14 @@ export class TaskCreationService {
     leadId?: string,
   ): Promise<string | undefined> {
     if (email) {
-      const user = await this.prisma.user.findFirst({
-        where: { email, isActive: true },
-        select: { id: true },
-      });
+      const user = await this.taskRepo.findActiveUserByEmail(email);
       if (user) return user.id;
     }
 
     if (role === 'PM' && leadId) {
-      const lead = await this.prisma.lead.findUnique({
-        where: { id: leadId },
-        select: { projectManagerId: true },
-      });
-      if (lead?.projectManagerId) return lead.projectManagerId;
-      const manager = await this.prisma.user.findFirst({
-        where: { role: 'MANAGER', isActive: true },
-        select: { id: true },
-      });
+      const pmId = await this.taskRepo.findLeadProjectManagerId(leadId);
+      if (pmId) return pmId;
+      const manager = await this.taskRepo.findActiveUserByRole('MANAGER');
       if (manager) return manager.id;
     }
 
@@ -112,10 +102,7 @@ export class TaskCreationService {
         PM: 'MANAGER',
       };
       const mappedRole = roleMap[role] ?? role;
-      const user = await this.prisma.user.findFirst({
-        where: { role: mappedRole as UserRole, isActive: true },
-        select: { id: true },
-      });
+      const user = await this.taskRepo.findActiveUserByRole(mappedRole);
       if (user) return user.id;
     }
 
@@ -130,15 +117,13 @@ export class TaskCreationService {
     if (!subtaskDefs?.length) return;
 
     for (const sub of subtaskDefs) {
-      await this.prisma.task.create({
-        data: {
-          leadId: context.leadId,
-          title: sub.title,
-          description: sub.description,
-          assigneeId: context.assigneeId,
-          parentTaskId,
-          templateKey: context.templateKey,
-        },
+      await this.taskRepo.createTask({
+        leadId: context.leadId,
+        title: sub.title,
+        description: sub.description,
+        assigneeId: context.assigneeId,
+        parentTaskId,
+        templateKey: context.templateKey,
       });
     }
   }

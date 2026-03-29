@@ -1,6 +1,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
+import { API_URL } from '@/config/api';
 
 /**
  * Fetches the current user and syncs dark mode / compact view preferences
@@ -10,7 +11,7 @@ import { api } from '@/boot/axios';
  */
 export function useThemeSync() {
   const $q = useQuasar();
-  const apiBase = process.env.API_URL ?? 'http://localhost:3000';
+  const apiBase = API_URL;
 
   const userName = ref('');
   const userEmail = ref('');

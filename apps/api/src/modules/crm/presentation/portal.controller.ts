@@ -11,6 +11,8 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsString } from 'class-validator';
 import { PortalAuthService } from '../application/services/portal-auth.service';
+import { PortalRegistrationService } from '../application/services/portal-registration.service';
+import { PortalPasswordService } from '../application/services/portal-password.service';
 
 export class PortalRegisterDto {
   @IsNotEmpty() @IsString() firstName: string;
@@ -37,14 +39,18 @@ export class PortalResetPasswordDto {
 @ApiTags('Customer Portal')
 @Controller('portal')
 export class PortalController {
-  constructor(private readonly portalAuth: PortalAuthService) {}
+  constructor(
+    private readonly portalAuth: PortalAuthService,
+    private readonly portalRegistration: PortalRegistrationService,
+    private readonly portalPassword: PortalPasswordService,
+  ) {}
 
   @Post('auth/register')
   @SetMetadata('isPublic', true)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiOperation({ summary: 'Register a new customer account' })
   async register(@Body() dto: PortalRegisterDto) {
-    return this.portalAuth.register(dto);
+    return this.portalRegistration.register(dto);
   }
 
   @Post('auth/login')
@@ -69,7 +75,7 @@ export class PortalController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Request a password reset email' })
   async forgotPassword(@Body() dto: PortalForgotPasswordDto) {
-    return this.portalAuth.forgotPassword(dto.email);
+    return this.portalPassword.forgotPassword(dto.email);
   }
 
   @Post('auth/reset-password')
@@ -78,6 +84,6 @@ export class PortalController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Reset customer password using token' })
   async resetPassword(@Body() dto: PortalResetPasswordDto) {
-    return this.portalAuth.resetPassword(dto.token, dto.password);
+    return this.portalPassword.resetPassword(dto.token, dto.password);
   }
 }

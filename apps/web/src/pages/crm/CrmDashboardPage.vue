@@ -182,6 +182,9 @@ import { ref, computed, onMounted } from 'vue';
 import { api } from '@/boot/axios';
 import { titleCase } from '@/utils/format';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import { useLeadFormatting } from '@/composables/useLeadFormatting';
+
+const { stageColor, stageQColor, formatStage, formatSource, timeAgo } = useLeadFormatting();
 
 interface LeadData {
   id: string;
@@ -260,42 +263,6 @@ const metricCards = computed(() => [
   },
 ]);
 
-const STAGE_COLORS: Record<string, { color: string; qColor: string }> = {
-  // Closer
-  NEW_LEAD: { color: '#4CAF50', qColor: 'positive' },
-  ALREADY_CALLED: { color: '#8BC34A', qColor: 'light-green' },
-  CONNECTED: { color: '#2196F3', qColor: 'blue' },
-  REQUEST_DESIGN: { color: '#03A9F4', qColor: 'light-blue' },
-  DESIGN_IN_PROGRESS: { color: '#FF9800', qColor: 'orange' },
-  DESIGN_READY: { color: '#9C27B0', qColor: 'purple' },
-  WON: { color: '#00897B', qColor: 'teal' },
-  // PM
-  SITE_AUDIT: { color: '#FF5722', qColor: 'deep-orange' },
-  PROGRESS_REVIEW: { color: '#E91E63', qColor: 'pink' },
-  NTP: { color: '#9C27B0', qColor: 'purple' },
-  ENGINEERING: { color: '#3F51B5', qColor: 'indigo' },
-  PERMIT_AND_ICE: { color: '#2196F3', qColor: 'blue' },
-  FINAL_APPROVAL: { color: '#00BCD4', qColor: 'cyan' },
-  INSTALL_READY: { color: '#009688', qColor: 'teal' },
-  INSTALL: { color: '#4CAF50', qColor: 'positive' },
-  COMMISSION: { color: '#8BC34A', qColor: 'light-green' },
-  SITE_COMPLETE: { color: '#CDDC39', qColor: 'lime' },
-  INITIAL_SUBMISSION_AND_INSPECTION: { color: '#FFC107', qColor: 'amber' },
-  WAITING_FOR_PTO: { color: '#FF9800', qColor: 'orange' },
-  FINAL_SUBMISSION: { color: '#FF5722', qColor: 'deep-orange' },
-  CUSTOMER_SUCCESS: { color: '#4CAF50', qColor: 'positive' },
-  // Finance
-  FIN_TICKETS_OPEN: { color: '#2196F3', qColor: 'blue' },
-  FIN_IN_PROGRESS: { color: '#FF9800', qColor: 'orange' },
-  FIN_POST_INITIAL_NURTURE: { color: '#9C27B0', qColor: 'purple' },
-  FIN_TICKETS_CLOSED: { color: '#4CAF50', qColor: 'positive' },
-  // Maintenance
-  MAINT_TICKETS_OPEN: { color: '#2196F3', qColor: 'blue' },
-  MAINT_IN_PROGRESS: { color: '#FF9800', qColor: 'orange' },
-  MAINT_POST_INSTALL_NURTURE: { color: '#9C27B0', qColor: 'purple' },
-  MAINT_TICKETS_CLOSED: { color: '#4CAF50', qColor: 'positive' },
-};
-
 const SOURCE_COLORS: Record<string, string> = {
   DOOR_KNOCK: 'teal',
   COLD_CALL: 'blue',
@@ -316,8 +283,8 @@ const stageDistribution = computed(() => {
       stage,
       label: formatStage(stage),
       count,
-      color: STAGE_COLORS[stage]?.color ?? '#6B7280',
-      qColor: STAGE_COLORS[stage]?.qColor ?? 'grey',
+      color: stageColor(stage),
+      qColor: stageQColor(stage),
     }))
     .sort((a, b) => b.count - a.count);
 });
@@ -408,20 +375,6 @@ const ACTIVITY_COLORS: Record<string, string> = {
 
 function activityIcon(type: string) { return ACTIVITY_ICONS[type] ?? 'circle'; }
 function activityColor(type: string) { return ACTIVITY_COLORS[type] ?? 'grey-6'; }
-
-function stageColor(stage: string) { return STAGE_COLORS[stage]?.color ?? '#9E9E9E'; }
-function formatStage(s: string) { return (s || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }
-function formatSource(s: string) { return (s || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }
-
-function timeAgo(date: string) {
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 function isThisWeek(date: string) {
   const now = new Date();

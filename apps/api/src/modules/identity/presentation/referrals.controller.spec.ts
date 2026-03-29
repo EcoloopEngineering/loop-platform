@@ -16,6 +16,7 @@ describe('ReferralsController', () => {
     email: 'test@ecoloop.us',
     firstName: 'Test',
     lastName: 'User',
+    phone: null,
     role: 'ADMIN' as any,
     isActive: true,
     profileImage: null,

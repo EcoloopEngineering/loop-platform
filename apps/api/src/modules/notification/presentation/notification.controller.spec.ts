@@ -33,7 +33,7 @@ describe('NotificationController', () => {
       const expected = { data: [{ id: 'n1' }], total: 1, unread: 1 };
       notificationService.getByUser.mockResolvedValue(expected);
 
-      const result = await controller.getNotifications({ id: 'user-1' });
+      const result = await controller.getNotifications({ id: 'user-1', email: 'test@test.com', firstName: 'Test', lastName: 'User', phone: null, role: 'SALES_REP', isActive: true, profileImage: null } as any);
 
       expect(notificationService.getByUser).toHaveBeenCalledWith('user-1', 0, 20);
       expect(result).toEqual(expected);
@@ -42,7 +42,7 @@ describe('NotificationController', () => {
     it('should parse skip and take query parameters', async () => {
       notificationService.getByUser.mockResolvedValue({ data: [], total: 0, unread: 0 });
 
-      await controller.getNotifications({ id: 'user-1' }, '10', '5');
+      await controller.getNotifications({ id: 'user-1', email: 'test@test.com', firstName: 'Test', lastName: 'User', phone: null, role: 'SALES_REP', isActive: true, profileImage: null } as any, '10', '5');
 
       expect(notificationService.getByUser).toHaveBeenCalledWith('user-1', 10, 5);
     });
@@ -52,7 +52,7 @@ describe('NotificationController', () => {
     it('should return unread count', async () => {
       notificationService.getUnreadCount.mockResolvedValue({ count: 5 });
 
-      const result = await controller.getUnreadCount({ id: 'user-1' });
+      const result = await controller.getUnreadCount({ id: 'user-1', email: 'test@test.com', firstName: 'Test', lastName: 'User', phone: null, role: 'SALES_REP', isActive: true, profileImage: null } as any);
 
       expect(notificationService.getUnreadCount).toHaveBeenCalledWith('user-1');
       expect(result).toEqual({ count: 5 });
@@ -74,7 +74,7 @@ describe('NotificationController', () => {
     it('should mark all notifications as read for user', async () => {
       notificationService.markAllRead.mockResolvedValue({ count: 3 });
 
-      const result = await controller.markAllRead({ id: 'user-1' });
+      const result = await controller.markAllRead({ id: 'user-1', email: 'test@test.com', firstName: 'Test', lastName: 'User', phone: null, role: 'SALES_REP', isActive: true, profileImage: null } as any);
 
       expect(notificationService.markAllRead).toHaveBeenCalledWith('user-1');
       expect(result).toEqual({ count: 3 });
