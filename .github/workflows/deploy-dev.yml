@@ -126,16 +126,8 @@ jobs:
           cd $NEW_RELEASE/apps/api
           echo "DELETE FROM commission_payments a USING commission_payments b WHERE a.id > b.id AND a.lead_id = b.lead_id AND a.user_id = b.user_id AND a.type = b.type;" | npx prisma db execute --stdin --schema ./prisma/schema.prisma
 
-          echo "--- Prisma migrate (baseline if needed) ---"
-          if ! npx prisma migrate deploy 2>&1 | grep -q "All migrations have been successfully applied"; then
-            echo "Baselining existing migrations..."
-            npx prisma migrate resolve --applied 20260321201805_init
-            npx prisma migrate resolve --applied 20260329000000_remove_hubspot
-            npx prisma migrate resolve --applied 20260329010000_add_missing_indexes
-            npx prisma migrate resolve --applied 20260329020000_commission_payment_unique
-            echo "Running migrate deploy after baseline..."
-            npx prisma migrate deploy
-          fi
+          echo "--- Prisma migrate ---"
+          npx prisma migrate deploy
 
           echo "--- Stopping old API ---"
           pm2 kill 2>/dev/null || true
