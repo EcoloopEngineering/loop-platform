@@ -115,50 +115,50 @@ describe('LeadsController', () => {
   });
 
   describe('updateMetadata', () => {
-    it('should merge metadata and log activity', async () => {
-      prisma.lead.findUnique.mockResolvedValue({
-        id: 'lead-1',
-        metadata: { existingKey: 'old' },
-      });
-      prisma.lead.update.mockResolvedValue({
-        id: 'lead-1',
-        metadata: { existingKey: 'old', newKey: 'new' },
-      });
-      prisma.leadActivity.create.mockResolvedValue({});
+    it('should delegate to UpdateLeadMetadataCommand via command bus', async () => {
+      commandBus.execute.mockResolvedValue({ id: 'lead-1' });
 
       await controller.updateMetadata('lead-1', { newKey: 'new' }, 'user-1');
 
-      expect(prisma.lead.update).toHaveBeenCalledWith({
-        where: { id: 'lead-1' },
-        data: { metadata: { existingKey: 'old', newKey: 'new' } },
-      });
-    });
-
-    it('should throw NotFoundException when lead not found', async () => {
-      prisma.lead.findUnique.mockResolvedValue(null);
-      await expect(controller.updateMetadata('bad-id', {}, 'user-1')).rejects.toThrow(NotFoundException);
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ leadId: 'lead-1', data: { newKey: 'new' }, userId: 'user-1' }),
+      );
     });
   });
 
   describe('changeStage', () => {
-    it('should update stage, log activity, and emit event', async () => {
-      leadRepo.findById.mockResolvedValue({ id: 'lead-1', currentStage: 'NEW_LEAD' });
-      leadRepo.updateStage.mockResolvedValue({ id: 'lead-1', currentStage: 'DESIGN_READY' });
-      prisma.leadActivity.create.mockResolvedValue({});
-      prisma.lead.findUnique.mockResolvedValue({
-        id: 'lead-1',
-        customer: { firstName: 'John', lastName: 'Doe' },
-      });
+    it('should delegate to ChangeLeadStageCommand via command bus', async () => {
+      commandBus.execute.mockResolvedValue({ id: 'lead-1' });
 
       await controller.changeStage('lead-1', 'DESIGN_READY' as any, 'user-1');
 
-      expect(leadRepo.updateStage).toHaveBeenCalledWith('lead-1', 'DESIGN_READY');
-      expect(emitter.emit).toHaveBeenCalledWith('lead.stageChanged', expect.any(Object));
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ leadId: 'lead-1', stage: 'DESIGN_READY', userId: 'user-1' }),
+      );
     });
+  });
 
-    it('should throw NotFoundException when lead not found', async () => {
-      leadRepo.findById.mockResolvedValue(null);
-      await expect(controller.changeStage('bad-id', 'WON' as any, 'user-1')).rejects.toThrow(NotFoundException);
+  describe('markAsLost', () => {
+    it('should delegate to MarkLeadLostCommand via command bus', async () => {
+      commandBus.execute.mockResolvedValue({ id: 'lead-1', status: 'LOST' });
+
+      await controller.markAsLost('lead-1', 'No budget', 'user-1');
+
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ leadId: 'lead-1', reason: 'No budget', userId: 'user-1' }),
+      );
+    });
+  });
+
+  describe('markAsCancelled', () => {
+    it('should delegate to MarkLeadCancelledCommand via command bus', async () => {
+      commandBus.execute.mockResolvedValue({ id: 'lead-1', status: 'CANCELLED' });
+
+      await controller.markAsCancelled('lead-1', 'Customer request', 'user-1');
+
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ leadId: 'lead-1', reason: 'Customer request', userId: 'user-1' }),
+      );
     });
   });
 });

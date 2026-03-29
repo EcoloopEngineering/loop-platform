@@ -9,6 +9,10 @@ import { LeadScoringDomainService } from './domain/services/lead-scoring.domain-
 
 // Command handlers
 import { CreateLeadHandler } from './application/commands/create-lead.handler';
+import { ChangeLeadStageHandler } from './application/commands/change-lead-stage.command';
+import { MarkLeadLostHandler } from './application/commands/mark-lead-lost.command';
+import { MarkLeadCancelledHandler } from './application/commands/mark-lead-cancelled.command';
+import { UpdateLeadMetadataHandler } from './application/commands/update-lead-metadata.command';
 import { AutoAdvanceInstallsHandler } from './application/commands/auto-advance-installs.handler';
 
 // Query handlers
@@ -36,7 +40,13 @@ import { PipelineController } from './presentation/pipeline.controller';
 import { SalesRabbitWebhookController } from './presentation/salesrabbit-webhook.controller';
 import { PortalController } from './presentation/portal.controller';
 
-const CommandHandlers = [CreateLeadHandler];
+const CommandHandlers = [
+  CreateLeadHandler,
+  ChangeLeadStageHandler,
+  MarkLeadLostHandler,
+  MarkLeadCancelledHandler,
+  UpdateLeadMetadataHandler,
+];
 const QueryHandlers = [ListLeadsHandler, GetPipelineViewHandler];
 const CronHandlers = [AutoAdvanceInstallsHandler];
 const Listeners = [StageAdvanceListener, LeadTransitionListener];

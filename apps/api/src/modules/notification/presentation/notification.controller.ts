@@ -10,6 +10,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { NotificationService } from '../application/services/notification.service';
 
 @ApiTags('notifications')
@@ -22,7 +23,7 @@ export class NotificationController {
   @Get()
   @ApiOperation({ summary: 'Get notifications for the current user' })
   async getNotifications(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('skip') skip?: string,
     @Query('take') take?: string,
   ) {
@@ -35,13 +36,13 @@ export class NotificationController {
 
   @Get('unread-count')
   @ApiOperation({ summary: 'Get unread notification count' })
-  async getUnreadCount(@CurrentUser() user: any) {
+  async getUnreadCount(@CurrentUser() user: AuthenticatedUser) {
     return this.notificationService.getUnreadCount(user.id);
   }
 
   @Put('read-all')
   @ApiOperation({ summary: 'Mark all notifications as read' })
-  async markAllRead(@CurrentUser() user: any) {
+  async markAllRead(@CurrentUser() user: AuthenticatedUser) {
     return this.notificationService.markAllRead(user.id);
   }
 

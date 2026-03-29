@@ -39,14 +39,6 @@ export class LeadEntity {
     return { fromStage, toStage: newStage };
   }
 
-  assignUser(_userId: string): void {
-    this.updatedAt = new Date();
-  }
-
-  updateScore(): void {
-    this.updatedAt = new Date();
-  }
-
   markAsLost(reason?: string): void {
     this.status = LeadStatus.LOST;
     this.lostAt = new Date();

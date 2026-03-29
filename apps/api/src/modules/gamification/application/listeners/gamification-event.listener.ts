@@ -3,13 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { CoinService } from '../services/coin.service';
 import { GoogleChatService } from '../../../../integrations/google-chat/google-chat.service';
-
-interface LeadStageChangedPayload {
-  leadId: string;
-  customerName: string;
-  previousStage: string;
-  newStage: string;
-}
+import { LeadStageChangedPayload } from '../../../crm/application/events/lead-events.types';
 
 /** Points awarded per milestone stage */
 const STAGE_POINTS: Record<string, { eventType: string; points: number }> = {

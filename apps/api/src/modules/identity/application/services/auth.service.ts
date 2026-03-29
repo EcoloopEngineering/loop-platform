@@ -1,10 +1,24 @@
 import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@loop/shared';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { EmailService } from '../../../../infrastructure/email/email.service';
+import { AuthenticatedUser } from '../../../../common/types/authenticated-user.type';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
+
+interface UserRecord {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  role: UserRole;
+  isActive: boolean;
+  passwordHash: string | null;
+  metadata: unknown;
+}
 
 @Injectable()
 export class AuthService {
@@ -19,6 +33,10 @@ export class AuthService {
   ) {
     this.jwtSecret = this.config.get<string>('JWT_SECRET', 'loop-platform-jwt-secret-change-in-prod');
     this.jwtExpiry = this.config.get<string>('JWT_EXPIRY', '7d');
+
+    if (this.jwtSecret === 'loop-platform-jwt-secret-change-in-prod') {
+      this.logger.warn('JWT_SECRET is using the default insecure value — set it in .env for production');
+    }
   }
 
   async register(params: {
@@ -30,18 +48,13 @@ export class AuthService {
     role?: string;
     inviteCode?: string;
   }) {
-    // Check if user already exists
     const existing = await this.prisma.user.findUnique({ where: { email: params.email.toLowerCase() } });
     if (existing) throw new ConflictException('Email already registered');
 
-    // Hash password
     const passwordHash = await bcrypt.hash(params.password, 12);
-
-    // Determine role
     const isEmployee = params.email.toLowerCase().endsWith('@ecoloop.us');
-    const role = isEmployee ? (params.role || 'SALES_REP') : 'SALES_REP';
+    const role: UserRole = isEmployee ? ((params.role as UserRole) || UserRole.SALES_REP) : UserRole.SALES_REP;
 
-    // Create user (firebaseUid is optional, set a placeholder for JWT-only users)
     const user = await this.prisma.user.create({
       data: {
         email: params.email.toLowerCase(),
@@ -49,20 +62,15 @@ export class AuthService {
         firstName: params.firstName,
         lastName: params.lastName,
         phone: params.phone,
-        role: role as any,
+        role,
         isActive: true,
-        firebaseUid: `jwt_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        firebaseUid: `jwt_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
       },
     });
 
-    // Handle referral invite
     if (params.inviteCode && !isEmployee) {
       try {
-        // Find the inviter by invitation code
-        const inviter = await this.prisma.user.findUnique({
-          where: { invitationCode: params.inviteCode },
-        });
-
+        const inviter = await this.prisma.user.findUnique({ where: { invitationCode: params.inviteCode } });
         if (inviter) {
           await this.prisma.referral.create({
             data: {
@@ -75,52 +83,36 @@ export class AuthService {
           });
           this.logger.log(`Referral linked: ${inviter.id} -> ${user.id}`);
         }
-      } catch (e: any) {
-        this.logger.warn(`Failed to create referral: ${e.message}`);
+      } catch (e: unknown) {
+        this.logger.warn(`Failed to create referral: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
 
-    // Generate token
-    const token = this.generateToken(user);
-
     return {
-      user: this.sanitizeUser(user),
-      token,
+      user: this.sanitizeUser(user as unknown as UserRecord),
+      token: this.generateToken(user as unknown as UserRecord),
     };
   }
 
   async login(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-    if (!user || !user.passwordHash) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
-    }
+    if (!user?.passwordHash) throw new UnauthorizedException('Invalid email or password');
+    if (!user.isActive) throw new UnauthorizedException('Account is deactivated');
 
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
+    if (!valid) throw new UnauthorizedException('Invalid email or password');
 
-    // Update last login
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    const token = this.generateToken(user);
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     return {
-      user: this.sanitizeUser(user),
-      token,
+      user: this.sanitizeUser(user as unknown as UserRecord),
+      token: this.generateToken(user as unknown as UserRecord),
     };
   }
 
-  async validateToken(token: string): Promise<any> {
+  async validateToken(token: string): Promise<AuthenticatedUser | null> {
     try {
-      const payload = jwt.verify(token, this.jwtSecret) as any;
+      const payload = jwt.verify(token, this.jwtSecret) as { sub: string };
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
         select: {
@@ -129,8 +121,8 @@ export class AuthService {
           lastLoginAt: true, createdAt: true,
         },
       });
-      if (!user || !user.isActive) return null;
-      return user;
+      if (!user?.isActive) return null;
+      return user as unknown as AuthenticatedUser;
     } catch {
       return null;
     }
@@ -138,36 +130,35 @@ export class AuthService {
 
   async refreshToken(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.isActive) throw new UnauthorizedException('User not found');
-    return { token: this.generateToken(user) };
+    if (!user?.isActive) throw new UnauthorizedException('User not found');
+    return { token: this.generateToken(user as unknown as UserRecord) };
   }
 
   async forgotPassword(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const ok = { message: 'If an account exists with that email, a reset link has been sent.' };
 
-    // Always return success to prevent email enumeration
-    if (!user || !user.isActive) {
+    const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (!user?.isActive) {
       this.logger.warn(`Password reset requested for unknown email: ${email}`);
-      return { message: 'If an account exists with that email, a reset link has been sent.' };
+      return ok;
     }
 
-    // Generate reset token (valid for 1 hour)
+    // Token stored as SHA-256 hash — plaintext only travels in the email link, never persisted
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpiry = new Date(Date.now() + 3600000); // 1 hour
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const resetExpiry = new Date(Date.now() + 3_600_000); // 1 hour
 
-    // Store token in user metadata
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         metadata: {
-          ...(user.metadata as any ?? {}),
-          resetToken: await bcrypt.hash(resetToken, 10),
+          ...((user.metadata as Record<string, unknown>) ?? {}),
+          resetTokenHash,
           resetExpiry: resetExpiry.toISOString(),
         },
       },
     });
 
-    // Send email
     const resetUrl = `${this.config.get('APP_URL', 'http://localhost:9000')}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
 
     await this.emailService.send({
@@ -177,71 +168,57 @@ export class AuthService {
         <h2>Password Reset</h2>
         <p>Hi ${user.firstName},</p>
         <p>You requested a password reset for your ecoLoop account.</p>
-        <p><a href="${resetUrl}" style="display: inline-block; background: #00897B; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset Password</a></p>
+        <p><a href="${resetUrl}" style="display:inline-block;background:#00897B;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Reset Password</a></p>
         <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
         <br>
-        <p style="color: #6B7280; font-size: 12px;">— ecoLoop Solar Energy</p>
+        <p style="color:#6B7280;font-size:12px;">— ecoLoop Solar Energy</p>
       `,
     });
 
     this.logger.log(`Password reset email sent to ${email}`);
-    return { message: 'If an account exists with that email, a reset link has been sent.' };
+    return ok;
   }
 
   async resetPasswordWithToken(token: string, newPassword: string) {
-    // Find users with reset tokens (check all users — token is hashed)
-    const users = await this.prisma.user.findMany({
-      where: { isActive: true },
+    // Hash the incoming token before lookup — DB only stores the SHA-256 hash
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        isActive: true,
+        metadata: { path: ['resetTokenHash'], equals: tokenHash },
+      } as Parameters<typeof this.prisma.user.findFirst>[0]['where'],
     });
 
-    let matchedUser: any = null;
-    for (const user of users) {
-      const meta = user.metadata as any;
-      if (!meta?.resetToken || !meta?.resetExpiry) continue;
+    if (!user) throw new UnauthorizedException('Invalid or expired reset token');
 
-      // Check expiry
-      if (new Date(meta.resetExpiry) < new Date()) continue;
-
-      // Check token
-      const valid = await bcrypt.compare(token, meta.resetToken);
-      if (valid) {
-        matchedUser = user;
-        break;
-      }
-    }
-
-    if (!matchedUser) {
+    const meta = (user.metadata as Record<string, unknown>) ?? {};
+    const expiry = meta['resetExpiry'];
+    if (!expiry || new Date(expiry as string) < new Date()) {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
 
-    // Update password and clear reset token
+    const { resetTokenHash: _h, resetExpiry: _e, ...cleanMeta } = meta;
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    const meta = (matchedUser.metadata as any) ?? {};
-    delete meta.resetToken;
-    delete meta.resetExpiry;
 
     await this.prisma.user.update({
-      where: { id: matchedUser.id },
-      data: { passwordHash, metadata: meta },
+      where: { id: user.id },
+      data: { passwordHash, metadata: cleanMeta },
     });
 
-    this.logger.log(`Password reset completed for ${matchedUser.email}`);
+    this.logger.log(`Password reset completed for ${user.email}`);
     return { message: 'Password reset successfully. You can now log in.' };
   }
 
-  private generateToken(user: any): string {
+  private generateToken(user: UserRecord): string {
     return jwt.sign(
-      {
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-      },
+      { sub: user.id, email: user.email, role: user.role },
       this.jwtSecret,
-      { expiresIn: this.jwtExpiry as any },
+      { expiresIn: this.jwtExpiry },
     );
   }
 
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: UserRecord) {
     return {
       id: user.id,
       email: user.email,

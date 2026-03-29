@@ -66,7 +66,7 @@ describe('PortalController', () => {
       expect(prisma.customer.create).toHaveBeenCalledTimes(1);
     });
 
-    it('returns 409 when customer already has a password', async () => {
+    it('throws ConflictException when customer already has a password', async () => {
       const hash = await bcrypt.hash('existing', 12);
       prisma.customer.findFirst.mockResolvedValue({
         id: 'cust-1',
@@ -74,9 +74,7 @@ describe('PortalController', () => {
         metadata: { passwordHash: hash },
       });
 
-      const result = await controller.register(dto as any);
-
-      expect((result as any).statusCode).toBe(409);
+      await expect(controller.register(dto as any)).rejects.toThrow('An account with this email already exists');
       expect(prisma.customer.create).not.toHaveBeenCalled();
     });
 
@@ -127,37 +125,20 @@ describe('PortalController', () => {
       expect((result as any).customer.email).toBe('ana@example.com');
     });
 
-    it('returns 401 when customer not found', async () => {
+    it('throws UnauthorizedException when customer not found', async () => {
       prisma.customer.findFirst.mockResolvedValue(null);
-
-      const result = await controller.login({ email: 'x@x.com', password: 'pass' } as any);
-
-      expect((result as any).statusCode).toBe(401);
+      await expect(controller.login({ email: 'x@x.com', password: 'pass' } as any)).rejects.toThrow('Invalid email or password');
     });
 
-    it('returns 401 when no passwordHash set', async () => {
-      prisma.customer.findFirst.mockResolvedValue({
-        id: 'cust-1',
-        email: 'ana@example.com',
-        metadata: {},
-      });
-
-      const result = await controller.login({ email: 'ana@example.com', password: 'password123' } as any);
-
-      expect((result as any).statusCode).toBe(401);
+    it('throws UnauthorizedException when no passwordHash set', async () => {
+      prisma.customer.findFirst.mockResolvedValue({ id: 'cust-1', email: 'ana@example.com', metadata: {} });
+      await expect(controller.login({ email: 'ana@example.com', password: 'password123' } as any)).rejects.toThrow('Invalid email or password');
     });
 
-    it('returns 401 on wrong password', async () => {
+    it('throws UnauthorizedException on wrong password', async () => {
       const hash = await bcrypt.hash('correctpass', 12);
-      prisma.customer.findFirst.mockResolvedValue({
-        id: 'cust-1',
-        email: 'ana@example.com',
-        metadata: { passwordHash: hash },
-      });
-
-      const result = await controller.login({ email: 'ana@example.com', password: 'wrongpass' } as any);
-
-      expect((result as any).statusCode).toBe(401);
+      prisma.customer.findFirst.mockResolvedValue({ id: 'cust-1', email: 'ana@example.com', metadata: { passwordHash: hash } });
+      await expect(controller.login({ email: 'ana@example.com', password: 'wrongpass' } as any)).rejects.toThrow('Invalid email or password');
     });
 
     it('includes currentStage from lead in response', async () => {
@@ -190,20 +171,17 @@ describe('PortalController', () => {
       return { headers: { authorization: `Bearer ${token}` } };
     }
 
-    it('returns 401 when no token', async () => {
-      const result = await controller.getMe({ headers: {} } as any);
-      expect((result as any).statusCode).toBe(401);
+    it('throws UnauthorizedException when no token', async () => {
+      await expect(controller.getMe({ headers: {} } as any)).rejects.toThrow('Not authenticated');
     });
 
-    it('returns 401 on invalid token', async () => {
-      const result = await controller.getMe(makeReq('bad.token.here') as any);
-      expect((result as any).statusCode).toBe(401);
+    it('throws UnauthorizedException on invalid token', async () => {
+      await expect(controller.getMe(makeReq('bad.token.here') as any)).rejects.toThrow();
     });
 
-    it('returns 401 when token type is not portal', async () => {
+    it('throws UnauthorizedException when token type is not portal', async () => {
       const token = jwt.sign({ sub: 'cust-1', email: 'a@b.com', type: 'user' }, JWT_SECRET);
-      const result = await controller.getMe(makeReq(token) as any);
-      expect((result as any).statusCode).toBe(401);
+      await expect(controller.getMe(makeReq(token) as any)).rejects.toThrow('Invalid token');
     });
 
     it('returns customer profile on valid token', async () => {
@@ -224,12 +202,11 @@ describe('PortalController', () => {
       expect((result as any).currentStage).toBe('NEW_LEAD');
     });
 
-    it('returns 404 when customer not found', async () => {
+    it('throws UnauthorizedException when customer not found', async () => {
       const token = jwt.sign({ sub: 'ghost', email: 'ghost@x.com', type: 'portal' }, JWT_SECRET);
       prisma.customer.findUnique.mockResolvedValue(null);
 
-      const result = await controller.getMe(makeReq(token) as any);
-      expect((result as any).statusCode).toBe(404);
+      await expect(controller.getMe(makeReq(token) as any)).rejects.toThrow('Customer not found');
     });
   });
 });

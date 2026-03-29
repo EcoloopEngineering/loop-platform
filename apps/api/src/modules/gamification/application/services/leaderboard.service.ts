@@ -183,6 +183,19 @@ export class LeaderboardService {
     return { userId: topUserId, points: topPoints };
   }
 
+  /** Get recent milestone events for the public scoreboard feed */
+  async getScoreboard(take: number) {
+    return this.prisma.gamificationEvent.findMany({
+      where: { eventType: { in: ['CONNECTED', 'SALE', 'CUSTOMER_SUCCESS'] } },
+      orderBy: { createdAt: 'desc' },
+      take,
+      include: {
+        user: { select: { firstName: true, lastName: true, closedDealEmoji: true } },
+        lead: { select: { customer: { select: { firstName: true, lastName: true } }, kw: true } },
+      },
+    });
+  }
+
   /**
    * Shared leaderboard query logic
    */

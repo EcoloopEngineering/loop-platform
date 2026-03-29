@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { SalesRabbitWebhookController } from './salesrabbit-webhook.controller';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -35,6 +36,7 @@ describe('SalesRabbitWebhookController', () => {
       providers: [
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: emitter },
+        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(undefined) } },
       ],
     }).compile();
 

@@ -1,5 +1,6 @@
-import { Controller, Post, Body, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Logger, Headers, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -30,15 +31,29 @@ const DISQUALIFIED_STATUSES = [14, 15, 16]; // NEEDS_ROOF, EXISTING_SOLAR, RENTE
 @ApiTags('Webhooks')
 export class SalesRabbitWebhookController {
   private readonly logger = new Logger(SalesRabbitWebhookController.name);
+  private readonly webhookSecret: string | undefined;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
-  ) {}
+    private readonly config: ConfigService,
+  ) {
+    this.webhookSecret = this.config.get<string>('SALESRABBIT_WEBHOOK_SECRET');
+    if (!this.webhookSecret) {
+      this.logger.warn('SALESRABBIT_WEBHOOK_SECRET not set — webhook endpoint is unauthenticated');
+    }
+  }
 
   @Post()
   @ApiOperation({ summary: 'Receive SalesRabbit webhook events' })
-  async handleWebhook(@Body() body: { event: string; data: SalesRabbitLead }): Promise<any> {
+  async handleWebhook(
+    @Body() body: { event: string; data: SalesRabbitLead },
+    @Headers('x-salesrabbit-secret') secret?: string,
+  ): Promise<{ received?: boolean; skipped?: boolean; leadId?: string; customerId?: string; deleted?: boolean; error?: string; reason?: string }> {
+    if (this.webhookSecret && secret !== this.webhookSecret) {
+      throw new UnauthorizedException('Invalid webhook secret');
+    }
+
     this.logger.log(`SalesRabbit webhook: ${body.event}`);
 
     const { event, data } = body;
@@ -98,7 +113,7 @@ export class SalesRabbitWebhookController {
           state: data.state ?? '',
           zip: data.zip ?? '',
           propertyType: 'RESIDENTIAL',
-          roofCondition: this.mapRoofAge(data.roofAge) as any,
+          roofCondition: this.mapRoofAge(data.roofAge),
           electricalService: data.electricalService,
           hasPool: data.pool ?? false,
           hasEV: data.electricVehicle ?? false,
@@ -113,18 +128,14 @@ export class SalesRabbitWebhookController {
       return { error: 'no pipeline' };
     }
 
-    // Create lead
-    const leadData: any = {
-      customer: { connect: { id: customer.id } },
-      pipeline: { connect: { id: pipeline.id } },
-      source: 'PUBLIC_FORM',
-      currentStage: 'NEW_LEAD',
-    };
-    if (property) {
-      leadData.property = { connect: { id: property.id } };
-    }
     const lead = await this.prisma.lead.create({
-      data: leadData,
+      data: {
+        customer: { connect: { id: customer.id } },
+        pipeline: { connect: { id: pipeline.id } },
+        source: 'PUBLIC_FORM',
+        currentStage: 'NEW_LEAD',
+        ...(property && { property: { connect: { id: property.id } } }),
+      },
     });
 
     // Log activity

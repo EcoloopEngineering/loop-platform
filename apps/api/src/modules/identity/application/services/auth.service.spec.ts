@@ -300,7 +300,7 @@ describe('AuthService', () => {
           where: { id: 'user-1' },
           data: expect.objectContaining({
             metadata: expect.objectContaining({
-              resetToken: expect.any(String),
+              resetTokenHash: expect.any(String),
               resetExpiry: expect.any(String),
             }),
           }),
@@ -337,17 +337,19 @@ describe('AuthService', () => {
   describe('resetPasswordWithToken', () => {
     it('should reset password with valid token', async () => {
       const resetToken = 'valid-reset-token';
-      const hashedToken = await bcrypt.hash(resetToken, 10);
+      // New implementation stores SHA-256 hash, not bcrypt
+      const crypto = require('crypto');
+      const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
       const futureExpiry = new Date(Date.now() + 3600000).toISOString();
 
       const mockUser = {
         id: 'user-1',
         email: 'test@example.com',
         isActive: true,
-        metadata: { resetToken: hashedToken, resetExpiry: futureExpiry },
+        metadata: { resetTokenHash, resetExpiry: futureExpiry },
       };
 
-      prisma.user.findMany.mockResolvedValue([mockUser]);
+      prisma.user.findFirst.mockResolvedValue(mockUser);
       prisma.user.update.mockResolvedValue(mockUser);
 
       const result = await service.resetPasswordWithToken(resetToken, 'newPassword123');
@@ -356,57 +358,34 @@ describe('AuthService', () => {
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'user-1' },
-          data: expect.objectContaining({
-            passwordHash: expect.any(String),
-          }),
+          data: expect.objectContaining({ passwordHash: expect.any(String) }),
         }),
       );
-      // Ensure reset token is cleared from metadata
+      // Ensure reset token hash is cleared from metadata
       const updateCall = prisma.user.update.mock.calls[0][0];
-      expect(updateCall.data.metadata).not.toHaveProperty('resetToken');
+      expect(updateCall.data.metadata).not.toHaveProperty('resetTokenHash');
       expect(updateCall.data.metadata).not.toHaveProperty('resetExpiry');
     });
 
     it('should throw UnauthorizedException for expired token', async () => {
+      const crypto = require('crypto');
       const resetToken = 'expired-token';
-      const hashedToken = await bcrypt.hash(resetToken, 10);
+      const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
       const pastExpiry = new Date(Date.now() - 3600000).toISOString();
 
-      prisma.user.findMany.mockResolvedValue([
-        {
-          id: 'user-1',
-          isActive: true,
-          metadata: { resetToken: hashedToken, resetExpiry: pastExpiry },
-        },
-      ]);
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'user-1',
+        isActive: true,
+        metadata: { resetTokenHash, resetExpiry: pastExpiry },
+      });
 
       await expect(service.resetPasswordWithToken(resetToken, 'newPassword')).rejects.toThrow(
         UnauthorizedException,
       );
     });
 
-    it('should throw UnauthorizedException for invalid token', async () => {
-      const hashedToken = await bcrypt.hash('real-token', 10);
-      const futureExpiry = new Date(Date.now() + 3600000).toISOString();
-
-      prisma.user.findMany.mockResolvedValue([
-        {
-          id: 'user-1',
-          isActive: true,
-          metadata: { resetToken: hashedToken, resetExpiry: futureExpiry },
-        },
-      ]);
-
-      await expect(service.resetPasswordWithToken('wrong-token', 'newPassword')).rejects.toThrow(
-        UnauthorizedException,
-      );
-    });
-
-    it('should throw UnauthorizedException when no users have reset tokens', async () => {
-      prisma.user.findMany.mockResolvedValue([
-        { id: 'user-1', isActive: true, metadata: {} },
-        { id: 'user-2', isActive: true, metadata: null },
-      ]);
+    it('should throw UnauthorizedException when no user matches token', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
 
       await expect(service.resetPasswordWithToken('any-token', 'newPassword')).rejects.toThrow(
         UnauthorizedException,

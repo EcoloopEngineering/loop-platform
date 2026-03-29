@@ -2,24 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-
-// Define the PM pipeline stage order
-const PM_STAGE_ORDER = [
-  'SITE_AUDIT',
-  'PROGRESS_REVIEW',
-  'NTP',
-  'ENGINEERING',
-  'PERMIT_AND_ICE',
-  'FINAL_APPROVAL',
-  'INSTALL_READY',
-  'INSTALL',
-  'COMMISSION',
-  'SITE_COMPLETE',
-  'INITIAL_SUBMISSION_AND_INSPECTION',
-  'WAITING_FOR_PTO',
-  'FINAL_SUBMISSION',
-  'CUSTOMER_SUCCESS',
-];
+import { PM_STAGE_ORDER } from '../config/pipeline-stages.config';
 
 @Injectable()
 export class StageAdvanceListener {
@@ -61,7 +44,7 @@ export class StageAdvanceListener {
       // Advance the stage
       await this.prisma.lead.update({
         where: { id: payload.leadId },
-        data: { currentStage: nextStage as any },
+        data: { currentStage: nextStage },
       });
 
       // Log activity
@@ -69,7 +52,7 @@ export class StageAdvanceListener {
         data: {
           leadId: payload.leadId,
           userId: lead.projectManagerId ?? lead.createdById ?? payload.leadId,
-          type: 'STAGE_CHANGE' as any,
+          type: 'STAGE_CHANGE',
           description: `Auto-advanced from ${previousStage} to ${nextStage} (all tasks completed)`,
           metadata: { previousStage, newStage: nextStage, auto: true },
         },

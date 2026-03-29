@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -24,15 +23,17 @@ import { CreateLeadDto } from '../application/dto/create-lead.dto';
 import { LeadFilterDto } from '../application/dto/lead-filter.dto';
 import { LeadResponseDto } from '../application/dto/lead-response.dto';
 import { CreateLeadCommand } from '../application/commands/create-lead.command';
+import { ChangeLeadStageCommand } from '../application/commands/change-lead-stage.command';
+import { MarkLeadLostCommand } from '../application/commands/mark-lead-lost.command';
+import { MarkLeadCancelledCommand } from '../application/commands/mark-lead-cancelled.command';
+import { UpdateLeadMetadataCommand } from '../application/commands/update-lead-metadata.command';
 import { ListLeadsQuery } from '../application/queries/list-leads.handler';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../application/ports/lead.repository.port';
 import { LeadScoringDomainService } from '../domain/services/lead-scoring.domain-service';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
-import {
-  LeadUpdatedPayload,
-  LeadStageChangedPayload,
-  LeadStatusChangedPayload,
-} from '../application/events/lead-events.types';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { LeadUpdatedPayload } from '../application/events/lead-events.types';
+import { UpdateLeadData } from '../application/dto/lead-data.types';
 
 @ApiTags('Leads')
 @ApiBearerAuth()
@@ -81,13 +82,13 @@ export class LeadsController {
   @ApiOperation({ summary: 'Update a lead' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() data: Record<string, unknown>,
+    @Body() data: UpdateLeadData,
     @CurrentUser('id') userId: string,
   ): Promise<unknown> {
     const existing = await this.leadRepo.findById(id);
     if (!existing) throw new NotFoundException('Lead not found');
 
-    const updated = await this.leadRepo.update(id, data as any);
+    const updated = await this.leadRepo.update(id, data);
 
     const [lead, currentUser] = await Promise.all([
       this.prisma.lead.findUnique({
@@ -121,28 +122,7 @@ export class LeadsController {
     @Body() data: Record<string, unknown>,
     @CurrentUser('id') userId: string,
   ): Promise<unknown> {
-    const lead = await this.prisma.lead.findUnique({ where: { id } });
-    if (!lead) throw new NotFoundException('Lead not found');
-
-    const currentMeta = (lead.metadata as Record<string, unknown>) ?? {};
-    const merged = { ...currentMeta, ...data };
-
-    const updated = await this.prisma.lead.update({
-      where: { id },
-      data: { metadata: merged },
-    });
-
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: id,
-        userId,
-        type: 'STAGE_CHANGE',
-        description: `Updated fields: ${Object.keys(data).join(', ')}`,
-        metadata: { fields: Object.keys(data), values: data },
-      },
-    }).catch(() => {});
-
-    return updated;
+    return this.commandBus.execute(new UpdateLeadMetadataCommand(id, data, userId));
   }
 
   @Patch(':id/stage')
@@ -153,38 +133,7 @@ export class LeadsController {
     @Body('stage') stage: LeadStage,
     @CurrentUser('id') userId: string,
   ): Promise<unknown> {
-    const existing = await this.leadRepo.findById(id);
-    if (!existing) throw new NotFoundException('Lead not found');
-
-    const fromStage = existing.currentStage;
-    const updated = await this.leadRepo.updateStage(id, stage);
-
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: id,
-        userId,
-        type: 'STAGE_CHANGE',
-        description: `Stage changed from ${fromStage} to ${stage}`,
-        metadata: { fromStage, toStage: stage },
-      },
-    });
-
-    const leadWithCustomer = await this.prisma.lead.findUnique({
-      where: { id },
-      include: { customer: { select: { firstName: true, lastName: true } } },
-    });
-
-    if (leadWithCustomer) {
-      const payload: LeadStageChangedPayload = {
-        leadId: id,
-        customerName: `${leadWithCustomer.customer.firstName} ${leadWithCustomer.customer.lastName}`,
-        previousStage: fromStage,
-        newStage: stage,
-      };
-      this.emitter.emit('lead.stageChanged', payload);
-    }
-
-    return updated;
+    return this.commandBus.execute(new ChangeLeadStageCommand(id, stage, userId));
   }
 
   @Patch(':id/lost')
@@ -195,36 +144,7 @@ export class LeadsController {
     @Body('reason') reason: string,
     @CurrentUser('id') userId: string,
   ): Promise<unknown> {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id },
-      include: { customer: { select: { firstName: true, lastName: true } } },
-    });
-    if (!lead) throw new NotFoundException('Lead not found');
-
-    const updated = await this.prisma.lead.update({
-      where: { id },
-      data: { status: 'LOST', lostAt: new Date(), lostReason: reason ?? null },
-    });
-
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: id,
-        userId,
-        type: 'STAGE_CHANGE',
-        description: `Lead marked as LOST${reason ? `: ${reason}` : ''}`,
-        metadata: { status: 'LOST', stage: lead.currentStage, reason },
-      },
-    });
-
-    const payload: LeadStatusChangedPayload = {
-      leadId: id,
-      customerName: `${lead.customer.firstName} ${lead.customer.lastName}`,
-      newStatus: 'LOST',
-      previousStage: lead.currentStage,
-    };
-    this.emitter.emit('lead.statusChanged', payload);
-
-    return updated;
+    return this.commandBus.execute(new MarkLeadLostCommand(id, reason, userId));
   }
 
   @Patch(':id/cancel')
@@ -235,36 +155,7 @@ export class LeadsController {
     @Body('reason') reason: string,
     @CurrentUser('id') userId: string,
   ): Promise<unknown> {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id },
-      include: { customer: { select: { firstName: true, lastName: true } } },
-    });
-    if (!lead) throw new NotFoundException('Lead not found');
-
-    const updated = await this.prisma.lead.update({
-      where: { id },
-      data: { status: 'CANCELLED', lostAt: new Date(), lostReason: reason ?? null },
-    });
-
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: id,
-        userId,
-        type: 'STAGE_CHANGE',
-        description: `Lead cancelled${reason ? `: ${reason}` : ''}`,
-        metadata: { status: 'CANCELLED', stage: lead.currentStage, reason },
-      },
-    });
-
-    const payload: LeadStatusChangedPayload = {
-      leadId: id,
-      customerName: `${lead.customer.firstName} ${lead.customer.lastName}`,
-      newStatus: 'CANCELLED',
-      previousStage: lead.currentStage,
-    };
-    this.emitter.emit('lead.statusChanged', payload);
-
-    return updated;
+    return this.commandBus.execute(new MarkLeadCancelledCommand(id, reason, userId));
   }
 
   @Post(':id/score/recalculate')

@@ -20,6 +20,7 @@ describe('GamificationController', () => {
   let leaderboardService: {
     getWeeklyLeaderboard: jest.Mock;
     getMonthlyLeaderboard: jest.Mock;
+    getScoreboard: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -31,6 +32,7 @@ describe('GamificationController', () => {
     leaderboardService = {
       getWeeklyLeaderboard: jest.fn(),
       getMonthlyLeaderboard: jest.fn(),
+      getScoreboard: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -124,19 +126,12 @@ describe('GamificationController', () => {
           lead: { customer: { firstName: 'Jane', lastName: 'Client' }, kw: 8 },
         },
       ];
-      prisma.gamificationEvent.findMany.mockResolvedValue(mockEvents);
+      leaderboardService.getScoreboard.mockResolvedValue(mockEvents);
 
       const result = await controller.getScoreboard('10');
 
       expect(result).toEqual(mockEvents);
-      expect(prisma.gamificationEvent.findMany).toHaveBeenCalledWith({
-        where: {
-          eventType: { in: ['CONNECTED', 'SALE', 'CUSTOMER_SUCCESS'] },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: expect.any(Object),
-      });
+      expect(leaderboardService.getScoreboard).toHaveBeenCalledWith(10);
     });
   });
 });
