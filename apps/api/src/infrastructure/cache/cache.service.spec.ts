@@ -108,12 +108,14 @@ describe('CacheService', () => {
     });
 
     it('should not count expired entries in stored size (lazy cleanup)', () => {
-      cache.set('expired', 'val', 0);
-      // Entry still in map but expired - size reflects map size
+      jest.useFakeTimers();
+      cache.set('expired', 'val', 100);
       expect(cache.size()).toBe(1);
-      // Access triggers cleanup
+      jest.advanceTimersByTime(101);
+      // Access triggers cleanup of expired entry
       cache.get('expired');
       expect(cache.size()).toBe(0);
+      jest.useRealTimers();
     });
   });
 

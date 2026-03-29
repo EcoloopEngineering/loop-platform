@@ -180,7 +180,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { api } from '@/boot/axios';
-import { titleCase } from '@/utils/format';
+import { titleCase } from '@/composables/useLeadFormatting';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
 

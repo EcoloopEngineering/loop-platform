@@ -59,6 +59,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useLeadStore } from '@/stores/lead.store';
+import { useLeadApi } from '@/composables/useLeadApi';
 import { api } from '@/boot/axios';
 import LeadInfoCard from '@/components/lead-detail/LeadInfoCard.vue';
 import LeadTimelineSection from '@/components/lead-detail/LeadTimelineSection.vue';
@@ -69,15 +70,7 @@ import LeadAppointmentsSection from '@/components/lead-detail/LeadAppointmentsSe
 import LeadTasksSection from '@/components/lead-detail/LeadTasksSection.vue';
 import LeadCommissionSection from '@/components/lead-detail/LeadCommissionSection.vue';
 
-interface Activity {
-  id: string;
-  type: string;
-  description: string;
-  createdAt: string;
-  userName?: string;
-  user?: { firstName: string; lastName: string };
-  metadata?: { editedAt?: string; action?: string };
-}
+import type { Activity, Note, Document as DocFile, Task } from '@/types/api';
 
 interface NoteItem {
   id: string;
@@ -98,6 +91,7 @@ interface FileItem {
 const props = defineProps<{ id: string }>();
 const $q = useQuasar();
 const leadStore = useLeadStore();
+const leadApi = useLeadApi();
 
 const lead = computed(() => leadStore.currentLead as Record<string, unknown> | null);
 const activeTab = ref('activity');
@@ -119,13 +113,13 @@ onMounted(async () => {
 });
 
 async function loadExtras() {
-  const [timelineRes, docsRes, commRes] = await Promise.all([
-    api.get<Activity[]>(`/leads/${props.id}/timeline`).catch(() => ({ data: [] as Activity[] })),
-    api.get<FileItem[]>(`/leads/${props.id}/documents`).catch(() => ({ data: [] as FileItem[] })),
-    api.get(`/leads/${props.id}/commissions`).catch(() => ({ data: [] })),
+  const [timelineData, docsData, commData] = await Promise.all([
+    leadApi.fetchTimeline(props.id),
+    leadApi.fetchDocuments(props.id),
+    leadApi.fetchCommissions(props.id),
   ]);
-  activities.value = Array.isArray(timelineRes.data) ? timelineRes.data : [];
-  files.value = Array.isArray(docsRes.data) ? docsRes.data : [];
+  activities.value = timelineData as (typeof activities.value);
+  files.value = docsData as FileItem[];
   notes.value = activities.value
     .filter((a) => a.type === 'NOTE_ADDED' && a.description !== '[deleted]' && !a.metadata?.action)
     .map((a) => ({
@@ -135,17 +129,13 @@ async function loadExtras() {
       createdAt: a.createdAt,
       editedAt: a.metadata?.editedAt,
     }));
-  const commData = commRes.data as Record<string, unknown>;
-  commissionLines.value = (commData?.lines ?? []) as { label: string; value: string }[];
-  commissionTotal.value = (commData?.total as string) ?? '$0';
+  commissionLines.value = commData.lines;
+  commissionTotal.value = commData.total;
   fetchLeadTasks();
 }
 
 async function fetchLeadTasks() {
-  try {
-    const { data } = await api.get('/tasks', { params: { leadId: props.id } });
-    leadTasks.value = Array.isArray(data) ? data : ((data as Record<string, unknown>).data ?? []) as typeof leadTasks.value;
-  } catch { leadTasks.value = []; }
+  leadTasks.value = await leadApi.fetchTasks(props.id) as typeof leadTasks.value;
 }
 
 async function completeTask(taskId: string) {

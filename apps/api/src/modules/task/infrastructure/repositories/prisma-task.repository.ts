@@ -5,6 +5,7 @@ import {
   TaskRepositoryPort,
   TaskFilter,
   TaskWithAssignee,
+  TaskTemplateRecord,
 } from '../../application/ports/task.repository.port';
 import { CreateTaskDto } from '../../application/dto/create-task.dto';
 
@@ -145,5 +146,33 @@ export class PrismaTaskRepository implements TaskRepositoryPort {
       select: { projectManagerId: true },
     });
     return lead?.projectManagerId ?? null;
+  }
+
+  /* ── Task templates ── */
+
+  async findTemplates(filter?: { stage?: string }): Promise<TaskTemplateRecord[]> {
+    const where: Record<string, unknown> = {};
+    if (filter?.stage) where.stage = filter.stage;
+
+    return this.prisma.taskTemplate.findMany({
+      where,
+      orderBy: [{ stage: 'asc' }, { sortOrder: 'asc' }],
+    }) as unknown as Promise<TaskTemplateRecord[]>;
+  }
+
+  async findTemplateById(id: string): Promise<TaskTemplateRecord | null> {
+    return this.prisma.taskTemplate.findUnique({ where: { id } }) as unknown as Promise<TaskTemplateRecord | null>;
+  }
+
+  async createTemplate(data: Record<string, unknown>): Promise<TaskTemplateRecord> {
+    return this.prisma.taskTemplate.create({ data: data as any });
+  }
+
+  async updateTemplate(id: string, data: Record<string, unknown>): Promise<TaskTemplateRecord> {
+    return this.prisma.taskTemplate.update({ where: { id }, data: data as any });
+  }
+
+  async deleteTemplate(id: string): Promise<TaskTemplateRecord> {
+    return this.prisma.taskTemplate.delete({ where: { id } });
   }
 }

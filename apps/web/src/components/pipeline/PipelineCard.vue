@@ -30,8 +30,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { titleCase } from '@/utils/format';
+import { titleCase } from '@/composables/useLeadFormatting';
+import { useLeadFormatting } from '@/composables/useLeadFormatting';
 import type { PipelineLead } from '@/stores/pipeline.store';
+
+const { formatSource, timeAgo: timeAgoFn } = useLeadFormatting();
 
 const props = defineProps<{
   lead: PipelineLead;
@@ -43,19 +46,7 @@ const scoreColor = computed(() => {
   return 'grey-6';
 });
 
-function formatSource(s: string) {
-  return (s || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-}
-
-const timeAgo = computed(() => {
-  const diff = Date.now() - new Date(props.lead.createdAt).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-});
+const timeAgo = computed(() => timeAgoFn(props.lead.createdAt));
 </script>
 
 <style lang="scss" scoped>

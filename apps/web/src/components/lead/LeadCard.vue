@@ -37,28 +37,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useLeadFormatting } from '@/composables/useLeadFormatting';
 import type { Lead } from '@/stores/lead.store';
+
+const { stageQColor, timeAgo: timeAgoFn } = useLeadFormatting();
 
 const props = defineProps<{
   lead: Lead & { score?: number; leadSource?: string };
 }>();
-
-const STAGE_COLORS: Record<string, string> = {
-  // Closer
-  NEW_LEAD: 'positive', ALREADY_CALLED: 'light-green', CONNECTED: 'blue',
-  REQUEST_DESIGN: 'light-blue', DESIGN_IN_PROGRESS: 'orange', DESIGN_READY: 'purple', WON: 'teal',
-  // PM
-  SITE_AUDIT: 'deep-orange', PROGRESS_REVIEW: 'pink', NTP: 'purple', ENGINEERING: 'indigo',
-  PERMIT_AND_ICE: 'blue', FINAL_APPROVAL: 'cyan', INSTALL_READY: 'teal', INSTALL: 'positive',
-  COMMISSION: 'light-green', SITE_COMPLETE: 'lime', INITIAL_SUBMISSION_AND_INSPECTION: 'amber',
-  WAITING_FOR_PTO: 'orange', FINAL_SUBMISSION: 'deep-orange', CUSTOMER_SUCCESS: 'positive',
-  // Finance
-  FIN_TICKETS_OPEN: 'blue', FIN_IN_PROGRESS: 'orange', FIN_POST_INITIAL_NURTURE: 'purple', FIN_TICKETS_CLOSED: 'positive',
-  // Maintenance
-  MAINT_TICKETS_OPEN: 'blue', MAINT_IN_PROGRESS: 'orange', MAINT_POST_INSTALL_NURTURE: 'purple', MAINT_TICKETS_CLOSED: 'positive',
-  // Legacy lowercase (backwards compat)
-  new: 'blue', contacted: 'orange', qualified: 'purple', proposal: 'cyan', won: 'positive', lost: 'negative',
-};
 
 const SOURCE_ICONS: Record<string, string> = {
   referral: 'share',
@@ -67,7 +53,7 @@ const SOURCE_ICONS: Record<string, string> = {
   manual: 'edit',
 };
 
-const stageColor = computed(() => STAGE_COLORS[props.lead.stage] ?? 'grey-6');
+const stageColor = computed(() => stageQColor(props.lead.stage ?? ''));
 const sourceIcon = computed(
   () => SOURCE_ICONS[props.lead.source ?? ''] ?? 'person_add',
 );
@@ -83,15 +69,7 @@ const scoreTextClass = computed(() => {
   return 'text-grey-6';
 });
 
-const timeAgo = computed(() => {
-  const diff = Date.now() - new Date(props.lead.createdAt).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `${days}d`;
-});
+const timeAgo = computed(() => timeAgoFn(props.lead.createdAt));
 </script>
 
 <style lang="scss" scoped>

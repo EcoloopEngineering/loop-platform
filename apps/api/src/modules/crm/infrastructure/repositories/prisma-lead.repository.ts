@@ -9,6 +9,9 @@ import {
   LeadWithCustomer,
   UserNameRecord,
   PipelineRecord,
+  LeadWithCustomerAndProperty,
+  ScoreRecord,
+  ActivityWithUser,
 } from '../../application/ports/lead.repository.port';
 import { LeadEntity } from '../../domain/entities/lead.entity';
 import { LeadFilterDto } from '../../application/dto/lead-filter.dto';
@@ -334,5 +337,40 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
     return this.prisma.pipeline.findFirst({
       where: { isDefault: true },
     }) as Promise<PipelineRecord | null>;
+  }
+
+  // ── Scoring ─────────────────────────────────────────────────────────────
+
+  async findByIdWithCustomerAndProperty(id: string): Promise<LeadWithCustomerAndProperty | null> {
+    return this.prisma.lead.findUnique({
+      where: { id },
+      include: { customer: true, property: true },
+    }) as Promise<LeadWithCustomerAndProperty | null>;
+  }
+
+  async upsertScore(
+    leadId: string,
+    update: Omit<ScoreRecord, 'id' | 'leadId'>,
+    create: Omit<ScoreRecord, 'id'>,
+  ): Promise<ScoreRecord> {
+    return this.prisma.leadScore.upsert({
+      where: { leadId },
+      update,
+      create: { ...create, leadId } as any,
+    }) as unknown as Promise<ScoreRecord>;
+  }
+
+  // ── Timeline ────────────────────────────────────────────────────────────
+
+  async findActivitiesWithUser(leadId: string): Promise<ActivityWithUser[]> {
+    return this.prisma.leadActivity.findMany({
+      where: { leadId },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, profileImage: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }) as unknown as Promise<ActivityWithUser[]>;
   }
 }

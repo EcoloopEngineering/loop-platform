@@ -133,7 +133,10 @@
 
 <script setup lang="ts">
 import type { ContactData, HomeData, EnergyData, DesignData } from '@/composables/useLeadWizard';
+import { useLeadFormatting } from '@/composables/useLeadFormatting';
 import LeadScoreBadge from '@/components/lead/LeadScoreBadge.vue';
+
+const { formatSource } = useLeadFormatting();
 
 defineProps<{
   contact: ContactData;
@@ -147,10 +150,6 @@ defineProps<{
   contactScore: number;
   propertyScore: number;
 }>();
-
-function formatSource(source: string): string {
-  return source.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function formatRoof(condition: string): string {
   const map: Record<string, string> = {

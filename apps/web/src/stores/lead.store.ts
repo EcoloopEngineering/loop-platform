@@ -1,74 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/boot/axios';
+import type { Lead, LeadCustomer, LeadProperty, LeadScore } from '@/types/api';
 
-export interface LeadCustomer {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  source: string;
-}
-
-export interface LeadProperty {
-  id: string;
-  streetAddress: string;
-  city: string;
-  state: string;
-  zip: string;
-  lat?: number;
-  lng?: number;
-  roofCondition: string;
-  electricalService?: string;
-  hasPool: boolean;
-  hasEV: boolean;
-  propertyType: string;
-  monthlyBill?: number;
-  annualKwhUsage?: number;
-  utilityProvider?: string;
-}
-
-export interface LeadScore {
-  id: string;
-  total: number;
-  contactScore: number;
-  propertyScore: number;
-  energyScore: number;
-  roofScore: number;
-  tier: string;
-}
-
-export interface Lead {
-  id: string;
-  customerId: string;
-  propertyId: string;
-  pipelineId: string;
-  currentStage: string;
-  source: string;
-  kw?: number;
-  epc?: number;
-  financier?: string;
-  systemSize?: number;
-  baseline?: number;
-  isActive: boolean;
-  wonAt?: string;
-  lostAt?: string;
-  lostReason?: string;
-  createdAt: string;
-  updatedAt: string;
-  customer?: LeadCustomer;
-  property?: LeadProperty;
-  leadScore?: LeadScore;
-  assignedUser?: { id: string; firstName: string; lastName: string; email: string };
-  // Legacy flat fields
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  stage?: string;
-  notes?: string;
-}
+export type { Lead, LeadCustomer, LeadProperty, LeadScore };
 
 export const useLeadStore = defineStore('lead', () => {
   const leads = ref<Lead[]>([]);

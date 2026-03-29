@@ -181,7 +181,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { titleCase } from '@/utils/format';
+import { titleCase } from '@/composables/useLeadFormatting';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
 
 interface UserInfo {

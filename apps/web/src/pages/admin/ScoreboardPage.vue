@@ -105,7 +105,9 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { api } from '@/boot/axios';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import { titleCase, timeAgo } from '@/utils/format';
+import { titleCase } from '@/composables/useLeadFormatting';
+import { useLeadFormatting } from '@/composables/useLeadFormatting';
+const { timeAgo } = useLeadFormatting();
 import { useUserStore } from '@/stores/user.store';
 
 interface Balance {

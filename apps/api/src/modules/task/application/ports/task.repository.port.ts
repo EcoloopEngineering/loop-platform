@@ -1,4 +1,19 @@
 import { CreateTaskDto, UpdateTaskDto } from '../dto/create-task.dto';
+import { CreateTaskTemplateDto, UpdateTaskTemplateDto } from '../dto/create-task-template.dto';
+
+export interface TaskTemplateRecord {
+  id: string;
+  stage: string;
+  title: string;
+  description?: string | null;
+  defaultAssigneeRole?: string | null;
+  defaultAssigneeEmail?: string | null;
+  subtasks?: unknown;
+  conditions?: unknown;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: Date;
+}
 
 export interface TaskWithAssignee {
   id: string;
@@ -53,6 +68,13 @@ export interface TaskRepositoryPort {
   findActiveUserByRole(role: string): Promise<{ id: string } | null>;
 
   findLeadProjectManagerId(leadId: string): Promise<string | null>;
+
+  /* ── Task templates ── */
+  findTemplates(filter?: { stage?: string }): Promise<TaskTemplateRecord[]>;
+  findTemplateById(id: string): Promise<TaskTemplateRecord | null>;
+  createTemplate(data: Record<string, unknown>): Promise<TaskTemplateRecord>;
+  updateTemplate(id: string, data: Record<string, unknown>): Promise<TaskTemplateRecord>;
+  deleteTemplate(id: string): Promise<TaskTemplateRecord>;
 }
 
 export const TASK_REPOSITORY = Symbol('TASK_REPOSITORY');

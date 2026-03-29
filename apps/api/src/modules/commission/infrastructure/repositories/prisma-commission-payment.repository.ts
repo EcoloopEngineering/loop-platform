@@ -24,4 +24,20 @@ export class PrismaCommissionPaymentRepository implements CommissionPaymentRepos
       data: { status, ...extra } as any,
     });
   }
+
+  async findCommissionsByUserId(userId: string, limit = 100): Promise<any[]> {
+    return this.prisma.commission.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  async findCommissionsByLeadId(leadId: string, limit = 100): Promise<any[]> {
+    return this.prisma.commission.findMany({
+      where: { leadId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
 }

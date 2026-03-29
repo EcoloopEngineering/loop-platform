@@ -51,6 +51,18 @@ const TIER_QCOLORS: Record<string, string> = {
   D: 'negative',
 };
 
+/**
+ * Convert a string to Title Case (first letter uppercase, rest lowercase)
+ * Handles: "RAFAEL BORDIGNON" -> "Rafael Bordignon"
+ *          "john doe" -> "John Doe"
+ */
+export function titleCase(str: string | null | undefined): string {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function useLeadFormatting() {
   /** Hex color string for inline style bindings (e.g. `:style="{ background: stageColor(stage) }"`) */
   function stageColor(stage: string): string {

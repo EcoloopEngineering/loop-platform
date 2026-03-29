@@ -2,12 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { LeadScoringAppService } from './lead-scoring-app.service';
 import { LeadScoringDomainService } from '../../domain/services/lead-scoring.domain-service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 
 describe('LeadScoringAppService', () => {
   let service: LeadScoringAppService;
-  let prisma: MockPrismaService;
+  let leadRepo: jest.Mocked<Pick<
+    LeadRepositoryPort,
+    'findByIdWithCustomerAndProperty' | 'upsertScore' | 'createActivity' | 'findById' | 'findActivitiesWithUser'
+  >>;
   let scoringService: { calculate: jest.Mock };
 
   const mockLead = {
@@ -43,13 +45,19 @@ describe('LeadScoringAppService', () => {
   };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    leadRepo = {
+      findByIdWithCustomerAndProperty: jest.fn(),
+      upsertScore: jest.fn(),
+      createActivity: jest.fn(),
+      findById: jest.fn(),
+      findActivitiesWithUser: jest.fn(),
+    };
     scoringService = { calculate: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LeadScoringAppService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: LEAD_REPOSITORY, useValue: leadRepo },
         { provide: LeadScoringDomainService, useValue: scoringService },
       ],
     }).compile();
@@ -59,18 +67,15 @@ describe('LeadScoringAppService', () => {
 
   describe('recalculateScore', () => {
     it('should recalculate score, upsert it, and log activity', async () => {
-      prisma.lead.findUnique.mockResolvedValue(mockLead);
+      leadRepo.findByIdWithCustomerAndProperty.mockResolvedValue(mockLead);
       scoringService.calculate.mockReturnValue(mockScoreBreakdown);
       const upsertedScore = { id: 'score-1', leadId: 'lead-1', ...mockScoreBreakdown };
-      prisma.leadScore.upsert.mockResolvedValue(upsertedScore);
-      prisma.leadActivity.create.mockResolvedValue({});
+      leadRepo.upsertScore.mockResolvedValue(upsertedScore);
+      leadRepo.createActivity.mockResolvedValue({} as any);
 
       const result = await service.recalculateScore('lead-1', 'user-1');
 
-      expect(prisma.lead.findUnique).toHaveBeenCalledWith({
-        where: { id: 'lead-1' },
-        include: { customer: true, property: true },
-      });
+      expect(leadRepo.findByIdWithCustomerAndProperty).toHaveBeenCalledWith('lead-1');
       expect(scoringService.calculate).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'john@example.com',
@@ -79,26 +84,24 @@ describe('LeadScoringAppService', () => {
           monthlyBill: 250,
         }),
       );
-      expect(prisma.leadScore.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { leadId: 'lead-1' },
-          update: expect.objectContaining({ totalScore: 78 }),
-          create: expect.objectContaining({ leadId: 'lead-1', totalScore: 78 }),
-        }),
+      expect(leadRepo.upsertScore).toHaveBeenCalledWith(
+        'lead-1',
+        expect.objectContaining({ totalScore: 78, calculatedAt: expect.any(Date) }),
+        expect.objectContaining({ leadId: 'lead-1', totalScore: 78 }),
       );
-      expect(prisma.leadActivity.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(leadRepo.createActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
           leadId: 'lead-1',
           userId: 'user-1',
           type: 'SCORE_UPDATED',
           description: 'Score recalculated: 78',
         }),
-      });
+      );
       expect(result).toEqual(upsertedScore);
     });
 
     it('should throw NotFoundException when lead not found', async () => {
-      prisma.lead.findUnique.mockResolvedValue(null);
+      leadRepo.findByIdWithCustomerAndProperty.mockResolvedValue(null);
 
       await expect(service.recalculateScore('bad-id', 'user-1')).rejects.toThrow(
         NotFoundException,
@@ -109,35 +112,25 @@ describe('LeadScoringAppService', () => {
 
   describe('getTimeline', () => {
     it('should return lead activities ordered by createdAt desc', async () => {
-      prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
+      leadRepo.findById.mockResolvedValue({ id: 'lead-1' } as any);
       const activities = [
         { id: 'a1', type: 'STAGE_CHANGED', createdAt: new Date() },
         { id: 'a2', type: 'NOTE_ADDED', createdAt: new Date() },
       ];
-      prisma.leadActivity.findMany.mockResolvedValue(activities);
+      leadRepo.findActivitiesWithUser.mockResolvedValue(activities as any);
 
       const result = await service.getTimeline('lead-1');
 
-      expect(prisma.lead.findUnique).toHaveBeenCalledWith({
-        where: { id: 'lead-1' },
-      });
-      expect(prisma.leadActivity.findMany).toHaveBeenCalledWith({
-        where: { leadId: 'lead-1' },
-        include: {
-          user: {
-            select: { id: true, firstName: true, lastName: true, profileImage: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      expect(leadRepo.findById).toHaveBeenCalledWith('lead-1');
+      expect(leadRepo.findActivitiesWithUser).toHaveBeenCalledWith('lead-1');
       expect(result).toEqual(activities);
     });
 
     it('should throw NotFoundException when lead not found', async () => {
-      prisma.lead.findUnique.mockResolvedValue(null);
+      leadRepo.findById.mockResolvedValue(null);
 
       await expect(service.getTimeline('bad-id')).rejects.toThrow(NotFoundException);
-      expect(prisma.leadActivity.findMany).not.toHaveBeenCalled();
+      expect(leadRepo.findActivitiesWithUser).not.toHaveBeenCalled();
     });
   });
 });

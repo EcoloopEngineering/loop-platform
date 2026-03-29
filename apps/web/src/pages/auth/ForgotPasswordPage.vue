@@ -59,3 +59,6 @@ async function handleReset() {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+</style>

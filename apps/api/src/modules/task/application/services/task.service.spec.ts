@@ -22,6 +22,11 @@ describe('TaskService', () => {
       findActiveUserByEmail: jest.fn(),
       findActiveUserByRole: jest.fn(),
       findLeadProjectManagerId: jest.fn(),
+      findTemplates: jest.fn(),
+      findTemplateById: jest.fn(),
+      createTemplate: jest.fn(),
+      updateTemplate: jest.fn(),
+      deleteTemplate: jest.fn(),
     };
     emitter = { emit: jest.fn() };
 

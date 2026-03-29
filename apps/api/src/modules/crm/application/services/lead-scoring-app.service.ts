@@ -1,19 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 import { LeadScoringDomainService } from '../../domain/services/lead-scoring.domain-service';
 
 @Injectable()
 export class LeadScoringAppService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(LEAD_REPOSITORY)
+    private readonly leadRepo: LeadRepositoryPort,
     private readonly scoringService: LeadScoringDomainService,
   ) {}
 
   async recalculateScore(leadId: string, userId: string) {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
-      include: { customer: true, property: true },
-    });
+    const lead = await this.leadRepo.findByIdWithCustomerAndProperty(leadId);
     if (!lead) throw new NotFoundException('Lead not found');
 
     const scoreBreakdown = this.scoringService.calculate({
@@ -26,8 +24,8 @@ export class LeadScoringAppService {
       latitude: lead.property.latitude,
       longitude: lead.property.longitude,
       electricalService: lead.property.electricalService,
-      hasPool: lead.property.hasPool,
-      hasEV: lead.property.hasEV,
+      hasPool: lead.property.hasPool ?? undefined,
+      hasEV: lead.property.hasEV ?? undefined,
       propertyType: lead.property.propertyType,
       roofCondition: lead.property.roofCondition,
       monthlyBill: lead.property.monthlyBill ? Number(lead.property.monthlyBill) : null,
@@ -35,9 +33,9 @@ export class LeadScoringAppService {
       utilityProvider: lead.property.utilityProvider,
     });
 
-    const score = await this.prisma.leadScore.upsert({
-      where: { leadId },
-      update: {
+    const score = await this.leadRepo.upsertScore(
+      leadId,
+      {
         totalScore: scoreBreakdown.totalScore,
         roofScore: scoreBreakdown.roofScore,
         energyScore: scoreBreakdown.energyScore,
@@ -45,7 +43,7 @@ export class LeadScoringAppService {
         propertyScore: scoreBreakdown.propertyScore,
         calculatedAt: new Date(),
       },
-      create: {
+      {
         leadId,
         totalScore: scoreBreakdown.totalScore,
         roofScore: scoreBreakdown.roofScore,
@@ -53,35 +51,23 @@ export class LeadScoringAppService {
         contactScore: scoreBreakdown.contactScore,
         propertyScore: scoreBreakdown.propertyScore,
       },
-    });
+    );
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId,
-        type: 'SCORE_UPDATED',
-        description: `Score recalculated: ${scoreBreakdown.totalScore}`,
-        metadata: { ...scoreBreakdown },
-      },
+    await this.leadRepo.createActivity({
+      leadId,
+      userId,
+      type: 'SCORE_UPDATED',
+      description: `Score recalculated: ${scoreBreakdown.totalScore}`,
+      metadata: { ...scoreBreakdown },
     });
 
     return score;
   }
 
   async getTimeline(leadId: string) {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: leadId },
-    });
+    const lead = await this.leadRepo.findById(leadId);
     if (!lead) throw new NotFoundException('Lead not found');
 
-    return this.prisma.leadActivity.findMany({
-      where: { leadId },
-      include: {
-        user: {
-          select: { id: true, firstName: true, lastName: true, profileImage: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.leadRepo.findActivitiesWithUser(leadId);
   }
 }

@@ -168,7 +168,7 @@ import { usePipelineStore } from '@/stores/pipeline.store';
 import PipelineBoard from '@/components/pipeline/PipelineBoard.vue';
 import PipelineFilters from '@/components/pipeline/PipelineFilters.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import { titleCase } from '@/utils/format';
+import { titleCase } from '@/composables/useLeadFormatting';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
 import type { PipelineFilterValues } from '@/components/pipeline/PipelineFilters.vue';
 

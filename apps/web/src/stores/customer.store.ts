@@ -1,39 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/boot/axios';
+import type { Customer, CustomerDetail } from '@/types/api';
 
-export interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  leadsCount: number;
-  propertiesCount: number;
-  createdAt: string;
-}
-
-export interface CustomerDetail extends Customer {
-  properties: {
-    id: string;
-    address: string;
-    city: string;
-    state: string;
-  }[];
-  leads: {
-    id: string;
-    stage: string;
-    score: number;
-    source: string;
-    createdAt: string;
-  }[];
-  activities: {
-    id: string;
-    type: string;
-    description: string;
-    createdAt: string;
-    userName?: string;
-  }[];
-}
+export type { Customer, CustomerDetail };
 
 export const useCustomerStore = defineStore('customer', () => {
   const customers = ref<Customer[]>([]);

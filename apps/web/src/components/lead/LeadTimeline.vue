@@ -83,3 +83,6 @@ function formatDate(iso: string) {
   });
 }
 </script>
+
+<style lang="scss" scoped>
+</style>

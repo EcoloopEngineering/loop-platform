@@ -1,19 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommissionQueryService } from './commission-query.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import {
+  COMMISSION_PAYMENT_REPOSITORY,
+  CommissionPaymentRepositoryPort,
+} from '../ports/commission-payment.repository.port';
 
 describe('CommissionQueryService', () => {
   let service: CommissionQueryService;
-  let prisma: MockPrismaService;
+  let repo: jest.Mocked<CommissionPaymentRepositoryPort>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    repo = {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      updateStatus: jest.fn(),
+      findCommissionsByUserId: jest.fn(),
+      findCommissionsByLeadId: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CommissionQueryService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: COMMISSION_PAYMENT_REPOSITORY, useValue: repo },
       ],
     }).compile();
 
@@ -23,20 +31,16 @@ describe('CommissionQueryService', () => {
   describe('findByUserId', () => {
     it('should return commissions for the given user', async () => {
       const commissions = [{ id: 'c-1', amount: 1500 }, { id: 'c-2', amount: 2000 }];
-      prisma.commission.findMany.mockResolvedValue(commissions);
+      repo.findCommissionsByUserId.mockResolvedValue(commissions);
 
       const result = await service.findByUserId('user-1');
 
-      expect(prisma.commission.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      });
+      expect(repo.findCommissionsByUserId).toHaveBeenCalledWith('user-1', 100);
       expect(result).toEqual(commissions);
     });
 
     it('should return empty array when no commissions exist', async () => {
-      prisma.commission.findMany.mockResolvedValue([]);
+      repo.findCommissionsByUserId.mockResolvedValue([]);
 
       const result = await service.findByUserId('user-1');
 
@@ -47,15 +51,11 @@ describe('CommissionQueryService', () => {
   describe('findByLeadId', () => {
     it('should return commissions for the given lead', async () => {
       const commissions = [{ id: 'c-1', leadId: 'lead-1', amount: 1500 }];
-      prisma.commission.findMany.mockResolvedValue(commissions);
+      repo.findCommissionsByLeadId.mockResolvedValue(commissions);
 
       const result = await service.findByLeadId('lead-1');
 
-      expect(prisma.commission.findMany).toHaveBeenCalledWith({
-        where: { leadId: 'lead-1' },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      });
+      expect(repo.findCommissionsByLeadId).toHaveBeenCalledWith('lead-1', 100);
       expect(result).toEqual(commissions);
     });
   });

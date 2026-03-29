@@ -53,6 +53,56 @@ export interface UserNameRecord {
   lastName: string;
 }
 
+// ── Score record ────────────────────────────────────────────────────────────
+
+export interface ScoreRecord {
+  id?: string;
+  leadId: string;
+  totalScore: number;
+  roofScore: number;
+  energyScore: number;
+  contactScore: number;
+  propertyScore: number;
+  calculatedAt?: Date;
+}
+
+// ── Lead with customer & property (scoring) ─────────────────────────────────
+
+export interface LeadWithCustomerAndProperty {
+  id: string;
+  source: string;
+  customer: {
+    email: string | null;
+    phone: string | null;
+    firstName: string;
+    lastName: string;
+  };
+  property: {
+    streetAddress: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    electricalService: string | null;
+    hasPool: boolean | null;
+    hasEV: boolean | null;
+    propertyType: string | null;
+    roofCondition: string | null;
+    monthlyBill: number | null;
+    annualKwhUsage: number | null;
+    utilityProvider: string | null;
+  };
+}
+
+// ── Activity with user (timeline) ───────────────────────────────────────────
+
+export interface ActivityWithUser extends ActivityRecord {
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    profileImage: string | null;
+  } | null;
+}
+
 // ── Pipeline record ──────────────────────────────────────────────────────────
 
 export interface PipelineRecord {
@@ -110,6 +160,17 @@ export interface LeadRepositoryPort {
 
   // Pipeline
   findDefaultPipeline(): Promise<PipelineRecord | null>;
+
+  // Scoring
+  findByIdWithCustomerAndProperty(id: string): Promise<LeadWithCustomerAndProperty | null>;
+  upsertScore(
+    leadId: string,
+    update: Omit<ScoreRecord, 'id' | 'leadId'>,
+    create: Omit<ScoreRecord, 'id'>,
+  ): Promise<ScoreRecord>;
+
+  // Timeline
+  findActivitiesWithUser(leadId: string): Promise<ActivityWithUser[]>;
 }
 
 export const LEAD_REPOSITORY = Symbol('LEAD_REPOSITORY');

@@ -125,7 +125,7 @@
 import { ref, computed, inject, onMounted } from 'vue';
 import type { Ref } from 'vue';
 import { api } from '@/boot/axios';
-import { titleCase } from '@/utils/format';
+import { titleCase } from '@/composables/useLeadFormatting';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
 

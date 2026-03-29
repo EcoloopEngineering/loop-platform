@@ -54,7 +54,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCustomerStore } from '@/stores/customer.store';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import { titleCase } from '@/utils/format';
+import { titleCase } from '@/composables/useLeadFormatting';
 
 const customerStore = useCustomerStore();
 const router = useRouter();

@@ -1,23 +1,21 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  COMMISSION_PAYMENT_REPOSITORY,
+  CommissionPaymentRepositoryPort,
+} from '../ports/commission-payment.repository.port';
 
 @Injectable()
 export class CommissionQueryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(COMMISSION_PAYMENT_REPOSITORY)
+    private readonly repo: CommissionPaymentRepositoryPort,
+  ) {}
 
   async findByUserId(userId: string) {
-    return this.prisma.commission.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    return this.repo.findCommissionsByUserId(userId, 100);
   }
 
   async findByLeadId(leadId: string) {
-    return this.prisma.commission.findMany({
-      where: { leadId },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    return this.repo.findCommissionsByLeadId(leadId, 100);
   }
 }

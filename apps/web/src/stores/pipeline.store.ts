@@ -1,30 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/boot/axios';
+import type { PipelineLead, PipelineStage, PipelineView } from '@/types/api';
 
-export interface PipelineLead {
-  id: string;
-  customerName: string;
-  leadScore: number;
-  leadSource: string;
-  stage: string;
-  owner?: string;
-  projectManager?: string;
-  assignedTo?: string;
-  createdAt: string;
-}
-
-export interface PipelineStage {
-  id: string;
-  name: string;
-  color: string;
-  order: number;
-  leads: PipelineLead[];
-}
-
-export interface PipelineView {
-  stages: PipelineStage[];
-}
+export type { PipelineLead, PipelineStage, PipelineView };
 
 export const usePipelineStore = defineStore('pipeline', () => {
   const pipelineData = ref<PipelineView | null>(null);
