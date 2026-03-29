@@ -155,7 +155,7 @@ jobs:
           HEALTHY=false
           for i in 1 2 3 4 5; do
             sleep 5
-            HEALTH=$(curl -s http://localhost:3000/api/v1/health 2>/dev/null || echo "")
+            HEALTH=$(curl -s -H "X-API-Version: 1" http://localhost:3000/api/v1/health 2>/dev/null || echo "")
             if echo "$HEALTH" | grep -q '"status":"ok"'; then
               echo "Health check passed on attempt $i"
               HEALTHY=true
@@ -215,4 +215,4 @@ jobs:
         env:
           HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'pm2 list && echo "---" && curl -s http://localhost:3000/api/v1/health'
+          ssh -i ~/.ssh/deploy_key ubuntu@$HOST 'pm2 list && echo "---" && curl -s -H "X-API-Version: 1" http://localhost:3000/api/v1/health'
