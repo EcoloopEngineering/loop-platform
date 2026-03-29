@@ -42,6 +42,11 @@
         <span class="text-hint">Don't have an account? </span>
         <router-link to="/auth/signup" class="text-primary text-weight-medium">Sign Up</router-link>
       </div>
+
+      <div class="text-center q-mt-sm">
+        <span class="text-hint">Are you a client? </span>
+        <router-link to="/portal/login" class="client-link">Click here</router-link>
+      </div>
     </q-form>
 
     <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded dense style="font-size: 13px">
@@ -187,5 +192,13 @@ async function handleGoogleLogin() {
   font-weight: 500;
   min-height: 44px;
   &:hover { border-color: #D1D5DB; background: #F9FAFB; }
+}
+
+.client-link {
+  font-size: 14px;
+  color: #00897B;
+  font-weight: 600;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
 }
 </style>
