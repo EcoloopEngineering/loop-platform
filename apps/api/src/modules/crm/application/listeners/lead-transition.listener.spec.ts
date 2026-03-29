@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { LeadTransitionService } from './lead-transition.service';
+import { LeadTransitionListener } from './lead-transition.listener';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { createMockPrismaService } from '../../../../test/prisma-mock.helper';
 
-describe('LeadTransitionService', () => {
-  let service: LeadTransitionService;
+describe('LeadTransitionListener', () => {
+  let listener: LeadTransitionListener;
   let prisma: ReturnType<typeof createMockPrismaService>;
   let emitter: { emit: jest.Mock };
 
@@ -15,13 +15,13 @@ describe('LeadTransitionService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        LeadTransitionService,
+        LeadTransitionListener,
         { provide: PrismaService, useValue: prisma },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
 
-    service = module.get(LeadTransitionService);
+    listener = module.get(LeadTransitionListener);
   });
 
   it('should auto-transition WON to SITE_AUDIT', async () => {
@@ -34,7 +34,7 @@ describe('LeadTransitionService', () => {
     prisma.lead.update.mockResolvedValue({});
     prisma.leadActivity.create.mockResolvedValue({});
 
-    await service.handleStageChanged({
+    await listener.handleStageChanged({
       leadId: 'lead-1',
       customerName: 'John Doe',
       previousStage: 'DESIGN_READY',
@@ -63,7 +63,7 @@ describe('LeadTransitionService', () => {
     prisma.lead.update.mockResolvedValue({});
     prisma.leadActivity.create.mockResolvedValue({});
 
-    await service.handleStageChanged({
+    await listener.handleStageChanged({
       leadId: 'lead-2',
       customerName: 'Jane Doe',
       previousStage: 'FINAL_SUBMISSION',
@@ -80,7 +80,7 @@ describe('LeadTransitionService', () => {
   });
 
   it('should not transition non-terminal stages', async () => {
-    await service.handleStageChanged({
+    await listener.handleStageChanged({
       leadId: 'lead-3',
       customerName: 'Bob',
       previousStage: 'NEW_LEAD',
@@ -98,7 +98,7 @@ describe('LeadTransitionService', () => {
       createdById: 'user-1',
     });
 
-    await service.handleStageChanged({
+    await listener.handleStageChanged({
       leadId: 'lead-4',
       customerName: 'Lost Lead',
       previousStage: 'DESIGN_READY',

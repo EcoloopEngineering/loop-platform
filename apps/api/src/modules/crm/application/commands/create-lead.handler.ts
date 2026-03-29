@@ -1,19 +1,15 @@
-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Inject, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { CreateLeadDto } from '../dto/create-lead.dto';
-import { LeadCreatedEvent } from '../../domain/events/lead-created.event';
+import { CreateLeadCommand } from './create-lead.command';
 import { LeadScoringDomainService } from '../../domain/services/lead-scoring.domain-service';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
 import { CUSTOMER_REPOSITORY, CustomerRepositoryPort } from '../ports/customer.repository.port';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { LeadCreatedPayload, AiDesignRequestedPayload } from '../events/lead-events.types';
+import { LeadDetail } from '../dto/lead-data.types';
 
-export class CreateLeadCommand {
-  constructor(
-    public readonly dto: CreateLeadDto,
-    public readonly userId: string,
-  ) {}
-}
+export { CreateLeadCommand };
 
 @CommandHandler(CreateLeadCommand)
 export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
@@ -24,11 +20,10 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
     @Inject(CUSTOMER_REPOSITORY) private readonly customerRepo: CustomerRepositoryPort,
     private readonly prisma: PrismaService,
     private readonly scoringService: LeadScoringDomainService,
-    private readonly eventBus: EventBus,
     private readonly emitter: EventEmitter2,
   ) {}
 
-  async execute(command: CreateLeadCommand): Promise<any> {
+  async execute(command: CreateLeadCommand): Promise<LeadDetail | null> {
     const { dto, userId } = command;
     const { contact, home, energy, design } = dto;
 
@@ -68,20 +63,16 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
     });
 
     // 3. Find default pipeline
-    const pipeline = await this.prisma.pipeline.findFirst({
-      where: { isDefault: true },
-    });
-
+    const pipeline = await this.prisma.pipeline.findFirst({ where: { isDefault: true } });
     if (!pipeline) {
       throw new Error('No default pipeline found. Please create a pipeline first.');
     }
 
-    // 4. Resolve lead owner (creator or their referrer)
+    // 4. Resolve lead owner — external users get their lead assigned to their referrer
     const creatorUser = await this.prisma.user.findUnique({ where: { id: userId } });
     let ownerId = userId;
 
     if (creatorUser && !creatorUser.email.endsWith('@ecoloop.us')) {
-      // External user — find who invited them
       const referral = await this.prisma.referral.findFirst({
         where: { inviteeId: userId },
         orderBy: { createdAt: 'desc' },
@@ -92,7 +83,7 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
       }
     }
 
-    // 5. Create Lead — AI_DESIGN goes directly to DESIGN_READY
+    // 5. Create Lead — AI_DESIGN starts at DESIGN_READY
     const initialStage = design.designType === 'AI_DESIGN' ? 'DESIGN_READY' : 'NEW_LEAD';
 
     const lead = await this.leadRepo.create({
@@ -104,7 +95,7 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
       createdById: userId,
     });
 
-    // 5. Calculate score
+    // 6. Calculate and persist score
     const scoreBreakdown = this.scoringService.calculate({
       email: contact.email,
       phone: contact.phone,
@@ -135,29 +126,18 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
       },
     });
 
-    // 7. Create LeadAssignment (owner = creator or referrer)
+    // 7. Create primary assignment (owner = creator or referrer)
     await this.prisma.leadAssignment.create({
-      data: {
-        leadId: lead.id,
-        userId: ownerId,
-        splitPct: 100,
-        isPrimary: true,
-      },
+      data: { leadId: lead.id, userId: ownerId, splitPct: 100, isPrimary: true },
     });
 
-    // If external user created it, also record them as secondary assignment
     if (ownerId !== userId) {
       await this.prisma.leadAssignment.create({
-        data: {
-          leadId: lead.id,
-          userId,
-          splitPct: 0,
-          isPrimary: false,
-        },
+        data: { leadId: lead.id, userId, splitPct: 0, isPrimary: false },
       });
     }
 
-    // 7. Create design request if applicable
+    // 8. Create design request if applicable
     if (design.designType) {
       const isAiDesign = design.designType === 'AI_DESIGN';
       const address = `${home.streetAddress}, ${home.city}, ${home.state} ${home.zip}`;
@@ -172,9 +152,8 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
         },
       });
 
-      // If AI_DESIGN, trigger Aurora in the background to enrich with project data
       if (isAiDesign) {
-        this.emitter.emit('design.requested.ai', {
+        const aiPayload: AiDesignRequestedPayload = {
           designRequestId: designRequest.id,
           leadId: lead.id,
           propertyAddress: address,
@@ -184,12 +163,13 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
           roofCondition: home.roofCondition,
           propertyType: home.propertyType,
           userId,
-        });
+        };
+        this.emitter.emit('design.requested.ai', aiPayload);
         this.logger.log(`AI Design: lead ${lead.id} → DESIGN_READY, Aurora triggered in background`);
       }
     }
 
-    // 8. Log activity
+    // 9. Log activity
     await this.prisma.leadActivity.create({
       data: {
         leadId: lead.id,
@@ -200,15 +180,13 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
       },
     });
 
-    // 9. Publish domain event
-    this.eventBus.publish(new LeadCreatedEvent(lead.id, customer.id, userId));
-
-    // 10. Emit notification event
-    this.emitter.emit('lead.created', {
+    // 10. Emit notification event (EventEmitter2 — cross-module, per CLAUDE.md)
+    const createdPayload: LeadCreatedPayload = {
       leadId: lead.id,
       assignedTo: ownerId,
       customerName: `${contact.firstName} ${contact.lastName}`,
-    });
+    };
+    this.emitter.emit('lead.created', createdPayload);
 
     this.logger.log(`Lead ${lead.id} created successfully`);
 

@@ -3,23 +3,24 @@ import { PrismaService } from '../../../../infrastructure/database/prisma.servic
 import { LeadRepositoryPort } from '../../application/ports/lead.repository.port';
 import { LeadEntity } from '../../domain/entities/lead.entity';
 import { LeadFilterDto } from '../../application/dto/lead-filter.dto';
+import { CreateLeadData, UpdateLeadData, LeadDetail } from '../../application/dto/lead-data.types';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PrismaLeadRepository implements LeadRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: any): Promise<LeadEntity> {
-    const lead = await this.prisma.lead.create({ data });
-    return new LeadEntity(lead as any);
+  async create(data: CreateLeadData): Promise<LeadEntity> {
+    const lead = await this.prisma.lead.create({ data: data as Prisma.LeadCreateInput });
+    return new LeadEntity(lead as Partial<LeadEntity>);
   }
 
   async findById(id: string): Promise<LeadEntity | null> {
     const lead = await this.prisma.lead.findUnique({ where: { id } });
-    return lead ? new LeadEntity(lead as any) : null;
+    return lead ? new LeadEntity(lead as Partial<LeadEntity>) : null;
   }
 
-  async findByIdWithRelations(id: string): Promise<any | null> {
+  async findByIdWithRelations(id: string): Promise<LeadDetail | null> {
     return this.prisma.lead.findUnique({
       where: { id },
       include: {
@@ -48,10 +49,10 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
           orderBy: { scheduledAt: 'desc' },
         },
       },
-    });
+    }) as Promise<LeadDetail | null>;
   }
 
-  async findAll(filter: LeadFilterDto): Promise<{ data: any[]; total: number }> {
+  async findAll(filter: LeadFilterDto): Promise<{ data: LeadDetail[]; total: number }> {
     const where: Prisma.LeadWhereInput = {
       isActive: true,
     };
@@ -122,13 +123,13 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
       this.prisma.lead.count({ where }),
     ]);
 
-    return { data, total };
+    return { data: data as unknown as LeadDetail[], total };
   }
 
   async findByStageGrouped(
     pipelineId?: string,
     filters?: { search?: string; source?: string; dateFrom?: string; dateTo?: string },
-  ): Promise<Record<string, any[]>> {
+  ): Promise<Record<string, LeadDetail[]>> {
     const where: Prisma.LeadWhereInput = { isActive: true, status: 'ACTIVE' };
     if (pipelineId) {
       where.pipelineId = pipelineId;
@@ -147,7 +148,7 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
     }
 
     if (filters?.source) {
-      where.source = filters.source as any;
+      where.source = filters.source as Prisma.EnumLeadSourceFilter;
     }
 
     if (filters?.dateFrom || filters?.dateTo) {
@@ -176,29 +177,30 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
       orderBy: { createdAt: 'desc' },
     });
 
-    const grouped: Record<string, any[]> = {};
+    const grouped: Record<string, LeadDetail[]> = {};
     for (const lead of leads) {
       const stage = lead.currentStage;
-      if (!grouped[stage]) {
-        grouped[stage] = [];
-      }
-      grouped[stage].push(lead);
+      if (!grouped[stage]) grouped[stage] = [];
+      grouped[stage].push(lead as unknown as LeadDetail);
     }
 
     return grouped;
   }
 
-  async update(id: string, data: Partial<any>): Promise<LeadEntity> {
-    const lead = await this.prisma.lead.update({ where: { id }, data });
-    return new LeadEntity(lead as any);
+  async update(id: string, data: UpdateLeadData): Promise<LeadEntity> {
+    const lead = await this.prisma.lead.update({
+      where: { id },
+      data: data as Prisma.LeadUpdateInput,
+    });
+    return new LeadEntity(lead as Partial<LeadEntity>);
   }
 
   async updateStage(id: string, stage: string): Promise<LeadEntity> {
     const lead = await this.prisma.lead.update({
       where: { id },
-      data: { currentStage: stage as any },
+      data: { currentStage: stage as Prisma.EnumLeadStageFilter },
     });
-    return new LeadEntity(lead as any);
+    return new LeadEntity(lead as Partial<LeadEntity>);
   }
 
   async delete(id: string): Promise<void> {

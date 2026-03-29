@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CommandBus, QueryBus, EventBus } from '@nestjs/cqrs';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadsController } from './leads.controller';
@@ -14,7 +14,6 @@ describe('LeadsController', () => {
   let controller: LeadsController;
   let commandBus: { execute: jest.Mock };
   let queryBus: { execute: jest.Mock };
-  let eventBus: { publish: jest.Mock };
   let leadRepo: Record<string, jest.Mock>;
   let prisma: MockPrismaService;
   let emitter: { emit: jest.Mock };
@@ -23,7 +22,6 @@ describe('LeadsController', () => {
   beforeEach(async () => {
     commandBus = { execute: jest.fn() };
     queryBus = { execute: jest.fn() };
-    eventBus = { publish: jest.fn() };
     leadRepo = {
       findById: jest.fn(),
       findByIdWithRelations: jest.fn(),
@@ -39,7 +37,6 @@ describe('LeadsController', () => {
       providers: [
         { provide: CommandBus, useValue: commandBus },
         { provide: QueryBus, useValue: queryBus },
-        { provide: EventBus, useValue: eventBus },
         { provide: LEAD_REPOSITORY, useValue: leadRepo },
         { provide: LeadScoringDomainService, useValue: scoringService },
         { provide: PrismaService, useValue: prisma },
@@ -129,7 +126,7 @@ describe('LeadsController', () => {
       });
       prisma.leadActivity.create.mockResolvedValue({});
 
-      const result = await controller.updateMetadata('lead-1', { newKey: 'new' }, 'user-1');
+      await controller.updateMetadata('lead-1', { newKey: 'new' }, 'user-1');
 
       expect(prisma.lead.update).toHaveBeenCalledWith({
         where: { id: 'lead-1' },
@@ -144,7 +141,7 @@ describe('LeadsController', () => {
   });
 
   describe('changeStage', () => {
-    it('should update stage, log activity, and publish event', async () => {
+    it('should update stage, log activity, and emit event', async () => {
       leadRepo.findById.mockResolvedValue({ id: 'lead-1', currentStage: 'NEW_LEAD' });
       leadRepo.updateStage.mockResolvedValue({ id: 'lead-1', currentStage: 'DESIGN_READY' });
       prisma.leadActivity.create.mockResolvedValue({});
@@ -153,46 +150,15 @@ describe('LeadsController', () => {
         customer: { firstName: 'John', lastName: 'Doe' },
       });
 
-      const result = await controller.changeStage('lead-1', 'DESIGN_READY' as any, 'user-1');
+      await controller.changeStage('lead-1', 'DESIGN_READY' as any, 'user-1');
 
       expect(leadRepo.updateStage).toHaveBeenCalledWith('lead-1', 'DESIGN_READY');
-      expect(eventBus.publish).toHaveBeenCalled();
       expect(emitter.emit).toHaveBeenCalledWith('lead.stageChanged', expect.any(Object));
     });
 
     it('should throw NotFoundException when lead not found', async () => {
       leadRepo.findById.mockResolvedValue(null);
       await expect(controller.changeStage('bad-id', 'WON' as any, 'user-1')).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('addNote', () => {
-    it('should create note activity and emit event', async () => {
-      leadRepo.findById.mockResolvedValue({ id: 'lead-1' });
-      prisma.leadActivity.create.mockResolvedValue({ id: 'activity-1', description: 'Test note' });
-      prisma.lead.findUnique.mockResolvedValue({
-        id: 'lead-1',
-        customer: { firstName: 'John', lastName: 'Doe' },
-      });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'Agent', lastName: 'Smith' });
-
-      const result = await controller.addNote('lead-1', 'Test note', 'user-1');
-
-      expect(prisma.leadActivity.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            leadId: 'lead-1',
-            type: 'NOTE_ADDED',
-            description: 'Test note',
-          }),
-        }),
-      );
-      expect(emitter.emit).toHaveBeenCalledWith('lead.noteAdded', expect.any(Object));
-    });
-
-    it('should throw NotFoundException when lead not found', async () => {
-      leadRepo.findById.mockResolvedValue(null);
-      await expect(controller.addNote('bad-id', 'note', 'user-1')).rejects.toThrow(NotFoundException);
     });
   });
 });

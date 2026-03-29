@@ -6,7 +6,6 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 
 // Domain services
 import { LeadScoringDomainService } from './domain/services/lead-scoring.domain-service';
-import { LeadTransitionService } from './domain/services/lead-transition.service';
 
 // Command handlers
 import { CreateLeadHandler } from './application/commands/create-lead.handler';
@@ -26,9 +25,12 @@ import { PrismaCustomerRepository } from './infrastructure/repositories/prisma-c
 
 // Listeners
 import { StageAdvanceListener } from './application/listeners/stage-advance.listener';
+import { LeadTransitionListener } from './application/listeners/lead-transition.listener';
 
 // Controllers
 import { LeadsController } from './presentation/leads.controller';
+import { LeadNotesController } from './presentation/lead-notes.controller';
+import { LeadAssignmentsController } from './presentation/lead-assignments.controller';
 import { CustomersController } from './presentation/customers.controller';
 import { PipelineController } from './presentation/pipeline.controller';
 import { SalesRabbitWebhookController } from './presentation/salesrabbit-webhook.controller';
@@ -37,11 +39,19 @@ import { PortalController } from './presentation/portal.controller';
 const CommandHandlers = [CreateLeadHandler];
 const QueryHandlers = [ListLeadsHandler, GetPipelineViewHandler];
 const CronHandlers = [AutoAdvanceInstallsHandler];
-const Listeners = [StageAdvanceListener, LeadTransitionService];
+const Listeners = [StageAdvanceListener, LeadTransitionListener];
 
 @Module({
   imports: [CqrsModule, ConfigModule, ScheduleModule.forRoot()],
-  controllers: [LeadsController, CustomersController, PipelineController, SalesRabbitWebhookController, PortalController],
+  controllers: [
+    LeadsController,
+    LeadNotesController,
+    LeadAssignmentsController,
+    CustomersController,
+    PipelineController,
+    SalesRabbitWebhookController,
+    PortalController,
+  ],
   providers: [
     PrismaService,
     LeadScoringDomainService,

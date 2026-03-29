@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
-import { EventBus } from '@nestjs/cqrs';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { CreateLeadHandler, CreateLeadCommand } from './create-lead.handler';
+import { CreateLeadHandler } from './create-lead.handler';
+import { CreateLeadCommand } from './create-lead.command';
 import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
 import { CUSTOMER_REPOSITORY } from '../ports/customer.repository.port';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
@@ -13,7 +13,6 @@ describe('CreateLeadHandler', () => {
   let prisma: MockPrismaService;
   let leadRepo: Record<string, jest.Mock>;
   let customerRepo: Record<string, jest.Mock>;
-  let eventBus: { publish: jest.Mock };
   let emitter: { emit: jest.Mock };
   let scoringService: { calculate: jest.Mock };
 
@@ -34,7 +33,6 @@ describe('CreateLeadHandler', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ id: 'cust-1' }),
     };
-    eventBus = { publish: jest.fn() };
     emitter = { emit: jest.fn() };
     scoringService = {
       calculate: jest.fn().mockReturnValue({
@@ -61,7 +59,6 @@ describe('CreateLeadHandler', () => {
         { provide: CUSTOMER_REPOSITORY, useValue: customerRepo },
         { provide: PrismaService, useValue: prisma },
         { provide: LeadScoringDomainService, useValue: scoringService },
-        { provide: EventBus, useValue: eventBus },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
@@ -136,10 +133,9 @@ describe('CreateLeadHandler', () => {
     });
   });
 
-  it('should publish domain event and emit notification event', async () => {
+  it('should emit lead.created notification event', async () => {
     await handler.execute(new CreateLeadCommand(baseDto as any, 'user-1'));
 
-    expect(eventBus.publish).toHaveBeenCalled();
     expect(emitter.emit).toHaveBeenCalledWith('lead.created', expect.objectContaining({ leadId: 'lead-1' }));
   });
 });
