@@ -24,6 +24,12 @@ export class LeadTransitionListener {
 
   @OnEvent('lead.stageChanged')
   async handleStageChanged(payload: LeadStageChangedPayload): Promise<void> {
+    const depth = payload.depth ?? 0;
+    if (depth >= 5) {
+      this.logger.warn(`Max transition depth reached for lead ${payload.leadId}`);
+      return;
+    }
+
     const transition = PIPELINE_TRANSITIONS[payload.newStage as keyof typeof PIPELINE_TRANSITIONS];
     if (!transition) return;
 
@@ -58,6 +64,7 @@ export class LeadTransitionListener {
         customerName: payload.customerName,
         previousStage: payload.newStage,
         newStage: transition.nextStage,
+        depth: depth + 1,
       };
       this.emitter.emit('lead.stageChanged', nextPayload);
 

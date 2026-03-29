@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -62,7 +63,14 @@ export class UsersController {
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload avatar image' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('avatar'))
+  @UseInterceptors(FileInterceptor('avatar', {
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: (_req: any, file: { mimetype: string; originalname: string }, cb: (err: Error | null, accept: boolean) => void) => {
+      const allowed = /\.(png|jpe?g|gif|webp)$/i;
+      if (allowed.test(file.originalname)) return cb(null, true);
+      cb(new BadRequestException('File type not allowed'), false);
+    },
+  }))
   async uploadAvatar(
     @UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string },
     @CurrentUser('id') userId: string,

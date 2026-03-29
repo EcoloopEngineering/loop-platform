@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { TtlCache } from '../../../../common/utils/ttl-cache';
 
 export interface IntegrationStatus {
   name: string;
@@ -26,6 +27,8 @@ const INTEGRATIONS: { name: string; description: string; icon: string; envVars: 
 
 @Injectable()
 export class SettingsService {
+  private readonly settingsCache = new TtlCache<Record<string, SettingValue>>(2 * 60 * 1000); // 2 min
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
@@ -41,11 +44,15 @@ export class SettingsService {
   }
 
   async getAll(): Promise<Record<string, SettingValue>> {
+    const cached = this.settingsCache.get();
+    if (cached) return cached;
+
     const settings = await this.prisma.appSetting.findMany();
     const result: Record<string, SettingValue> = {};
     for (const s of settings) {
       result[s.key] = s.value as SettingValue;
     }
+    this.settingsCache.set(result);
     return result;
   }
 
@@ -65,6 +72,7 @@ export class SettingsService {
       update: { value: merged as any, updatedBy: userId, updatedAt: new Date() },
     });
 
+    this.settingsCache.invalidate();
     return updated.value as SettingValue;
   }
 }

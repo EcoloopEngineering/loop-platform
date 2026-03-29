@@ -1,9 +1,25 @@
 import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ChatService } from '../application/services/chat.service';
 import { FaqService } from '../application/services/faq.service';
+
+class CreateFaqDto {
+  @IsNotEmpty() @IsString() question: string;
+  @IsNotEmpty() @IsString() answer: string;
+  @IsOptional() @IsString({ each: true }) keywords?: string[];
+  @IsOptional() @IsString() category?: string;
+}
+
+class UpdateFaqDto {
+  @IsOptional() @IsString() question?: string;
+  @IsOptional() @IsString() answer?: string;
+  @IsOptional() @IsString({ each: true }) keywords?: string[];
+  @IsOptional() @IsString() category?: string;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}
 
 @ApiTags('Chat')
 @Controller()
@@ -58,7 +74,7 @@ export class ChatController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create FAQ entry' })
-  async createFaq(@Body() dto: { question: string; answer: string; keywords?: string[]; category?: string }) {
+  async createFaq(@Body() dto: CreateFaqDto) {
     return this.faqService.createFaq(dto);
   }
 
@@ -68,7 +84,7 @@ export class ChatController {
   @ApiOperation({ summary: 'Update FAQ entry' })
   async updateFaq(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { question?: string; answer?: string; keywords?: string[]; category?: string; isActive?: boolean },
+    @Body() dto: UpdateFaqDto,
   ) {
     return this.faqService.updateFaq(id, dto);
   }

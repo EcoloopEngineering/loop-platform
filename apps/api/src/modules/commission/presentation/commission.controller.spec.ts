@@ -52,6 +52,7 @@ describe('CommissionController', () => {
       expect(prisma.commission.findMany).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
         orderBy: { createdAt: 'desc' },
+        take: 100,
       });
       expect(result).toEqual(commissions);
     });
@@ -75,6 +76,7 @@ describe('CommissionController', () => {
       expect(prisma.commission.findMany).toHaveBeenCalledWith({
         where: { leadId: 'lead-1' },
         orderBy: { createdAt: 'desc' },
+        take: 100,
       });
       expect(result).toEqual(commissions);
     });

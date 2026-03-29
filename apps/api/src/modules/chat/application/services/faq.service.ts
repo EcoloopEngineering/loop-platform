@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FaqEntry } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { TtlCache } from '../../../../common/utils/ttl-cache';
 
 export interface FaqSummary {
   id: string;
@@ -12,17 +13,23 @@ export interface FaqSummary {
 @Injectable()
 export class FaqService {
   private readonly logger = new Logger(FaqService.name);
+  private readonly faqCache = new TtlCache<FaqEntry[]>(5 * 60 * 1000); // 5 min
 
   constructor(private readonly prisma: PrismaService) {}
 
   async findAnswer(query: string): Promise<{ question: string; answer: string } | null> {
     const q = query.toLowerCase().trim();
 
-    // 1. Try exact keyword match
-    const entries = await this.prisma.faqEntry.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' },
-    });
+    // 1. Try exact keyword match (with cache)
+    let entries = this.faqCache.get();
+    if (!entries) {
+      entries = await this.prisma.faqEntry.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: 'asc' },
+        take: 200,
+      });
+      this.faqCache.set(entries);
+    }
 
     // Score each FAQ entry by keyword match
     let bestMatch: { entry: FaqEntry; score: number } | null = null;
@@ -68,7 +75,7 @@ export class FaqService {
   }
 
   async createFaq(data: { question: string; answer: string; keywords?: string[]; category?: string }) {
-    return this.prisma.faqEntry.create({
+    const result = await this.prisma.faqEntry.create({
       data: {
         question: data.question,
         answer: data.answer,
@@ -76,13 +83,19 @@ export class FaqService {
         category: data.category,
       },
     });
+    this.faqCache.invalidate();
+    return result;
   }
 
   async updateFaq(id: string, data: { question?: string; answer?: string; keywords?: string[]; category?: string; isActive?: boolean }) {
-    return this.prisma.faqEntry.update({ where: { id }, data });
+    const result = await this.prisma.faqEntry.update({ where: { id }, data });
+    this.faqCache.invalidate();
+    return result;
   }
 
   async deleteFaq(id: string) {
-    return this.prisma.faqEntry.delete({ where: { id } });
+    const result = await this.prisma.faqEntry.delete({ where: { id } });
+    this.faqCache.invalidate();
+    return result;
   }
 }

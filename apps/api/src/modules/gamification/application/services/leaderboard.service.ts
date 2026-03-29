@@ -70,6 +70,7 @@ export class LeaderboardService {
         userId: true,
         points: true,
       },
+      take: 10000,
     });
 
     // Get referral relationships to map users to their inviter (team lead)
@@ -79,6 +80,7 @@ export class LeaderboardService {
         inviterId: true,
         inviteeId: true,
       },
+      take: 1000,
     });
 
     const inviterMap = new Map<string, string>();
@@ -131,6 +133,7 @@ export class LeaderboardService {
         createdAt: { gte: startOfMonth, lte: endOfMonth },
       },
       select: { userId: true, points: true, coins: true },
+      take: 10000,
     });
 
     if (events.length === 0) return null;
@@ -212,6 +215,7 @@ export class LeaderboardService {
         points: true,
         user: { select: { firstName: true, lastName: true } },
       },
+      take: 10000,
     });
 
     // Aggregate points by user

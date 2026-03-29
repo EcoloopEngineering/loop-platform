@@ -33,6 +33,7 @@ export class CommissionController {
     return this.prisma.commission.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 
@@ -42,6 +43,7 @@ export class CommissionController {
     return this.prisma.commission.findMany({
       where: { leadId },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 

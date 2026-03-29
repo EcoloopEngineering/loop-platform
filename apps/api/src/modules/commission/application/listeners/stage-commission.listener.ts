@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { TtlCache } from '../../../../common/utils/ttl-cache';
 
 interface LeadStageChangedPayload {
   leadId: string;
@@ -25,6 +26,7 @@ const M3_STAGE = 'WAITING_FOR_PTO';
 @Injectable()
 export class StageCommissionListener {
   private readonly logger = new Logger(StageCommissionListener.name);
+  private readonly tierCache = new TtlCache<{ M1: number; M2: number; M3: number }>(10 * 60 * 1000); // 10 min
 
   constructor(
     private readonly prisma: PrismaService,
@@ -32,17 +34,23 @@ export class StageCommissionListener {
   ) {}
 
   private async getTiers(): Promise<{ M1: number; M2: number; M3: number }> {
+    const cached = this.tierCache.get();
+    if (cached) return cached;
+
     try {
       const setting = await this.prisma.appSetting.findUnique({ where: { key: 'commission' } });
       if (setting?.value) {
         const v = setting.value as Record<string, number>;
-        return {
+        const tiers = {
           M1: (v.m1 ?? DEFAULT_TIERS.M1 * 100) / 100,
           M2: (v.m2 ?? DEFAULT_TIERS.M2 * 100) / 100,
           M3: (v.m3 ?? DEFAULT_TIERS.M3 * 100) / 100,
         };
+        this.tierCache.set(tiers);
+        return tiers;
       }
     } catch { /* use defaults */ }
+    this.tierCache.set(DEFAULT_TIERS);
     return DEFAULT_TIERS;
   }
 
@@ -87,8 +95,10 @@ export class StageCommissionListener {
         ? Number(commission.amount)
         : null;
 
+      // Check for existing payments and filter to only new ones
+      const assignmentsToCreate: { userId: string; amount: number | null }[] = [];
+
       for (const assignment of assignments) {
-        // Check if payment already exists for this user/lead/type
         const existing = await this.prisma.commissionPayment.findFirst({
           where: {
             leadId,
@@ -108,26 +118,41 @@ export class StageCommissionListener {
           ? Math.round(baseAmount * tierPct * 100) / 100
           : null;
 
-        const payment = await this.prisma.commissionPayment.create({
+        assignmentsToCreate.push({ userId: assignment.userId, amount: paymentAmount });
+      }
+
+      if (assignmentsToCreate.length === 0) return;
+
+      // Batch all creates in a single transaction
+      const creates = assignmentsToCreate.map((a) =>
+        this.prisma.commissionPayment.create({
           data: {
             leadId,
-            userId: assignment.userId,
+            userId: a.userId,
             type,
-            amount: paymentAmount,
+            amount: a.amount,
             status: 'PENDING',
           },
-        });
+        }),
+      );
+
+      const payments = await this.prisma.$transaction(creates);
+
+      // Emit events after transaction commits
+      for (let i = 0; i < payments.length; i++) {
+        const payment = payments[i];
+        const { userId, amount } = assignmentsToCreate[i];
 
         this.emitter.emit('commission.created', {
           paymentId: payment.id,
           leadId,
-          userId: assignment.userId,
+          userId,
           type,
-          amount: paymentAmount,
+          amount,
         });
 
         this.logger.log(
-          `${type} commission payment created for user ${assignment.userId} on lead ${leadId} (amount: ${paymentAmount ?? 'TBD'})`,
+          `${type} commission payment created for user ${userId} on lead ${leadId} (amount: ${amount ?? 'TBD'})`,
         );
       }
     } catch (error: unknown) {

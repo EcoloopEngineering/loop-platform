@@ -44,19 +44,20 @@ export class CalculateCommissionHandler
       splitPct: command.splitPct,
     });
 
-    const existing = await this.prisma.commission.findFirst({
-      where: {
-        leadId: command.leadId,
-        userId: command.userId,
-      },
-    });
-
     const status: CommissionStatus = command.finalize
       ? CommissionStatus.ACTIVE
       : CommissionStatus.PENDING;
 
-    const commission = existing
-      ? await this.prisma.commission.update({
+    const commission = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.commission.findFirst({
+        where: {
+          leadId: command.leadId,
+          userId: command.userId,
+        },
+      });
+
+      if (existing) {
+        return tx.commission.update({
           where: { id: existing.id },
           data: {
             splitPct: command.splitPct,
@@ -64,18 +65,21 @@ export class CalculateCommissionHandler
             breakdown: result as unknown as import('@prisma/client').Prisma.InputJsonValue,
             status,
           },
-        })
-      : await this.prisma.commission.create({
-          data: {
-            lead: { connect: { id: command.leadId } },
-            user: { connect: { id: command.userId } },
-            type: 'M1',
-            splitPct: command.splitPct,
-            amount: result.calculatedAmount,
-            breakdown: result as unknown as import('@prisma/client').Prisma.InputJsonValue,
-            status,
-          },
         });
+      }
+
+      return tx.commission.create({
+        data: {
+          lead: { connect: { id: command.leadId } },
+          user: { connect: { id: command.userId } },
+          type: 'M1',
+          splitPct: command.splitPct,
+          amount: result.calculatedAmount,
+          breakdown: result as unknown as import('@prisma/client').Prisma.InputJsonValue,
+          status,
+        },
+      });
+    });
 
     return { ...commission, breakdown: result };
   }

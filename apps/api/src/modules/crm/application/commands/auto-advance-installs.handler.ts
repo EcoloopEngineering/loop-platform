@@ -36,6 +36,7 @@ export class AutoAdvanceInstallsHandler {
         include: {
           customer: { select: { firstName: true, lastName: true } },
         },
+        take: 500,
       });
 
       let advancedCount = 0;

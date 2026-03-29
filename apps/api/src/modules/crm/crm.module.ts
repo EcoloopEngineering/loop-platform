@@ -4,6 +4,10 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 
+// Sub-modules
+import { PortalModule } from './portal.module';
+import { SalesRabbitModule } from './salesrabbit.module';
+
 // Domain services
 import { LeadScoringDomainService } from './domain/services/lead-scoring.domain-service';
 
@@ -33,8 +37,6 @@ import { PrismaPropertyRepository } from './infrastructure/repositories/prisma-p
 import { LeadNoteService } from './application/services/lead-note.service';
 import { LeadAssignmentService } from './application/services/lead-assignment.service';
 import { LeadScoringAppService } from './application/services/lead-scoring-app.service';
-import { SalesRabbitWebhookService } from './application/services/salesrabbit-webhook.service';
-import { PortalAuthService } from './application/services/portal-auth.service';
 
 // Listeners
 import { StageAdvanceListener } from './application/listeners/stage-advance.listener';
@@ -46,8 +48,6 @@ import { LeadNotesController } from './presentation/lead-notes.controller';
 import { LeadAssignmentsController } from './presentation/lead-assignments.controller';
 import { CustomersController } from './presentation/customers.controller';
 import { PipelineController } from './presentation/pipeline.controller';
-import { SalesRabbitWebhookController } from './presentation/salesrabbit-webhook.controller';
-import { PortalController } from './presentation/portal.controller';
 
 const CommandHandlers = [
   CreateLeadHandler,
@@ -61,15 +61,13 @@ const CronHandlers = [AutoAdvanceInstallsHandler];
 const Listeners = [StageAdvanceListener, LeadTransitionListener];
 
 @Module({
-  imports: [CqrsModule, ConfigModule, ScheduleModule.forRoot()],
+  imports: [CqrsModule, ConfigModule, ScheduleModule.forRoot(), PortalModule, SalesRabbitModule],
   controllers: [
     LeadsController,
     LeadNotesController,
     LeadAssignmentsController,
     CustomersController,
     PipelineController,
-    SalesRabbitWebhookController,
-    PortalController,
   ],
   providers: [
     PrismaService,
@@ -77,8 +75,6 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
     LeadNoteService,
     LeadAssignmentService,
     LeadScoringAppService,
-    SalesRabbitWebhookService,
-    PortalAuthService,
     ...CommandHandlers,
     ...QueryHandlers,
     ...CronHandlers,

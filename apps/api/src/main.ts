@@ -27,13 +27,15 @@ async function bootstrap() {
     crossOriginEmbedderPolicy: false,
   }));
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const corsOrigins = [
+    'https://loop.ecoloop.app',
+    'https://app.ecoloop.us',
+    ...(!isProduction ? ['http://localhost:9000', 'http://localhost:9001'] : []),
+  ];
+
   app.enableCors({
-    origin: [
-      'http://localhost:9000',
-      'http://localhost:9001',
-      'https://loop.ecoloop.app',
-      'https://app.ecoloop.us',
-    ],
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

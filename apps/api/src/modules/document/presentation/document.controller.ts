@@ -10,6 +10,7 @@ import {
   UploadedFile,
   ParseUUIDPipe,
   Body,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
@@ -29,7 +30,14 @@ export class DocumentController {
   @Post('documents/upload')
   @ApiOperation({ summary: 'Upload a file for a lead' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req: any, file: { mimetype: string; originalname: string }, cb: (err: Error | null, accept: boolean) => void) => {
+      const allowed = /\.(pdf|png|jpe?g|gif|docx?|xlsx?|csv|txt)$/i;
+      if (allowed.test(file.originalname)) return cb(null, true);
+      cb(new BadRequestException('File type not allowed'), false);
+    },
+  }))
   async uploadDocument(
     @UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string; size: number },
     @Body('leadId') leadId: string,

@@ -16,7 +16,11 @@ import { FaqService } from '../application/services/faq.service';
 
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:9000', 'http://localhost:9001', 'https://loop.ecoloop.app', 'https://app.ecoloop.us'],
+    origin: [
+      'https://loop.ecoloop.app',
+      'https://app.ecoloop.us',
+      ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:9000', 'http://localhost:9001'] : []),
+    ],
     credentials: true,
   },
   namespace: '/chat',
@@ -32,6 +36,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly configService: ConfigService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET', 'loop-platform-jwt-secret-change-in-prod');
+    const env = this.configService.get<string>('NODE_ENV', 'development');
+    if (this.jwtSecret === 'loop-platform-jwt-secret-change-in-prod' && env === 'production') {
+      throw new Error('JWT_SECRET must be configured in production');
+    }
   }
 
   handleConnection(client: Socket) {

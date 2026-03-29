@@ -9,6 +9,7 @@ export interface LeadStageChangedPayload {
   customerName: string;
   previousStage: string;
   newStage: string;
+  depth?: number;
 }
 
 export interface LeadUpdatedPayload {

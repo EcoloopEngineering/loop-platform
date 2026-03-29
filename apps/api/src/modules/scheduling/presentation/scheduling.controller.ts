@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, IsOptional, IsInt, Min } from 'class-validator';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
@@ -17,6 +18,15 @@ import { BookAppointmentCommand } from '../application/commands/book-appointment
 import { GetAvailabilityQuery } from '../application/queries/get-availability.handler';
 import { AppointmentService } from '../application/services/appointment.service';
 import { AppointmentType } from '../domain/entities/appointment.entity';
+
+class RescheduleAppointmentDto {
+  @IsNotEmpty() @IsString() scheduledAt: string;
+  @IsOptional() @IsInt() @Min(15) duration?: number;
+}
+
+class CancelAppointmentDto {
+  @IsNotEmpty() @IsString() reason: string;
+}
 
 @ApiTags('scheduling')
 @ApiBearerAuth()
@@ -66,7 +76,7 @@ export class SchedulingController {
   @ApiOperation({ summary: 'Reschedule an appointment' })
   async reschedule(
     @Param('id') id: string,
-    @Body() dto: { scheduledAt: string; duration?: number },
+    @Body() dto: RescheduleAppointmentDto,
   ) {
     return this.appointmentService.reschedule(id, dto.scheduledAt, dto.duration);
   }
@@ -75,7 +85,7 @@ export class SchedulingController {
   @ApiOperation({ summary: 'Cancel an appointment' })
   async cancel(
     @Param('id') id: string,
-    @Body() dto: { reason: string },
+    @Body() dto: CancelAppointmentDto,
   ) {
     return this.appointmentService.cancel(id, dto.reason);
   }

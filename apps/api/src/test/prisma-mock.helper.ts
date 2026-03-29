@@ -62,7 +62,7 @@ export type MockPrismaService = {
 };
 
 export function createMockPrismaService(): MockPrismaService {
-  return {
+  const mock: MockPrismaService = {
     user: createMockModel(),
     lead: createMockModel(),
     customer: createMockModel(),
@@ -92,6 +92,11 @@ export function createMockPrismaService(): MockPrismaService {
     formSubmission: createMockModel(),
     $connect: jest.fn(),
     $disconnect: jest.fn(),
-    $transaction: jest.fn(),
+    $transaction: jest.fn((arg: any) => {
+      if (typeof arg === 'function') return arg(mock);
+      if (Array.isArray(arg)) return Promise.all(arg);
+      return Promise.resolve(arg);
+    }),
   };
+  return mock;
 }
