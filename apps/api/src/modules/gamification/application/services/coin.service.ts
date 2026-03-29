@@ -1,11 +1,17 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common';
+import {
+  COIN_REPOSITORY,
+  CoinRepositoryPort,
+} from '../ports/coin.repository.port';
 
 @Injectable()
 export class CoinService {
   private readonly logger = new Logger(CoinService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(COIN_REPOSITORY)
+    private readonly coinRepo: CoinRepositoryPort,
+  ) {}
 
   /**
    * Add coins to a user's balance
@@ -16,13 +22,11 @@ export class CoinService {
     reason: string,
     eventId?: string,
   ): Promise<void> {
-    await this.prisma.userCoin.create({
-      data: {
-        userId,
-        amount,
-        reason,
-        gamificationEventId: eventId ?? null,
-      },
+    await this.coinRepo.create({
+      userId,
+      amount,
+      reason,
+      gamificationEventId: eventId ?? null,
     });
 
     this.logger.log(`Added ${amount} coins to user ${userId}: ${reason}`);
@@ -44,12 +48,10 @@ export class CoinService {
       );
     }
 
-    await this.prisma.userCoin.create({
-      data: {
-        userId,
-        amount: -amount,
-        reason,
-      },
+    await this.coinRepo.create({
+      userId,
+      amount: -amount,
+      reason,
     });
 
     this.logger.log(`Deducted ${amount} coins from user ${userId}: ${reason}`);
@@ -59,22 +61,13 @@ export class CoinService {
    * Get total coin balance for a user
    */
   async getBalance(userId: string): Promise<number> {
-    const result = await this.prisma.userCoin.aggregate({
-      where: { userId },
-      _sum: { amount: true },
-    });
-
-    return Number(result._sum?.amount ?? 0);
+    return this.coinRepo.aggregateBalance(userId);
   }
 
   /**
    * Get recent coin transactions for a user
    */
   async getHistory(userId: string, limit = 50) {
-    return this.prisma.userCoin.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
+    return this.coinRepo.findByUser(userId, limit);
   }
 }

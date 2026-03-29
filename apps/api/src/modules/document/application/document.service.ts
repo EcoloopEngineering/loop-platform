@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { S3Service } from '../../../infrastructure/storage/s3.service';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
+import {
+  DOCUMENT_REPOSITORY,
+  DocumentRepositoryPort,
+} from './ports/document.repository.port';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -34,7 +37,8 @@ export interface DownloadResult {
 @Injectable()
 export class DocumentService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(DOCUMENT_REPOSITORY)
+    private readonly documentRepo: DocumentRepositoryPort,
     private readonly s3: S3Service,
   ) {
     if (!fs.existsSync(UPLOAD_DIR)) {
@@ -50,7 +54,7 @@ export class DocumentService {
   ): Promise<DocumentResponse> {
     if (!file) throw new NotFoundException('No file provided');
 
-    const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
+    const lead = await this.documentRepo.findLeadById(leadId);
     if (!lead) throw new NotFoundException('Lead not found');
 
     const timestamp = Date.now();
@@ -72,27 +76,23 @@ export class DocumentService {
       fs.writeFileSync(path.join(dirPath, safeFileName), file.buffer);
     }
 
-    const doc = await this.prisma.document.create({
-      data: {
-        leadId,
-        type: (documentType as import('@prisma/client').DocumentType) || 'OTHER',
-        fileName: file.originalname,
-        mimeType: file.mimetype,
-        fileSize: file.size,
-        fileKey,
-        uploadedById: user.id,
-        metadata: downloadUrl ? { downloadUrl, storage: 's3' } : { storage: 'local' },
-      },
+    const doc = await this.documentRepo.createDocument({
+      leadId,
+      type: documentType || 'OTHER',
+      fileName: file.originalname,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      fileKey,
+      uploadedById: user.id,
+      metadata: downloadUrl ? { downloadUrl, storage: 's3' } : { storage: 'local' },
     });
 
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId,
-        userId: user.id,
-        type: 'DOCUMENT_UPLOADED',
-        description: `File uploaded: ${file.originalname}`,
-        metadata: { documentId: doc.id, fileName: file.originalname, fileSize: file.size },
-      },
+    await this.documentRepo.createLeadActivity({
+      leadId,
+      userId: user.id,
+      type: 'DOCUMENT_UPLOADED',
+      description: `File uploaded: ${file.originalname}`,
+      metadata: { documentId: doc.id, fileName: file.originalname, fileSize: file.size },
     });
 
     return {
@@ -106,10 +106,7 @@ export class DocumentService {
   }
 
   async getDocumentsByLead(leadId: string): Promise<DocumentResponse[]> {
-    const docs = await this.prisma.document.findMany({
-      where: { leadId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const docs = await this.documentRepo.findDocumentsByLead(leadId);
 
     return docs.map((d) => {
       const meta = (d.metadata as Record<string, unknown>) ?? {};
@@ -125,7 +122,7 @@ export class DocumentService {
   }
 
   async getDownloadInfo(id: string): Promise<DownloadResult> {
-    const doc = await this.prisma.document.findUnique({ where: { id } });
+    const doc = await this.documentRepo.findDocumentById(id);
     if (!doc) throw new NotFoundException('Document not found');
 
     const meta = (doc.metadata as Record<string, unknown>) ?? {};
@@ -149,7 +146,7 @@ export class DocumentService {
   }
 
   async deleteDocument(id: string, user: AuthenticatedUser): Promise<{ deleted: boolean }> {
-    const doc = await this.prisma.document.findUnique({ where: { id } });
+    const doc = await this.documentRepo.findDocumentById(id);
     if (!doc) throw new NotFoundException('Document not found');
 
     const meta = (doc.metadata as Record<string, unknown>) ?? {};
@@ -163,18 +160,16 @@ export class DocumentService {
     }
 
     if (doc.leadId) {
-      await this.prisma.leadActivity.create({
-        data: {
-          leadId: doc.leadId,
-          userId: user.id,
-          type: 'DOCUMENT_UPLOADED',
-          description: `File deleted: ${doc.fileName}`,
-          metadata: { action: 'document_deleted', documentId: doc.id, fileName: doc.fileName },
-        },
+      await this.documentRepo.createLeadActivity({
+        leadId: doc.leadId,
+        userId: user.id,
+        type: 'DOCUMENT_UPLOADED',
+        description: `File deleted: ${doc.fileName}`,
+        metadata: { action: 'document_deleted', documentId: doc.id, fileName: doc.fileName },
       });
     }
 
-    await this.prisma.document.delete({ where: { id } });
+    await this.documentRepo.deleteDocument(id);
     return { deleted: true };
   }
 }

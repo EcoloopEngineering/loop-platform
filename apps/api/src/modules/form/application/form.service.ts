@@ -1,6 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { FormField } from '../domain/entities/form.entity';
+import {
+  FORM_REPOSITORY,
+  FormRepositoryPort,
+} from './ports/form.repository.port';
 
 export interface CreateFormDto {
   name: string;
@@ -19,41 +22,36 @@ export interface UpdateFormDto {
 
 @Injectable()
 export class FormService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(FORM_REPOSITORY)
+    private readonly formRepo: FormRepositoryPort,
+  ) {}
 
   async listForms() {
-    return this.prisma.form.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.formRepo.findAll();
   }
 
   async createForm(dto: CreateFormDto, userId: string) {
-    return this.prisma.form.create({
-      data: {
-        name: dto.name,
-        slug: dto.slug,
-        config: dto.fields as unknown as import('@prisma/client').Prisma.InputJsonValue,
-        userId,
-      },
+    return this.formRepo.create({
+      name: dto.name,
+      slug: dto.slug,
+      config: dto.fields,
+      userId,
     });
   }
 
   async updateForm(id: string, dto: UpdateFormDto) {
-    return this.prisma.form.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.slug !== undefined && { slug: dto.slug }),
-        ...(dto.fields !== undefined && { config: dto.fields as unknown as import('@prisma/client').Prisma.InputJsonValue }),
-        ...(dto.status !== undefined && { isActive: dto.status === 'PUBLISHED' }),
-      },
-    });
+    const data: Record<string, unknown> = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.slug !== undefined) data.slug = dto.slug;
+    if (dto.fields !== undefined) data.config = dto.fields;
+    if (dto.status !== undefined) data.isActive = dto.status === 'PUBLISHED';
+
+    return this.formRepo.update(id, data);
   }
 
   async getPublicForm(slug: string) {
-    const form = await this.prisma.form.findFirst({
-      where: { slug, isActive: true },
-    });
+    const form = await this.formRepo.findActiveBySlug(slug);
     if (!form) {
       throw new NotFoundException(`Form with slug "${slug}" not found`);
     }
@@ -61,18 +59,14 @@ export class FormService {
   }
 
   async submitPublicForm(slug: string, data: Record<string, unknown>) {
-    const form = await this.prisma.form.findFirst({
-      where: { slug, isActive: true },
-    });
+    const form = await this.formRepo.findActiveBySlug(slug);
     if (!form) {
       throw new NotFoundException(`Form with slug "${slug}" not found`);
     }
 
-    return this.prisma.formSubmission.create({
-      data: {
-        formId: form.id,
-        data: data as unknown as import('@prisma/client').Prisma.InputJsonValue,
-      },
+    return this.formRepo.createSubmission({
+      formId: form.id,
+      data,
     });
   }
 }

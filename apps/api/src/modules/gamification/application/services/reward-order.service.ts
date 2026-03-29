@@ -1,24 +1,26 @@
 import {
   Injectable,
+  Inject,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { CoinService } from './coin.service';
 import { AuthenticatedUser } from '../../../../common/types/authenticated-user.type';
+import {
+  REWARD_REPOSITORY,
+  RewardRepositoryPort,
+} from '../ports/reward.repository.port';
 
 @Injectable()
 export class RewardOrderService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(REWARD_REPOSITORY)
+    private readonly rewardRepo: RewardRepositoryPort,
     private readonly coinService: CoinService,
   ) {}
 
   async listProducts() {
-    return this.prisma.rewardProduct.findMany({
-      where: { isActive: true },
-      orderBy: { price: 'asc' },
-    });
+    return this.rewardRepo.findActiveProducts();
   }
 
   async placeOrder(user: AuthenticatedUser, productId: string) {
@@ -26,9 +28,7 @@ export class RewardOrderService {
       throw new BadRequestException('productId is required');
     }
 
-    const product = await this.prisma.rewardProduct.findUnique({
-      where: { id: productId },
-    });
+    const product = await this.rewardRepo.findProductById(productId);
 
     if (!product || !product.isActive) {
       throw new BadRequestException('Product not found or inactive');
@@ -40,22 +40,15 @@ export class RewardOrderService {
       `Reward order: ${product.name}`,
     );
 
-    return this.prisma.rewardOrder.create({
-      data: {
-        userId: user.id,
-        productId: product.id,
-        coinsSpent: product.price,
-      },
-      include: { product: true },
+    return this.rewardRepo.createOrder({
+      userId: user.id,
+      productId: product.id,
+      coinsSpent: product.price,
     });
   }
 
   async getOrders(userId: string) {
-    return this.prisma.rewardOrder.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      include: { product: true },
-    });
+    return this.rewardRepo.findOrdersByUser(userId);
   }
 
   async createProduct(body: {
@@ -74,14 +67,12 @@ export class RewardOrderService {
         '-' +
         Date.now().toString(36);
 
-    return this.prisma.rewardProduct.create({
-      data: {
-        code,
-        name: body.name,
-        description: body.description,
-        price: body.price,
-        imageUrl: body.imageUrl,
-      },
+    return this.rewardRepo.createProduct({
+      code,
+      name: body.name,
+      description: body.description,
+      price: body.price,
+      imageUrl: body.imageUrl,
     });
   }
 
@@ -95,31 +86,15 @@ export class RewardOrderService {
       isActive?: boolean;
     },
   ) {
-    return this.prisma.rewardProduct.update({
-      where: { id },
-      data: body,
-    });
+    return this.rewardRepo.updateProduct(id, body);
   }
 
   async listAllOrders() {
-    return this.prisma.rewardOrder.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        product: true,
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+    return this.rewardRepo.findAllOrders();
   }
 
   async fulfillOrder(id: string) {
-    const order = await this.prisma.rewardOrder.findUnique({ where: { id } });
+    const order = await this.rewardRepo.findOrderById(id);
 
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -131,18 +106,11 @@ export class RewardOrderService {
       );
     }
 
-    return this.prisma.rewardOrder.update({
-      where: { id },
-      data: { status: 'FULFILLED' },
-      include: { product: true },
-    });
+    return this.rewardRepo.updateOrderStatus(id, 'FULFILLED');
   }
 
   async cancelOrder(id: string) {
-    const order = await this.prisma.rewardOrder.findUnique({
-      where: { id },
-      include: { product: true },
-    });
+    const order = await this.rewardRepo.findOrderByIdWithProduct(id);
 
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -158,10 +126,6 @@ export class RewardOrderService {
       `Refund: ${order.product.name} order cancelled`,
     );
 
-    return this.prisma.rewardOrder.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
-      include: { product: true },
-    });
+    return this.rewardRepo.updateOrderStatus(id, 'CANCELLED');
   }
 }

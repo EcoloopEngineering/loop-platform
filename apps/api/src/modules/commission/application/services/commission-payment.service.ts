@@ -1,11 +1,15 @@
 import {
   Injectable,
+  Inject,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '@loop/shared';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { AuthenticatedUser } from '../../../../common/types/authenticated-user.type';
+import {
+  COMMISSION_PAYMENT_REPOSITORY,
+  CommissionPaymentRepositoryPort,
+} from '../ports/commission-payment.repository.port';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   PENDING: ['APPROVED', 'CANCELLED'],
@@ -16,70 +20,61 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 @Injectable()
 export class CommissionPaymentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(COMMISSION_PAYMENT_REPOSITORY)
+    private readonly commissionPaymentRepo: CommissionPaymentRepositoryPort,
+  ) {}
 
   async listPayments(user: AuthenticatedUser, userId?: string) {
     const isAdmin = user.role === UserRole.ADMIN;
     const filterUserId = isAdmin && userId ? userId : isAdmin ? undefined : user.id;
 
-    return this.prisma.commissionPayment.findMany({
-      where: filterUserId ? { userId: filterUserId } : {},
-      include: {
-        lead: {
-          select: {
-            id: true,
-            currentStage: true,
-            customer: { select: { firstName: true, lastName: true } },
-          },
+    const where = filterUserId ? { userId: filterUserId } : {};
+    const include = {
+      lead: {
+        select: {
+          id: true,
+          currentStage: true,
+          customer: { select: { firstName: true, lastName: true } },
         },
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      user: { select: { id: true, firstName: true, lastName: true, email: true } },
+    };
+
+    return this.commissionPaymentRepo.findMany(where, include);
   }
 
   async getPaymentsByLead(leadId: string) {
-    return this.prisma.commissionPayment.findMany({
-      where: { leadId },
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const include = {
+      user: { select: { id: true, firstName: true, lastName: true, email: true } },
+    };
+
+    return this.commissionPaymentRepo.findMany({ leadId }, include);
   }
 
   async approvePayment(id: string) {
     const payment = await this.findPaymentOrFail(id);
     this.assertTransition(payment.status, 'APPROVED');
 
-    return this.prisma.commissionPayment.update({
-      where: { id },
-      data: { status: 'APPROVED' },
-    });
+    return this.commissionPaymentRepo.updateStatus(id, 'APPROVED');
   }
 
   async markAsPaid(id: string) {
     const payment = await this.findPaymentOrFail(id);
     this.assertTransition(payment.status, 'PAID');
 
-    return this.prisma.commissionPayment.update({
-      where: { id },
-      data: { status: 'PAID', paidAt: new Date() },
-    });
+    return this.commissionPaymentRepo.updateStatus(id, 'PAID', { paidAt: new Date() });
   }
 
   async cancelPayment(id: string) {
     const payment = await this.findPaymentOrFail(id);
     this.assertTransition(payment.status, 'CANCELLED');
 
-    return this.prisma.commissionPayment.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
-    });
+    return this.commissionPaymentRepo.updateStatus(id, 'CANCELLED');
   }
 
   private async findPaymentOrFail(id: string) {
-    const payment = await this.prisma.commissionPayment.findUnique({ where: { id } });
+    const payment = await this.commissionPaymentRepo.findUnique(id);
     if (!payment) {
       throw new NotFoundException(`Commission payment ${id} not found`);
     }

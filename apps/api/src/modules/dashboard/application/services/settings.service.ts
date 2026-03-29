@@ -1,7 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { TtlCache } from '../../../../common/utils/ttl-cache';
+import {
+  SETTINGS_REPOSITORY,
+  SettingsRepositoryPort,
+} from '../ports/settings.repository.port';
 
 export interface IntegrationStatus {
   name: string;
@@ -30,7 +33,8 @@ export class SettingsService {
   private readonly settingsCache = new TtlCache<Record<string, SettingValue>>(2 * 60 * 1000); // 2 min
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(SETTINGS_REPOSITORY)
+    private readonly settingsRepo: SettingsRepositoryPort,
     private readonly config: ConfigService,
   ) {}
 
@@ -47,7 +51,7 @@ export class SettingsService {
     const cached = this.settingsCache.get();
     if (cached) return cached;
 
-    const settings = await this.prisma.appSetting.findMany();
+    const settings = await this.settingsRepo.findAll();
     const result: Record<string, SettingValue> = {};
     for (const s of settings) {
       result[s.key] = s.value as SettingValue;
@@ -57,20 +61,16 @@ export class SettingsService {
   }
 
   async getByKey(key: string): Promise<SettingValue> {
-    const setting = await this.prisma.appSetting.findUnique({ where: { key } });
+    const setting = await this.settingsRepo.findByKey(key);
     return (setting?.value as SettingValue) ?? {};
   }
 
   async upsert(key: string, value: SettingValue, userId: string): Promise<SettingValue> {
-    const existing = await this.prisma.appSetting.findUnique({ where: { key } });
+    const existing = await this.settingsRepo.findByKey(key);
     const current = (existing?.value as SettingValue) ?? {};
     const merged = { ...current, ...value };
 
-    const updated = await this.prisma.appSetting.upsert({
-      where: { key },
-      create: { key, value: merged as any, updatedBy: userId, updatedAt: new Date() },
-      update: { value: merged as any, updatedBy: userId, updatedAt: new Date() },
-    });
+    const updated = await this.settingsRepo.upsert(key, merged, userId);
 
     this.settingsCache.invalidate();
     return updated.value as SettingValue;

@@ -1,19 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppointmentService } from './appointment.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { JobberService } from '../../../../integrations/jobber/jobber.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
+import { APPOINTMENT_REPOSITORY } from '../ports/appointment.repository.port';
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
-  let prisma: MockPrismaService;
+  let mockRepo: Record<string, jest.Mock>;
   let jobberService: { rescheduleVisit: jest.Mock; cancelVisit: jest.Mock };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    mockRepo = {
+      update: jest.fn(),
+    };
     jobberService = {
       rescheduleVisit: jest.fn().mockResolvedValue({}),
       cancelVisit: jest.fn().mockResolvedValue({}),
@@ -22,7 +20,7 @@ describe('AppointmentService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: APPOINTMENT_REPOSITORY, useValue: mockRepo },
         { provide: JobberService, useValue: jobberService },
       ],
     }).compile();
@@ -38,7 +36,7 @@ describe('AppointmentService', () => {
         duration: 60,
         scheduledAt: new Date('2026-04-02T10:00:00Z'),
       };
-      prisma.appointment.update.mockResolvedValue(updated);
+      mockRepo.update.mockResolvedValue(updated);
 
       const result = await service.reschedule(
         'appt-1',
@@ -46,13 +44,10 @@ describe('AppointmentService', () => {
         90,
       );
 
-      expect(prisma.appointment.update).toHaveBeenCalledWith({
-        where: { id: 'appt-1' },
-        data: {
-          scheduledAt: new Date('2026-04-02T10:00:00Z'),
-          duration: 90,
-          status: 'PENDING',
-        },
+      expect(mockRepo.update).toHaveBeenCalledWith('appt-1', {
+        scheduledAt: new Date('2026-04-02T10:00:00Z'),
+        duration: 90,
+        status: 'PENDING',
       });
       expect(result).toEqual(updated);
       expect(jobberService.rescheduleVisit).toHaveBeenCalledWith(
@@ -64,7 +59,7 @@ describe('AppointmentService', () => {
 
     it('should not sync to Jobber when no jobberVisitId', async () => {
       const updated = { id: 'appt-1', jobberVisitId: null, duration: 60 };
-      prisma.appointment.update.mockResolvedValue(updated);
+      mockRepo.update.mockResolvedValue(updated);
 
       await service.reschedule('appt-1', '2026-04-02T10:00:00Z');
 
@@ -78,16 +73,13 @@ describe('AppointmentService', () => {
         duration: 45,
         scheduledAt: new Date('2026-04-02T10:00:00Z'),
       };
-      prisma.appointment.update.mockResolvedValue(updated);
+      mockRepo.update.mockResolvedValue(updated);
 
       await service.reschedule('appt-1', '2026-04-02T10:00:00Z');
 
-      expect(prisma.appointment.update).toHaveBeenCalledWith({
-        where: { id: 'appt-1' },
-        data: {
-          scheduledAt: new Date('2026-04-02T10:00:00Z'),
-          status: 'PENDING',
-        },
+      expect(mockRepo.update).toHaveBeenCalledWith('appt-1', {
+        scheduledAt: new Date('2026-04-02T10:00:00Z'),
+        status: 'PENDING',
       });
       // Should use appointment.duration (45) for end time calculation
       const expectedEnd = new Date(
@@ -108,13 +100,13 @@ describe('AppointmentService', () => {
         jobberVisitId: 'jobber-1',
         status: 'CANCELLED',
       };
-      prisma.appointment.update.mockResolvedValue(cancelled);
+      mockRepo.update.mockResolvedValue(cancelled);
 
       const result = await service.cancel('appt-1', 'Customer request');
 
-      expect(prisma.appointment.update).toHaveBeenCalledWith({
-        where: { id: 'appt-1' },
-        data: { status: 'CANCELLED', notes: 'Customer request' },
+      expect(mockRepo.update).toHaveBeenCalledWith('appt-1', {
+        status: 'CANCELLED',
+        notes: 'Customer request',
       });
       expect(result).toEqual(cancelled);
       expect(jobberService.cancelVisit).toHaveBeenCalledWith('jobber-1');
@@ -126,7 +118,7 @@ describe('AppointmentService', () => {
         jobberVisitId: null,
         status: 'CANCELLED',
       };
-      prisma.appointment.update.mockResolvedValue(cancelled);
+      mockRepo.update.mockResolvedValue(cancelled);
 
       await service.cancel('appt-1', 'No show');
 

@@ -1,5 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Injectable, Inject } from '@nestjs/common';
+import {
+  DASHBOARD_REPOSITORY,
+  DashboardRepositoryPort,
+} from '../ports/dashboard.repository.port';
 
 export interface DashboardMetrics {
   totalLeads: number;
@@ -11,7 +14,10 @@ export interface DashboardMetrics {
 
 @Injectable()
 export class DashboardMetricsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DASHBOARD_REPOSITORY)
+    private readonly dashboardRepo: DashboardRepositoryPort,
+  ) {}
 
   async getMetrics(startDate: string, endDate: string): Promise<DashboardMetrics> {
     const dateFilter = {
@@ -23,20 +29,17 @@ export class DashboardMetricsService {
 
     const [totalLeads, wonLeads, totalCommission, activeUsers] =
       await Promise.all([
-        this.prisma.lead.count({ where: dateFilter }),
-        this.prisma.lead.count({ where: { currentStage: 'WON', ...dateFilter } }),
-        this.prisma.commission.aggregate({
-          where: { status: 'ACTIVE', ...dateFilter },
-          _sum: { amount: true },
-        }),
-        this.prisma.user.count({ where: { isActive: true } }),
+        this.dashboardRepo.countLeads(dateFilter),
+        this.dashboardRepo.countLeads({ currentStage: 'WON', ...dateFilter }),
+        this.dashboardRepo.aggregateCommission({ status: 'ACTIVE', ...dateFilter }),
+        this.dashboardRepo.countActiveUsers(),
       ]);
 
     return {
       totalLeads,
       wonLeads,
       conversionRate: totalLeads > 0 ? (wonLeads / totalLeads) * 100 : 0,
-      totalCommission: Number(totalCommission._sum?.amount ?? 0),
+      totalCommission,
       activeUsers,
     };
   }

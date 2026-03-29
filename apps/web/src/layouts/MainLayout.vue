@@ -78,134 +78,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue';
+import { ref, computed, watch, provide } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
 import { useAuthStore } from '@/stores/auth.store';
-import { api } from '@/boot/axios';
+import { useNotificationPoller } from '@/composables/useNotificationPoller';
+import { useThemeSync } from '@/composables/useThemeSync';
 
 const router = useRouter();
 const authStore = useAuthStore();
 
-const $q = useQuasar();
-
-interface AppNotification {
-  id: string;
-  event: string;
-  title: string;
-  message: string;
-  isRead: boolean;
-  readAt: string | null;
-  createdAt: string;
-}
-
 const route = useRoute();
 const activeTab = ref('home');
-const notifications = ref<AppNotification[]>([]);
-const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).length);
-const userName = ref('');
-const userEmail = ref('');
+
+// Notification polling (30s interval)
+const { notifications, unreadCount, openNotification, iconFor, timeAgo } = useNotificationPoller();
+
+// User identity + dark mode sync
+const { userName, userEmail, userAvatar, userInitials } = useThemeSync();
+
 const isEmployee = computed(() => userEmail.value.endsWith('@ecoloop.us'));
 provide('userName', userName);
-const userInitials = computed(() => {
-  if (!userName.value) return 'U';
-  return userName.value.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
-});
-
-const apiBase = (process.env.API_URL ?? 'http://localhost:3000');
-const userAvatarUrl = ref<string | null>(null);
-const userAvatar = computed(() => userAvatarUrl.value);
-
-let pollInterval: ReturnType<typeof setInterval> | null = null;
-
-async function fetchNotifications() {
-  try {
-    const { data } = await api.get('/notifications');
-    const items = Array.isArray(data) ? data : (data as any).data ?? [];
-    notifications.value = items;
-  } catch {
-    // No notifications
-  }
-}
-
-async function fetchUser() {
-  try {
-    const { data } = await api.get('/users/me');
-    userName.value = data.nickname || data.firstName || `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim();
-    userEmail.value = data.email ?? '';
-    // Persist for chat and other components
-    localStorage.setItem('user', JSON.stringify({
-      id: data.id,
-      name: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
-      role: data.role,
-      profileImage: data.profileImage ?? null,
-    }));
-    // Update avatar URL
-    const img = data.profileImage;
-    userAvatarUrl.value = img?.startsWith('/api/') ? `${apiBase}${img}` : img || null;
-    // Always sync dark mode from API — API is source of truth
-    if (data.darkMode !== undefined) {
-      localStorage.setItem('darkMode', data.darkMode ? '1' : '0');
-      $q.dark.set(!!data.darkMode);
-    }
-  } catch { /* ignore */ }
-}
-
-onMounted(() => {
-  fetchUser();
-  fetchNotifications();
-  pollInterval = setInterval(fetchNotifications, 30000);
-});
-
-onUnmounted(() => {
-  if (pollInterval) clearInterval(pollInterval);
-});
-
-async function openNotification(n: AppNotification) {
-  if (!n.isRead) {
-    try { await api.put(`/notifications/${n.id}/read`); n.isRead = true; } catch { /* ignore */ }
-  }
-  $q.dialog({
-    title: n.title,
-    message: n.message,
-    ok: 'Close',
-  });
-}
 
 function handleLogout() {
   authStore.logout();
   router.push('/auth/login');
-}
-
-function iconFor(type: string) {
-  const map: Record<string, string> = {
-    LEAD_CREATED: 'person_add',
-    LEAD_ASSIGNED: 'person_add',
-    LEAD_UNASSIGNED: 'person_remove',
-    LEAD_STAGE_CHANGED: 'swap_horiz',
-    LEAD_PM_ASSIGNED: 'manage_accounts',
-    LEAD_PM_REMOVED: 'person_off',
-    LEAD_UPDATED: 'edit',
-    LEAD_NOTE_ADDED: 'comment',
-    DESIGN_COMPLETED: 'check_circle',
-    APPOINTMENT_BOOKED: 'event',
-    COMMISSION_FINALIZED: 'payments',
-    SYSTEM: 'info',
-  };
-  return map[type] ?? 'notifications';
-}
-
-function timeAgo(date: string) {
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 watch(

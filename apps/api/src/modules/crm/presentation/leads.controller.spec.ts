@@ -1,22 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { NotFoundException } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadsController } from './leads.controller';
 import { LEAD_REPOSITORY } from '../application/ports/lead.repository.port';
 import { LeadScoringAppService } from '../application/services/lead-scoring-app.service';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
-import { createMockPrismaService, MockPrismaService } from '../../../test/prisma-mock.helper';
 
 describe('LeadsController', () => {
   let controller: LeadsController;
   let commandBus: { execute: jest.Mock };
   let queryBus: { execute: jest.Mock };
   let leadRepo: Record<string, jest.Mock>;
-  let prisma: MockPrismaService;
-  let emitter: { emit: jest.Mock };
   let leadScoringAppService: { recalculateScore: jest.Mock; getTimeline: jest.Mock };
 
   beforeEach(async () => {
@@ -28,8 +23,6 @@ describe('LeadsController', () => {
       update: jest.fn(),
       updateStage: jest.fn(),
     };
-    prisma = createMockPrismaService();
-    emitter = { emit: jest.fn() };
     leadScoringAppService = { recalculateScore: jest.fn(), getTimeline: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -39,8 +32,6 @@ describe('LeadsController', () => {
         { provide: QueryBus, useValue: queryBus },
         { provide: LEAD_REPOSITORY, useValue: leadRepo },
         { provide: LeadScoringAppService, useValue: leadScoringAppService },
-        { provide: PrismaService, useValue: prisma },
-        { provide: EventEmitter2, useValue: emitter },
       ],
     })
       .overrideGuard(FirebaseAuthGuard)
@@ -92,25 +83,15 @@ describe('LeadsController', () => {
   });
 
   describe('update', () => {
-    it('should update lead and emit event', async () => {
-      leadRepo.findById.mockResolvedValue({ id: 'lead-1' });
-      leadRepo.update.mockResolvedValue({ id: 'lead-1', source: 'WEB' });
-      prisma.lead.findUnique.mockResolvedValue({
-        id: 'lead-1',
-        customer: { firstName: 'John', lastName: 'Doe' },
-      });
-      prisma.user.findUnique.mockResolvedValue({ firstName: 'Agent', lastName: 'Smith' });
+    it('should execute UpdateLeadCommand via command bus', async () => {
+      commandBus.execute.mockResolvedValue({ id: 'lead-1', source: 'WEB' });
 
-      const result = await controller.update('lead-1', { source: 'WEB' }, 'user-1');
+      const result = await controller.update('lead-1', { source: 'WEB' } as any, 'user-1');
 
-      expect(leadRepo.update).toHaveBeenCalledWith('lead-1', { source: 'WEB' });
-      expect(emitter.emit).toHaveBeenCalledWith('lead.updated', expect.any(Object));
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ leadId: 'lead-1', data: { source: 'WEB' }, userId: 'user-1' }),
+      );
       expect(result).toEqual({ id: 'lead-1', source: 'WEB' });
-    });
-
-    it('should throw NotFoundException when lead not found', async () => {
-      leadRepo.findById.mockResolvedValue(null);
-      await expect(controller.update('bad-id', {}, 'user-1')).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -35,29 +35,13 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
   async execute(command: BookAppointmentCommand) {
     const endAt = new Date(command.scheduledAt.getTime() + command.duration * 60000);
 
-    // Check for scheduling conflicts
-    const conflict = await this.prisma.appointment.findFirst({
-      where: {
-        leadId: command.leadId,
-        status: { in: ['PENDING', 'CONFIRMED'] },
-        scheduledAt: { lt: endAt },
-      },
-    });
+    await this.checkConflicts(command.leadId, endAt);
 
-    if (conflict) {
-      throw new ConflictException('Time slot conflicts with an existing appointment');
-    }
-
-    // Get lead + customer + property for Jobber booking
     const lead = await this.prisma.lead.findUnique({
       where: { id: command.leadId },
-      include: {
-        customer: true,
-        property: true,
-      },
+      include: { customer: true, property: true },
     });
 
-    // Create appointment locally first
     const appointment = await this.prisma.appointment.create({
       data: {
         leadId: command.leadId,
@@ -69,26 +53,8 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
       },
     });
 
-    // Sync to Jobber in background (fire and forget)
-    this.syncToJobber(appointment, lead, endAt).catch((err) =>
-      this.logger.warn(`Jobber sync failed for appointment ${appointment.id}: ${err.message}`),
-    );
-
-    // Log activity
-    await this.prisma.leadActivity.create({
-      data: {
-        leadId: command.leadId,
-        userId: lead?.createdById ?? '',
-        type: 'APPOINTMENT_BOOKED',
-        description: `${command.type} appointment booked for ${command.scheduledAt.toLocaleDateString()}`,
-        metadata: {
-          appointmentId: appointment.id,
-          type: command.type,
-          scheduledAt: command.scheduledAt.toISOString(),
-          duration: command.duration,
-        },
-      },
-    }).catch(() => {});
+    this.syncWithJobber(appointment, lead, endAt);
+    this.logActivity(command.leadId, appointment, lead?.createdById ?? '', command);
 
     this.eventBus.publish(
       new AppointmentBookedEvent(
@@ -100,6 +66,52 @@ export class BookAppointmentHandler implements ICommandHandler<BookAppointmentCo
     );
 
     return appointment;
+  }
+
+  private async checkConflicts(leadId: string, endAt: Date): Promise<void> {
+    const conflict = await this.prisma.appointment.findFirst({
+      where: {
+        leadId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        scheduledAt: { lt: endAt },
+      },
+    });
+
+    if (conflict) {
+      throw new ConflictException('Time slot conflicts with an existing appointment');
+    }
+  }
+
+  private syncWithJobber(
+    appointment: Appointment,
+    lead: LeadWithRelations | null,
+    endAt: Date,
+  ): void {
+    this.syncToJobber(appointment, lead, endAt).catch((err) =>
+      this.logger.warn(`Jobber sync failed for appointment ${appointment.id}: ${err.message}`),
+    );
+  }
+
+  private async logActivity(
+    leadId: string,
+    appointment: Appointment,
+    userId: string,
+    command: BookAppointmentCommand,
+  ): Promise<void> {
+    await this.prisma.leadActivity.create({
+      data: {
+        leadId,
+        userId,
+        type: 'APPOINTMENT_BOOKED',
+        description: `${command.type} appointment booked for ${command.scheduledAt.toLocaleDateString()}`,
+        metadata: {
+          appointmentId: appointment.id,
+          type: command.type,
+          scheduledAt: command.scheduledAt.toISOString(),
+          duration: command.duration,
+        },
+      },
+    }).catch(() => {});
   }
 
   private async syncToJobber(appointment: Appointment, lead: LeadWithRelations | null, endAt: Date): Promise<void> {

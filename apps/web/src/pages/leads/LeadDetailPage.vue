@@ -924,6 +924,7 @@ import { useLeadStore } from '@/stores/lead.store';
 import { api } from '@/boot/axios';
 import { titleCase } from '@/utils/format';
 import LeadTimeline from '@/components/lead/LeadTimeline.vue';
+import { useLeadFormatting } from '@/composables/useLeadFormatting';
 
 const props = defineProps<{ id: string }>();
 const $q = useQuasar();
@@ -986,49 +987,7 @@ const stageOptions = computed(() => {
   return CLOSER_STAGES;
 });
 
-const STAGE_COLORS: Record<string, string> = {
-  // Closer
-  NEW_LEAD: '#4CAF50', ALREADY_CALLED: '#8BC34A', CONNECTED: '#2196F3',
-  REQUEST_DESIGN: '#03A9F4', DESIGN_IN_PROGRESS: '#FF9800', DESIGN_READY: '#9C27B0', WON: '#00897B',
-  // PM
-  SITE_AUDIT: '#FF5722', PROGRESS_REVIEW: '#E91E63', NTP: '#9C27B0', ENGINEERING: '#3F51B5',
-  PERMIT_AND_ICE: '#2196F3', FINAL_APPROVAL: '#00BCD4', INSTALL_READY: '#009688', INSTALL: '#4CAF50',
-  COMMISSION: '#8BC34A', SITE_COMPLETE: '#CDDC39', INITIAL_SUBMISSION_AND_INSPECTION: '#FFC107',
-  WAITING_FOR_PTO: '#FF9800', FINAL_SUBMISSION: '#FF5722', CUSTOMER_SUCCESS: '#4CAF50',
-  // Finance
-  FIN_TICKETS_OPEN: '#2196F3', FIN_IN_PROGRESS: '#FF9800', FIN_POST_INITIAL_NURTURE: '#9C27B0', FIN_TICKETS_CLOSED: '#4CAF50',
-  // Maintenance
-  MAINT_TICKETS_OPEN: '#2196F3', MAINT_IN_PROGRESS: '#FF9800', MAINT_POST_INSTALL_NURTURE: '#9C27B0', MAINT_TICKETS_CLOSED: '#4CAF50',
-};
-
-const TIER_COLORS: Record<string, string> = {
-  A: '#10B981',
-  B: '#3B82F6',
-  C: '#F59E0B',
-  D: '#EF4444',
-};
-
-function stageColor(stage: string) {
-  return STAGE_COLORS[stage] ?? '#9E9E9E';
-}
-
-function tierColor(tier: string) {
-  return TIER_COLORS[tier] ?? '#9E9E9E';
-}
-
-function tierQColor(tier: string) {
-  const map: Record<string, string> = { A: 'positive', B: 'primary', C: 'warning', D: 'negative' };
-  return map[tier] ?? 'grey';
-}
-
-function formatStage(stage: string) {
-  return (stage ?? '').replace(/_/g, ' ');
-}
-
-function formatSource(source: string | undefined | null) {
-  if (!source) return '';
-  return source.replace(/_/g, ' ');
-}
+const { stageColor, formatStage, formatSource, tierColor, tierQColor } = useLeadFormatting();
 
 // ---- Computed helpers ----
 const fullAddress = computed(() => {

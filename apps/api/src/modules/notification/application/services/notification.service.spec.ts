@@ -1,21 +1,26 @@
 import { Test } from '@nestjs/testing';
 import { NotificationService } from './notification.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { NOTIFICATION_REPOSITORY } from '../ports/notification.repository.port';
 
 describe('NotificationService', () => {
   let service: NotificationService;
-  let prisma: MockPrismaService;
+  let mockRepo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
-    // Ensure sendPush doesn't fail — mock userDevice lookup
-    prisma.userDevice.findUnique.mockResolvedValue(null);
+    mockRepo = {
+      create: jest.fn(),
+      markRead: jest.fn(),
+      markAllRead: jest.fn(),
+      findByUser: jest.fn(),
+      countByUser: jest.fn(),
+      countUnread: jest.fn(),
+      findDeviceToken: jest.fn().mockResolvedValue(null),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         NotificationService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: NOTIFICATION_REPOSITORY, useValue: mockRepo },
       ],
     }).compile();
 
@@ -24,7 +29,7 @@ describe('NotificationService', () => {
 
   it('should create a notification', async () => {
     const notif = { id: 'n1', userId: 'u1', event: 'TEST', title: 'T', message: 'M', isRead: false };
-    prisma.notification.create.mockResolvedValue(notif);
+    mockRepo.create.mockResolvedValue(notif);
 
     const result = await service.create({
       userId: 'u1',
@@ -34,36 +39,31 @@ describe('NotificationService', () => {
     });
 
     expect(result).toEqual(notif);
-    expect(prisma.notification.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ userId: 'u1', isRead: false }),
-    });
+    expect(mockRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', isRead: false }),
+    );
   });
 
   it('should mark a notification as read', async () => {
-    prisma.notification.update.mockResolvedValue({ id: 'n1', isRead: true });
+    mockRepo.markRead.mockResolvedValue({ id: 'n1', isRead: true });
 
     await service.markRead('n1');
 
-    expect(prisma.notification.update).toHaveBeenCalledWith({
-      where: { id: 'n1' },
-      data: expect.objectContaining({ isRead: true }),
-    });
+    expect(mockRepo.markRead).toHaveBeenCalledWith('n1');
   });
 
   it('should mark all notifications as read for a user', async () => {
-    prisma.notification.updateMany.mockResolvedValue({ count: 3 });
+    mockRepo.markAllRead.mockResolvedValue({ count: 3 });
 
     await service.markAllRead('u1');
 
-    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', isRead: false },
-      data: expect.objectContaining({ isRead: true }),
-    });
+    expect(mockRepo.markAllRead).toHaveBeenCalledWith('u1');
   });
 
   it('should get notifications by user with pagination', async () => {
-    prisma.notification.findMany.mockResolvedValue([]);
-    prisma.notification.count.mockResolvedValueOnce(5).mockResolvedValueOnce(2);
+    mockRepo.findByUser.mockResolvedValue([]);
+    mockRepo.countByUser.mockResolvedValue(5);
+    mockRepo.countUnread.mockResolvedValue(2);
 
     const result = await service.getByUser('u1', 0, 10);
 
@@ -71,13 +71,11 @@ describe('NotificationService', () => {
   });
 
   it('should get unread count', async () => {
-    prisma.notification.count.mockResolvedValue(7);
+    mockRepo.countUnread.mockResolvedValue(7);
 
     const result = await service.getUnreadCount('u1');
 
     expect(result).toEqual({ count: 7 });
-    expect(prisma.notification.count).toHaveBeenCalledWith({
-      where: { userId: 'u1', isRead: false },
-    });
+    expect(mockRepo.countUnread).toHaveBeenCalledWith('u1');
   });
 });

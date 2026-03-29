@@ -17,6 +17,7 @@ import { ChangeLeadStageHandler } from './application/commands/change-lead-stage
 import { MarkLeadLostHandler } from './application/commands/mark-lead-lost.command';
 import { MarkLeadCancelledHandler } from './application/commands/mark-lead-cancelled.command';
 import { UpdateLeadMetadataHandler } from './application/commands/update-lead-metadata.command';
+import { UpdateLeadHandler } from './application/commands/update-lead.command';
 import { AutoAdvanceInstallsHandler } from './application/commands/auto-advance-installs.handler';
 
 // Query handlers
@@ -37,6 +38,7 @@ import { PrismaPropertyRepository } from './infrastructure/repositories/prisma-p
 import { LeadNoteService } from './application/services/lead-note.service';
 import { LeadAssignmentService } from './application/services/lead-assignment.service';
 import { LeadScoringAppService } from './application/services/lead-scoring-app.service';
+import { PipelineTransitionService } from './application/services/pipeline-transition.service';
 
 // Listeners
 import { StageAdvanceListener } from './application/listeners/stage-advance.listener';
@@ -55,6 +57,7 @@ const CommandHandlers = [
   MarkLeadLostHandler,
   MarkLeadCancelledHandler,
   UpdateLeadMetadataHandler,
+  UpdateLeadHandler,
 ];
 const QueryHandlers = [ListLeadsHandler, GetPipelineViewHandler];
 const CronHandlers = [AutoAdvanceInstallsHandler];
@@ -75,6 +78,7 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
     LeadNoteService,
     LeadAssignmentService,
     LeadScoringAppService,
+    PipelineTransitionService,
     ...CommandHandlers,
     ...QueryHandlers,
     ...CronHandlers,

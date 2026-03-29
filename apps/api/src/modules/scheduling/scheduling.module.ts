@@ -7,6 +7,8 @@ import { BookAppointmentHandler } from './application/commands/book-appointment.
 import { GetAvailabilityHandler } from './application/queries/get-availability.handler';
 import { CancellationListener } from './application/listeners/cancellation.listener';
 import { AppointmentService } from './application/services/appointment.service';
+import { APPOINTMENT_REPOSITORY } from './application/ports/appointment.repository.port';
+import { PrismaAppointmentRepository } from './infrastructure/repositories/prisma-appointment.repository';
 
 const CommandHandlers = [BookAppointmentHandler];
 const QueryHandlers = [GetAvailabilityHandler];
@@ -15,6 +17,12 @@ const Listeners = [CancellationListener];
 @Module({
   imports: [CqrsModule, PrismaModule, IntegrationsModule],
   controllers: [SchedulingController],
-  providers: [AppointmentService, ...CommandHandlers, ...QueryHandlers, ...Listeners],
+  providers: [
+    AppointmentService,
+    ...CommandHandlers,
+    ...QueryHandlers,
+    ...Listeners,
+    { provide: APPOINTMENT_REPOSITORY, useClass: PrismaAppointmentRepository },
+  ],
 })
 export class SchedulingModule {}

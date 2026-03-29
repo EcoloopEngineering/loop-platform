@@ -1,23 +1,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { FormService } from './form.service';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../test/prisma-mock.helper';
+import { FORM_REPOSITORY } from './ports/form.repository.port';
 
 describe('FormService', () => {
   let service: FormService;
-  let prisma: MockPrismaService;
+  let mockRepo: {
+    findAll: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    findActiveBySlug: jest.Mock;
+    createSubmission: jest.Mock;
+  };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    mockRepo = {
+      findAll: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      findActiveBySlug: jest.fn(),
+      createSubmission: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FormService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: FORM_REPOSITORY, useValue: mockRepo },
       ],
     }).compile();
 
@@ -25,15 +33,13 @@ describe('FormService', () => {
   });
 
   describe('listForms', () => {
-    it('should return all forms ordered by createdAt desc', async () => {
+    it('should return all forms', async () => {
       const forms = [{ id: 'f1', name: 'Form 1' }];
-      prisma.form.findMany.mockResolvedValue(forms);
+      mockRepo.findAll.mockResolvedValue(forms);
 
       const result = await service.listForms();
 
-      expect(prisma.form.findMany).toHaveBeenCalledWith({
-        orderBy: { createdAt: 'desc' },
-      });
+      expect(mockRepo.findAll).toHaveBeenCalled();
       expect(result).toEqual(forms);
     });
   });
@@ -41,20 +47,18 @@ describe('FormService', () => {
   describe('createForm', () => {
     it('should create a form with the given data', async () => {
       const created = { id: 'f1', name: 'My Form', slug: 'my-form' };
-      prisma.form.create.mockResolvedValue(created);
+      mockRepo.create.mockResolvedValue(created);
 
       const result = await service.createForm(
         { name: 'My Form', slug: 'my-form', fields: [] },
         'user-1',
       );
 
-      expect(prisma.form.create).toHaveBeenCalledWith({
-        data: {
-          name: 'My Form',
-          slug: 'my-form',
-          config: [],
-          userId: 'user-1',
-        },
+      expect(mockRepo.create).toHaveBeenCalledWith({
+        name: 'My Form',
+        slug: 'my-form',
+        config: [],
+        userId: 'user-1',
       });
       expect(result).toEqual(created);
     });
@@ -62,44 +66,36 @@ describe('FormService', () => {
 
   describe('updateForm', () => {
     it('should update only provided fields', async () => {
-      prisma.form.update.mockResolvedValue({ id: 'f1', name: 'Updated' });
+      mockRepo.update.mockResolvedValue({ id: 'f1', name: 'Updated' });
 
       const result = await service.updateForm('f1', { name: 'Updated' });
 
-      expect(prisma.form.update).toHaveBeenCalledWith({
-        where: { id: 'f1' },
-        data: { name: 'Updated' },
-      });
+      expect(mockRepo.update).toHaveBeenCalledWith('f1', { name: 'Updated' });
       expect(result.name).toBe('Updated');
     });
 
     it('should set isActive true when status is PUBLISHED', async () => {
-      prisma.form.update.mockResolvedValue({ id: 'f1', isActive: true });
+      mockRepo.update.mockResolvedValue({ id: 'f1', isActive: true });
 
       await service.updateForm('f1', { status: 'PUBLISHED' });
 
-      expect(prisma.form.update).toHaveBeenCalledWith({
-        where: { id: 'f1' },
-        data: { isActive: true },
-      });
+      expect(mockRepo.update).toHaveBeenCalledWith('f1', { isActive: true });
     });
   });
 
   describe('getPublicForm', () => {
     it('should return a published form by slug', async () => {
       const form = { id: 'f1', slug: 'test', isActive: true };
-      prisma.form.findFirst.mockResolvedValue(form);
+      mockRepo.findActiveBySlug.mockResolvedValue(form);
 
       const result = await service.getPublicForm('test');
 
-      expect(prisma.form.findFirst).toHaveBeenCalledWith({
-        where: { slug: 'test', isActive: true },
-      });
+      expect(mockRepo.findActiveBySlug).toHaveBeenCalledWith('test');
       expect(result).toEqual(form);
     });
 
     it('should throw NotFoundException when form not found', async () => {
-      prisma.form.findFirst.mockResolvedValue(null);
+      mockRepo.findActiveBySlug.mockResolvedValue(null);
 
       await expect(service.getPublicForm('missing')).rejects.toThrow(
         NotFoundException,
@@ -110,20 +106,21 @@ describe('FormService', () => {
   describe('submitPublicForm', () => {
     it('should create a form submission', async () => {
       const form = { id: 'f1', slug: 'test', isActive: true };
-      prisma.form.findFirst.mockResolvedValue(form);
+      mockRepo.findActiveBySlug.mockResolvedValue(form);
       const submission = { id: 's1', formId: 'f1', data: { name: 'John' } };
-      prisma.formSubmission.create.mockResolvedValue(submission);
+      mockRepo.createSubmission.mockResolvedValue(submission);
 
       const result = await service.submitPublicForm('test', { name: 'John' });
 
-      expect(prisma.formSubmission.create).toHaveBeenCalledWith({
-        data: { formId: 'f1', data: { name: 'John' } },
+      expect(mockRepo.createSubmission).toHaveBeenCalledWith({
+        formId: 'f1',
+        data: { name: 'John' },
       });
       expect(result).toEqual(submission);
     });
 
     it('should throw NotFoundException when form not found', async () => {
-      prisma.form.findFirst.mockResolvedValue(null);
+      mockRepo.findActiveBySlug.mockResolvedValue(null);
 
       await expect(
         service.submitPublicForm('missing', { name: 'John' }),

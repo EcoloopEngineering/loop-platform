@@ -2,17 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { RewardOrderService } from './reward-order.service';
 import { CoinService } from './coin.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
+import { REWARD_REPOSITORY } from '../ports/reward.repository.port';
 import { AuthenticatedUser } from '../../../../common/types/authenticated-user.type';
 import { UserRole } from '@loop/shared';
 
 describe('RewardOrderService', () => {
   let service: RewardOrderService;
-  let prisma: MockPrismaService;
+  let mockRepo: Record<string, jest.Mock>;
   let coinService: { deductCoins: jest.Mock; addCoins: jest.Mock };
 
   const mockUser: AuthenticatedUser = {
@@ -26,13 +22,24 @@ describe('RewardOrderService', () => {
   };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    mockRepo = {
+      findActiveProducts: jest.fn(),
+      findProductById: jest.fn(),
+      createProduct: jest.fn(),
+      updateProduct: jest.fn(),
+      createOrder: jest.fn(),
+      findOrdersByUser: jest.fn(),
+      findAllOrders: jest.fn(),
+      findOrderById: jest.fn(),
+      findOrderByIdWithProduct: jest.fn(),
+      updateOrderStatus: jest.fn(),
+    };
     coinService = { deductCoins: jest.fn(), addCoins: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardOrderService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: REWARD_REPOSITORY, useValue: mockRepo },
         { provide: CoinService, useValue: coinService },
       ],
     }).compile();
@@ -45,20 +52,17 @@ describe('RewardOrderService', () => {
   });
 
   describe('listProducts', () => {
-    it('should return active reward products ordered by price', async () => {
+    it('should return active reward products', async () => {
       const mockProducts = [
         { id: 'p1', code: 'HAT', name: 'Hat', price: 30, isActive: true },
         { id: 'p2', code: 'TSHIRT', name: 'T-Shirt', price: 50, isActive: true },
       ];
-      prisma.rewardProduct.findMany.mockResolvedValue(mockProducts);
+      mockRepo.findActiveProducts.mockResolvedValue(mockProducts);
 
       const result = await service.listProducts();
 
       expect(result).toEqual(mockProducts);
-      expect(prisma.rewardProduct.findMany).toHaveBeenCalledWith({
-        where: { isActive: true },
-        orderBy: { price: 'asc' },
-      });
+      expect(mockRepo.findActiveProducts).toHaveBeenCalled();
     });
   });
 
@@ -72,7 +76,7 @@ describe('RewardOrderService', () => {
     };
 
     it('should deduct coins and create an order', async () => {
-      prisma.rewardProduct.findUnique.mockResolvedValue(product);
+      mockRepo.findProductById.mockResolvedValue(product);
       coinService.deductCoins.mockResolvedValue(undefined);
       const createdOrder = {
         id: 'order-1',
@@ -81,7 +85,7 @@ describe('RewardOrderService', () => {
         coinsSpent: 50,
         product,
       };
-      prisma.rewardOrder.create.mockResolvedValue(createdOrder);
+      mockRepo.createOrder.mockResolvedValue(createdOrder);
 
       const result = await service.placeOrder(mockUser, 'p1');
 
@@ -90,13 +94,10 @@ describe('RewardOrderService', () => {
         50,
         'Reward order: T-Shirt',
       );
-      expect(prisma.rewardOrder.create).toHaveBeenCalledWith({
-        data: {
-          userId: 'user-1',
-          productId: 'p1',
-          coinsSpent: 50,
-        },
-        include: { product: true },
+      expect(mockRepo.createOrder).toHaveBeenCalledWith({
+        userId: 'user-1',
+        productId: 'p1',
+        coinsSpent: 50,
       });
       expect(result).toEqual(createdOrder);
     });
@@ -108,7 +109,7 @@ describe('RewardOrderService', () => {
     });
 
     it('should throw BadRequestException when product is not found', async () => {
-      prisma.rewardProduct.findUnique.mockResolvedValue(null);
+      mockRepo.findProductById.mockResolvedValue(null);
 
       await expect(
         service.placeOrder(mockUser, 'nonexistent'),
@@ -116,7 +117,7 @@ describe('RewardOrderService', () => {
     });
 
     it('should throw BadRequestException when product is inactive', async () => {
-      prisma.rewardProduct.findUnique.mockResolvedValue({
+      mockRepo.findProductById.mockResolvedValue({
         id: 'p1',
         price: 50,
         isActive: false,
@@ -128,7 +129,7 @@ describe('RewardOrderService', () => {
     });
 
     it('should propagate error when coins are insufficient', async () => {
-      prisma.rewardProduct.findUnique.mockResolvedValue(product);
+      mockRepo.findProductById.mockResolvedValue(product);
       coinService.deductCoins.mockRejectedValue(
         new BadRequestException('Insufficient coin balance'),
       );
@@ -149,26 +150,22 @@ describe('RewardOrderService', () => {
           product: { name: 'T-Shirt' },
         },
       ];
-      prisma.rewardOrder.findMany.mockResolvedValue(mockOrders);
+      mockRepo.findOrdersByUser.mockResolvedValue(mockOrders);
 
       const result = await service.getOrders('user-1');
 
       expect(result).toEqual(mockOrders);
-      expect(prisma.rewardOrder.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        orderBy: { createdAt: 'desc' },
-        include: { product: true },
-      });
+      expect(mockRepo.findOrdersByUser).toHaveBeenCalledWith('user-1');
     });
   });
 
   describe('fulfillOrder', () => {
     it('should fulfill a pending order', async () => {
-      prisma.rewardOrder.findUnique.mockResolvedValue({
+      mockRepo.findOrderById.mockResolvedValue({
         id: 'order-1',
         status: 'PENDING',
       });
-      prisma.rewardOrder.update.mockResolvedValue({
+      mockRepo.updateOrderStatus.mockResolvedValue({
         id: 'order-1',
         status: 'FULFILLED',
         product: { name: 'T-Shirt' },
@@ -180,7 +177,7 @@ describe('RewardOrderService', () => {
     });
 
     it('should throw NotFoundException when order does not exist', async () => {
-      prisma.rewardOrder.findUnique.mockResolvedValue(null);
+      mockRepo.findOrderById.mockResolvedValue(null);
 
       await expect(service.fulfillOrder('nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -188,7 +185,7 @@ describe('RewardOrderService', () => {
     });
 
     it('should throw BadRequestException when order is not PENDING', async () => {
-      prisma.rewardOrder.findUnique.mockResolvedValue({
+      mockRepo.findOrderById.mockResolvedValue({
         id: 'order-1',
         status: 'FULFILLED',
       });
@@ -201,7 +198,7 @@ describe('RewardOrderService', () => {
 
   describe('cancelOrder', () => {
     it('should cancel an order and refund coins', async () => {
-      prisma.rewardOrder.findUnique.mockResolvedValue({
+      mockRepo.findOrderByIdWithProduct.mockResolvedValue({
         id: 'order-1',
         userId: 'user-1',
         coinsSpent: 50,
@@ -209,7 +206,7 @@ describe('RewardOrderService', () => {
         product: { name: 'T-Shirt' },
       });
       coinService.addCoins.mockResolvedValue(undefined);
-      prisma.rewardOrder.update.mockResolvedValue({
+      mockRepo.updateOrderStatus.mockResolvedValue({
         id: 'order-1',
         status: 'CANCELLED',
         product: { name: 'T-Shirt' },
@@ -226,7 +223,7 @@ describe('RewardOrderService', () => {
     });
 
     it('should throw NotFoundException when order does not exist', async () => {
-      prisma.rewardOrder.findUnique.mockResolvedValue(null);
+      mockRepo.findOrderByIdWithProduct.mockResolvedValue(null);
 
       await expect(service.cancelOrder('nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -234,7 +231,7 @@ describe('RewardOrderService', () => {
     });
 
     it('should throw BadRequestException when order is already cancelled', async () => {
-      prisma.rewardOrder.findUnique.mockResolvedValue({
+      mockRepo.findOrderByIdWithProduct.mockResolvedValue({
         id: 'order-1',
         status: 'CANCELLED',
         product: { name: 'T-Shirt' },

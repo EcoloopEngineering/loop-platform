@@ -127,6 +127,9 @@ import type { Ref } from 'vue';
 import { api } from '@/boot/axios';
 import { titleCase } from '@/utils/format';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import { useLeadFormatting } from '@/composables/useLeadFormatting';
+
+const { stageColor, formatStage, formatSource, timeAgo } = useLeadFormatting();
 
 const loadingLeads = ref(true);
 const leads = ref<any[]>([]);
@@ -224,35 +227,6 @@ onMounted(async () => {
     loadingLeads.value = false;
   }
 });
-
-const STAGE_COLORS: Record<string, string> = {
-  // Closer
-  NEW_LEAD: '#4CAF50', ALREADY_CALLED: '#8BC34A', CONNECTED: '#2196F3',
-  REQUEST_DESIGN: '#03A9F4', DESIGN_IN_PROGRESS: '#FF9800', DESIGN_READY: '#9C27B0', WON: '#00897B',
-  // PM
-  SITE_AUDIT: '#FF5722', PROGRESS_REVIEW: '#E91E63', NTP: '#9C27B0', ENGINEERING: '#3F51B5',
-  PERMIT_AND_ICE: '#2196F3', FINAL_APPROVAL: '#00BCD4', INSTALL_READY: '#009688', INSTALL: '#4CAF50',
-  COMMISSION: '#8BC34A', SITE_COMPLETE: '#CDDC39', INITIAL_SUBMISSION_AND_INSPECTION: '#FFC107',
-  WAITING_FOR_PTO: '#FF9800', FINAL_SUBMISSION: '#FF5722', CUSTOMER_SUCCESS: '#4CAF50',
-  // Finance
-  FIN_TICKETS_OPEN: '#2196F3', FIN_IN_PROGRESS: '#FF9800', FIN_POST_INITIAL_NURTURE: '#9C27B0', FIN_TICKETS_CLOSED: '#4CAF50',
-  // Maintenance
-  MAINT_TICKETS_OPEN: '#2196F3', MAINT_IN_PROGRESS: '#FF9800', MAINT_POST_INSTALL_NURTURE: '#9C27B0', MAINT_TICKETS_CLOSED: '#4CAF50',
-};
-
-function stageColor(s: string) { return STAGE_COLORS[s] ?? '#9E9E9E'; }
-function formatStage(s: string) { return (s || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }
-function formatSource(s: string) { return (s || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }
-
-function timeAgo(date: string) {
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 const ICONS: Record<string, string> = {
   LEAD_ASSIGNED: 'person_add', STAGE_CHANGE: 'swap_horiz', DESIGN_COMPLETED: 'check_circle',

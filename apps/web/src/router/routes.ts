@@ -91,12 +91,6 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
     children: [
       {
-        path: 'leads/new',
-        name: 'lead-new',
-        component: () => import('@/pages/leads/LeadCreatePage.vue'),
-        meta: { hideLayoutBack: true },
-      },
-      {
         path: 'leads/:id',
         name: 'lead-detail',
         component: () => import('@/pages/leads/LeadDetailPage.vue'),

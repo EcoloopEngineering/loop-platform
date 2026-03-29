@@ -1,12 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, SenderType } from '@prisma/client';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import {
+  CHAT_REPOSITORY,
+  ChatRepositoryPort,
+} from '../ports/chat.repository.port';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(CHAT_REPOSITORY)
+    private readonly chatRepo: ChatRepositoryPort,
+  ) {}
 
   async createConversation(params: {
     userId?: string;
@@ -14,16 +19,7 @@ export class ChatService {
     visitorEmail?: string;
     subject?: string;
   }) {
-    return this.prisma.conversation.create({
-      data: {
-        userId: params.userId,
-        visitorName: params.visitorName,
-        visitorEmail: params.visitorEmail,
-        subject: params.subject,
-        status: 'OPEN',
-      },
-      include: { messages: true },
-    });
+    return this.chatRepo.createConversation(params);
   }
 
   async addMessage(params: {
@@ -33,70 +29,45 @@ export class ChatService {
     content: string;
     isAutoReply?: boolean;
   }) {
-    const message = await this.prisma.message.create({
-      data: {
-        conversationId: params.conversationId,
-        senderId: params.senderId,
-        senderType: params.senderType as SenderType,
-        content: params.content,
-        isAutoReply: params.isAutoReply ?? false,
-      },
+    const message = await this.chatRepo.addMessage({
+      conversationId: params.conversationId,
+      senderId: params.senderId,
+      senderType: params.senderType,
+      content: params.content,
+      isAutoReply: params.isAutoReply ?? false,
     });
 
     // Update conversation updatedAt
-    await this.prisma.conversation.update({
-      where: { id: params.conversationId },
-      data: { updatedAt: new Date() },
-    });
+    await this.chatRepo.touchConversation(params.conversationId);
 
     return message;
   }
 
   async getConversation(id: string) {
-    return this.prisma.conversation.findUnique({
-      where: { id },
-      include: {
-        messages: { orderBy: { createdAt: 'asc' } },
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
-        agent: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
+    return this.chatRepo.findConversationById(id);
   }
 
   async getConversations(params?: { status?: string; userId?: string }) {
-    const where: Prisma.ConversationWhereInput = {};
-    if (params?.status) where.status = params.status as Prisma.EnumConversationStatusFilter;
-    if (params?.userId) where.userId = params.userId;
-
-    return this.prisma.conversation.findMany({
-      where,
-      include: {
-        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
-        user: { select: { firstName: true, lastName: true, email: true } },
-        agent: { select: { firstName: true, lastName: true } },
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
+    return this.chatRepo.findConversations(params);
   }
 
   async assignAgent(conversationId: string, agentId: string) {
-    return this.prisma.conversation.update({
-      where: { id: conversationId },
-      data: { assignedTo: agentId, status: 'WITH_AGENT' },
+    return this.chatRepo.updateConversation(conversationId, {
+      assignedTo: agentId,
+      status: 'WITH_AGENT',
     });
   }
 
   async closeConversation(conversationId: string) {
-    return this.prisma.conversation.update({
-      where: { id: conversationId },
-      data: { status: 'CLOSED', closedAt: new Date() },
+    return this.chatRepo.updateConversation(conversationId, {
+      status: 'CLOSED',
+      closedAt: new Date(),
     });
   }
 
   async requestAgent(conversationId: string) {
-    return this.prisma.conversation.update({
-      where: { id: conversationId },
-      data: { status: 'WAITING_AGENT' },
+    return this.chatRepo.updateConversation(conversationId, {
+      status: 'WAITING_AGENT',
     });
   }
 }

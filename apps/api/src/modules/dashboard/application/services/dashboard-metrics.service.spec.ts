@@ -1,19 +1,26 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardMetricsService } from './dashboard-metrics.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
+import { DASHBOARD_REPOSITORY } from '../ports/dashboard.repository.port';
 
 describe('DashboardMetricsService', () => {
   let service: DashboardMetricsService;
-  let prisma: MockPrismaService;
+  let mockRepo: {
+    countLeads: jest.Mock;
+    aggregateCommission: jest.Mock;
+    countActiveUsers: jest.Mock;
+  };
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    mockRepo = {
+      countLeads: jest.fn(),
+      aggregateCommission: jest.fn(),
+      countActiveUsers: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardMetricsService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DASHBOARD_REPOSITORY, useValue: mockRepo },
       ],
     }).compile();
 
@@ -22,13 +29,11 @@ describe('DashboardMetricsService', () => {
 
   describe('getMetrics', () => {
     it('should return aggregated platform metrics', async () => {
-      prisma.lead.count
+      mockRepo.countLeads
         .mockResolvedValueOnce(100)  // totalLeads
         .mockResolvedValueOnce(25);  // wonLeads
-      prisma.commission.aggregate.mockResolvedValue({
-        _sum: { amount: 50000 },
-      });
-      prisma.user.count.mockResolvedValue(15);
+      mockRepo.aggregateCommission.mockResolvedValue(50000);
+      mockRepo.countActiveUsers.mockResolvedValue(15);
 
       const result = await service.getMetrics('2026-01-01', '2026-03-31');
 
@@ -42,13 +47,11 @@ describe('DashboardMetricsService', () => {
     });
 
     it('should return 0 conversion rate when no leads exist', async () => {
-      prisma.lead.count
+      mockRepo.countLeads
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
-      prisma.commission.aggregate.mockResolvedValue({
-        _sum: { amount: null },
-      });
-      prisma.user.count.mockResolvedValue(5);
+      mockRepo.aggregateCommission.mockResolvedValue(0);
+      mockRepo.countActiveUsers.mockResolvedValue(5);
 
       const result = await service.getMetrics('2026-01-01', '2026-03-31');
 
@@ -56,14 +59,12 @@ describe('DashboardMetricsService', () => {
       expect(result.totalCommission).toBe(0);
     });
 
-    it('should construct correct date filters for Prisma queries', async () => {
-      prisma.lead.count
+    it('should construct correct date filters for repository calls', async () => {
+      mockRepo.countLeads
         .mockResolvedValueOnce(10)
         .mockResolvedValueOnce(2);
-      prisma.commission.aggregate.mockResolvedValue({
-        _sum: { amount: 1000 },
-      });
-      prisma.user.count.mockResolvedValue(3);
+      mockRepo.aggregateCommission.mockResolvedValue(1000);
+      mockRepo.countActiveUsers.mockResolvedValue(3);
 
       await service.getMetrics('2026-02-01', '2026-02-28');
 
@@ -74,15 +75,16 @@ describe('DashboardMetricsService', () => {
         },
       };
 
-      expect(prisma.lead.count).toHaveBeenCalledWith({ where: expectedDateFilter });
-      expect(prisma.lead.count).toHaveBeenCalledWith({
-        where: { currentStage: 'WON', ...expectedDateFilter },
+      expect(mockRepo.countLeads).toHaveBeenCalledWith(expectedDateFilter);
+      expect(mockRepo.countLeads).toHaveBeenCalledWith({
+        currentStage: 'WON',
+        ...expectedDateFilter,
       });
-      expect(prisma.commission.aggregate).toHaveBeenCalledWith({
-        where: { status: 'ACTIVE', ...expectedDateFilter },
-        _sum: { amount: true },
+      expect(mockRepo.aggregateCommission).toHaveBeenCalledWith({
+        status: 'ACTIVE',
+        ...expectedDateFilter,
       });
-      expect(prisma.user.count).toHaveBeenCalledWith({ where: { isActive: true } });
+      expect(mockRepo.countActiveUsers).toHaveBeenCalled();
     });
   });
 });

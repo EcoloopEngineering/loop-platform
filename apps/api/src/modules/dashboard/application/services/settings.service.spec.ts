@@ -1,25 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { SettingsService } from './settings.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
+import { SETTINGS_REPOSITORY } from '../ports/settings.repository.port';
 
 describe('SettingsService', () => {
   let service: SettingsService;
-  let prisma: MockPrismaService;
+  let mockRepo: {
+    findAll: jest.Mock;
+    findByKey: jest.Mock;
+    upsert: jest.Mock;
+  };
   let configGet: jest.Mock;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    mockRepo = {
+      findAll: jest.fn(),
+      findByKey: jest.fn(),
+      upsert: jest.fn(),
+    };
     configGet = jest.fn().mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SettingsService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: SETTINGS_REPOSITORY, useValue: mockRepo },
         { provide: ConfigService, useValue: { get: configGet } },
       ],
     }).compile();
@@ -68,7 +72,7 @@ describe('SettingsService', () => {
 
   describe('getAll', () => {
     it('should return all settings as key-value map', async () => {
-      prisma.appSetting.findMany.mockResolvedValue([
+      mockRepo.findAll.mockResolvedValue([
         { key: 'theme', value: { color: 'blue' } },
         { key: 'notifications', value: { enabled: true } },
       ]);
@@ -82,7 +86,7 @@ describe('SettingsService', () => {
     });
 
     it('should return empty object when no settings exist', async () => {
-      prisma.appSetting.findMany.mockResolvedValue([]);
+      mockRepo.findAll.mockResolvedValue([]);
       const result = await service.getAll();
       expect(result).toEqual({});
     });
@@ -90,7 +94,7 @@ describe('SettingsService', () => {
 
   describe('getByKey', () => {
     it('should return the value for an existing key', async () => {
-      prisma.appSetting.findUnique.mockResolvedValue({
+      mockRepo.findByKey.mockResolvedValue({
         key: 'theme',
         value: { color: 'blue' },
       });
@@ -100,7 +104,7 @@ describe('SettingsService', () => {
     });
 
     it('should return empty object when key not found', async () => {
-      prisma.appSetting.findUnique.mockResolvedValue(null);
+      mockRepo.findByKey.mockResolvedValue(null);
       const result = await service.getByKey('nonexistent');
       expect(result).toEqual({});
     });
@@ -108,35 +112,28 @@ describe('SettingsService', () => {
 
   describe('upsert', () => {
     it('should merge new values with existing setting', async () => {
-      prisma.appSetting.findUnique.mockResolvedValue({
+      mockRepo.findByKey.mockResolvedValue({
         key: 'theme',
         value: { color: 'blue', font: 'Inter' },
       });
-      prisma.appSetting.upsert.mockResolvedValue({
+      mockRepo.upsert.mockResolvedValue({
         key: 'theme',
         value: { color: 'red', font: 'Inter' },
       });
 
       const result = await service.upsert('theme', { color: 'red' }, 'user-1');
 
-      expect(prisma.appSetting.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { key: 'theme' },
-          create: expect.objectContaining({
-            key: 'theme',
-            value: { color: 'red', font: 'Inter' },
-          }),
-          update: expect.objectContaining({
-            value: { color: 'red', font: 'Inter' },
-          }),
-        }),
+      expect(mockRepo.upsert).toHaveBeenCalledWith(
+        'theme',
+        { color: 'red', font: 'Inter' },
+        'user-1',
       );
       expect(result).toEqual({ color: 'red', font: 'Inter' });
     });
 
     it('should create a new setting when key does not exist', async () => {
-      prisma.appSetting.findUnique.mockResolvedValue(null);
-      prisma.appSetting.upsert.mockResolvedValue({
+      mockRepo.findByKey.mockResolvedValue(null);
+      mockRepo.upsert.mockResolvedValue({
         key: 'newKey',
         value: { foo: 'bar' },
       });
@@ -145,20 +142,19 @@ describe('SettingsService', () => {
       expect(result).toEqual({ foo: 'bar' });
     });
 
-    it('should pass userId as updatedBy', async () => {
-      prisma.appSetting.findUnique.mockResolvedValue(null);
-      prisma.appSetting.upsert.mockResolvedValue({
+    it('should pass userId to upsert', async () => {
+      mockRepo.findByKey.mockResolvedValue(null);
+      mockRepo.upsert.mockResolvedValue({
         key: 'k',
         value: { a: 1 },
       });
 
       await service.upsert('k', { a: 1 }, 'user-42');
 
-      expect(prisma.appSetting.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ updatedBy: 'user-42' }),
-          update: expect.objectContaining({ updatedBy: 'user-42' }),
-        }),
+      expect(mockRepo.upsert).toHaveBeenCalledWith(
+        'k',
+        { a: 1 },
+        'user-42',
       );
     });
   });

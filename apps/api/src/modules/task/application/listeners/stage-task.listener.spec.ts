@@ -2,12 +2,14 @@ import { Test } from '@nestjs/testing';
 import { StageTaskListener } from './stage-task.listener';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { GoogleChatService } from '../../../../integrations/google-chat/google-chat.service';
+import { TaskCreationService } from '../services/task-creation.service';
 import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('StageTaskListener', () => {
   let listener: StageTaskListener;
   let prisma: MockPrismaService;
   let googleChat: { isConfigured: jest.Mock; sendMessage: jest.Mock };
+  let taskCreationService: { createTasksFromTemplates: jest.Mock; evaluateConditions: jest.Mock };
 
   beforeEach(async () => {
     prisma = createMockPrismaService();
@@ -15,12 +17,17 @@ describe('StageTaskListener', () => {
       isConfigured: jest.fn().mockReturnValue(false),
       sendMessage: jest.fn().mockResolvedValue(undefined),
     };
+    taskCreationService = {
+      createTasksFromTemplates: jest.fn().mockResolvedValue([]),
+      evaluateConditions: jest.fn().mockReturnValue(true),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         StageTaskListener,
         { provide: PrismaService, useValue: prisma },
         { provide: GoogleChatService, useValue: googleChat },
+        { provide: TaskCreationService, useValue: taskCreationService },
       ],
     }).compile();
 
@@ -45,7 +52,7 @@ describe('StageTaskListener', () => {
       metadata: {},
       property: { state: 'CT' },
     });
-    prisma.task.create.mockResolvedValue({ id: 'task-1' });
+    taskCreationService.createTasksFromTemplates.mockResolvedValue(['task-1']);
     prisma.leadActivity.create.mockResolvedValue({});
 
     await listener.handleStageChanged({
@@ -60,7 +67,7 @@ describe('StageTaskListener', () => {
         where: { stage: 'DESIGN_READY', isActive: true },
       }),
     );
-    expect(prisma.task.create).toHaveBeenCalledTimes(1);
+    expect(taskCreationService.createTasksFromTemplates).toHaveBeenCalledTimes(1);
     expect(prisma.leadActivity.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -71,71 +78,7 @@ describe('StageTaskListener', () => {
     );
   });
 
-  it('should skip templates when conditions are not met', async () => {
-    prisma.taskTemplate.findMany.mockResolvedValue([
-      {
-        id: 'tmpl-1',
-        title: 'CT-only task',
-        description: null,
-        defaultAssigneeRole: null,
-        defaultAssigneeEmail: null,
-        subtasks: null,
-        conditions: { state: 'CT' },
-        sortOrder: 0,
-      },
-    ]);
-    prisma.lead.findUnique.mockResolvedValue({
-      id: 'lead-1',
-      metadata: {},
-      property: { state: 'NY' },
-    });
-
-    await listener.handleStageChanged({
-      leadId: 'lead-1',
-      customerName: 'Jane Doe',
-      previousStage: 'NEW_LEAD',
-      newStage: 'DESIGN_READY',
-    });
-
-    expect(prisma.task.create).not.toHaveBeenCalled();
-  });
-
-  it('should create subtasks when template has subtask definitions', async () => {
-    prisma.taskTemplate.findMany.mockResolvedValue([
-      {
-        id: 'tmpl-1',
-        title: 'Parent Task',
-        description: null,
-        defaultAssigneeRole: null,
-        defaultAssigneeEmail: null,
-        subtasks: [
-          { title: 'Sub 1', description: 'First subtask' },
-          { title: 'Sub 2', description: 'Second subtask' },
-        ],
-        conditions: null,
-        sortOrder: 0,
-      },
-    ]);
-    prisma.lead.findUnique.mockResolvedValue({
-      id: 'lead-1',
-      metadata: {},
-      property: { state: 'CT' },
-    });
-    prisma.task.create.mockResolvedValue({ id: 'task-1' });
-    prisma.leadActivity.create.mockResolvedValue({});
-
-    await listener.handleStageChanged({
-      leadId: 'lead-1',
-      customerName: 'Bob',
-      previousStage: 'NEW_LEAD',
-      newStage: 'CONNECTED',
-    });
-
-    // 1 parent + 2 subtasks = 3 creates
-    expect(prisma.task.create).toHaveBeenCalledTimes(3);
-  });
-
-  it('should do nothing when no templates exist for stage', async () => {
+  it('should skip when no templates exist for stage', async () => {
     prisma.taskTemplate.findMany.mockResolvedValue([]);
 
     await listener.handleStageChanged({
@@ -145,62 +88,48 @@ describe('StageTaskListener', () => {
       newStage: 'DESIGN_READY',
     });
 
-    expect(prisma.task.create).not.toHaveBeenCalled();
+    expect(taskCreationService.createTasksFromTemplates).not.toHaveBeenCalled();
     expect(prisma.leadActivity.create).not.toHaveBeenCalled();
   });
 
-  it('should resolve assignee by email', async () => {
-    prisma.taskTemplate.findMany.mockResolvedValue([
-      {
-        id: 'tmpl-1',
-        title: 'Assigned task',
-        description: null,
-        defaultAssigneeRole: null,
-        defaultAssigneeEmail: 'john@ecoloop.us',
-        subtasks: null,
-        conditions: null,
-        sortOrder: 0,
-      },
-    ]);
+  it('should skip when lead is not found', async () => {
+    prisma.taskTemplate.findMany.mockResolvedValue([{ id: 'tmpl-1' }]);
+    prisma.lead.findUnique.mockResolvedValue(null);
+
+    await listener.handleStageChanged({
+      leadId: 'lead-1',
+      customerName: 'Nobody',
+      previousStage: 'NEW_LEAD',
+      newStage: 'DESIGN_READY',
+    });
+
+    expect(taskCreationService.createTasksFromTemplates).not.toHaveBeenCalled();
+  });
+
+  it('should not log activity when no tasks were created', async () => {
+    prisma.taskTemplate.findMany.mockResolvedValue([{ id: 'tmpl-1' }]);
     prisma.lead.findUnique.mockResolvedValue({
       id: 'lead-1',
       metadata: {},
       property: { state: 'CT' },
     });
-    prisma.user.findFirst.mockResolvedValue({ id: 'user-john' });
-    prisma.task.create.mockResolvedValue({ id: 'task-1' });
-    prisma.leadActivity.create.mockResolvedValue({});
+    taskCreationService.createTasksFromTemplates.mockResolvedValue([]);
 
     await listener.handleStageChanged({
       leadId: 'lead-1',
       customerName: 'Test',
       previousStage: 'NEW_LEAD',
-      newStage: 'CONNECTED',
+      newStage: 'DESIGN_READY',
     });
 
-    expect(prisma.task.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ assigneeId: 'user-john' }),
-      }),
-    );
+    expect(prisma.leadActivity.create).not.toHaveBeenCalled();
   });
 
   describe('evaluateConditions', () => {
-    it('should return true when no conditions', () => {
+    it('should delegate to TaskCreationService', () => {
+      taskCreationService.evaluateConditions.mockReturnValue(true);
       expect(listener.evaluateConditions(null, {})).toBe(true);
-      expect(listener.evaluateConditions({}, {})).toBe(true);
-    });
-
-    it('should check state condition', () => {
-      const lead = { property: { state: 'CT' }, metadata: {} };
-      expect(listener.evaluateConditions({ state: 'CT' }, lead)).toBe(true);
-      expect(listener.evaluateConditions({ state: 'NY' }, lead)).toBe(false);
-    });
-
-    it('should check metadata conditions', () => {
-      const lead = { property: { state: 'CT' }, metadata: { hasStructural: true } };
-      expect(listener.evaluateConditions({ hasStructural: true }, lead)).toBe(true);
-      expect(listener.evaluateConditions({ hasStructural: false }, lead)).toBe(false);
+      expect(taskCreationService.evaluateConditions).toHaveBeenCalledWith(null, {});
     });
   });
 });

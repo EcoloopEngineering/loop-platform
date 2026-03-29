@@ -1,12 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { DocumentService } from './document.service';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { S3Service } from '../../../infrastructure/storage/s3.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../test/prisma-mock.helper';
+import { DOCUMENT_REPOSITORY } from './ports/document.repository.port';
 
 jest.mock('fs', () => ({
   existsSync: jest.fn().mockReturnValue(true),
@@ -17,11 +13,18 @@ jest.mock('fs', () => ({
 
 describe('DocumentService', () => {
   let service: DocumentService;
-  let prisma: MockPrismaService;
+  let mockRepo: Record<string, jest.Mock>;
   let s3Service: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    mockRepo = {
+      findLeadById: jest.fn(),
+      createDocument: jest.fn(),
+      createLeadActivity: jest.fn(),
+      findDocumentsByLead: jest.fn(),
+      findDocumentById: jest.fn(),
+      deleteDocument: jest.fn(),
+    };
     s3Service = {
       isConfigured: jest.fn(),
       upload: jest.fn(),
@@ -33,7 +36,7 @@ describe('DocumentService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DocumentService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DOCUMENT_REPOSITORY, useValue: mockRepo },
         { provide: S3Service, useValue: s3Service },
       ],
     }).compile();
@@ -52,37 +55,37 @@ describe('DocumentService', () => {
 
     it('should upload file locally when S3 is not configured', async () => {
       s3Service.isConfigured.mockReturnValue(false);
-      prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
-      prisma.document.create.mockResolvedValue({
+      mockRepo.findLeadById.mockResolvedValue({ id: 'lead-1' });
+      mockRepo.createDocument.mockResolvedValue({
         id: 'doc-1',
         fileName: 'proposal.pdf',
         type: 'OTHER',
         fileSize: 1024,
         createdAt: new Date('2026-01-01'),
       });
-      prisma.leadActivity.create.mockResolvedValue({});
+      mockRepo.createLeadActivity.mockResolvedValue({});
 
       const result = await service.uploadDocument(mockFile, 'lead-1', '', mockUser);
 
       expect(result.id).toBe('doc-1');
       expect(result.name).toBe('proposal.pdf');
       expect(result.url).toBe('/api/v1/documents/doc-1/download');
-      expect(prisma.document.create).toHaveBeenCalled();
-      expect(prisma.leadActivity.create).toHaveBeenCalled();
+      expect(mockRepo.createDocument).toHaveBeenCalled();
+      expect(mockRepo.createLeadActivity).toHaveBeenCalled();
     });
 
     it('should upload file to S3 when configured', async () => {
       s3Service.isConfigured.mockReturnValue(true);
       s3Service.upload.mockResolvedValue('https://s3.example.com/file.pdf');
-      prisma.lead.findUnique.mockResolvedValue({ id: 'lead-1' });
-      prisma.document.create.mockResolvedValue({
+      mockRepo.findLeadById.mockResolvedValue({ id: 'lead-1' });
+      mockRepo.createDocument.mockResolvedValue({
         id: 'doc-1',
         fileName: 'proposal.pdf',
         type: 'PROPOSAL',
         fileSize: 1024,
         createdAt: new Date('2026-01-01'),
       });
-      prisma.leadActivity.create.mockResolvedValue({});
+      mockRepo.createLeadActivity.mockResolvedValue({});
 
       const result = await service.uploadDocument(mockFile, 'lead-1', 'PROPOSAL', mockUser);
 
@@ -97,7 +100,7 @@ describe('DocumentService', () => {
     });
 
     it('should throw NotFoundException when lead not found', async () => {
-      prisma.lead.findUnique.mockResolvedValue(null);
+      mockRepo.findLeadById.mockResolvedValue(null);
 
       await expect(
         service.uploadDocument(mockFile, 'bad-lead', '', mockUser),
@@ -107,7 +110,7 @@ describe('DocumentService', () => {
 
   describe('getDocumentsByLead', () => {
     it('should return mapped documents for a lead', async () => {
-      prisma.document.findMany.mockResolvedValue([
+      mockRepo.findDocumentsByLead.mockResolvedValue([
         {
           id: 'doc-1',
           fileName: 'proposal.pdf',
@@ -133,7 +136,7 @@ describe('DocumentService', () => {
     });
 
     it('should use fallback URL when no downloadUrl in metadata', async () => {
-      prisma.document.findMany.mockResolvedValue([
+      mockRepo.findDocumentsByLead.mockResolvedValue([
         {
           id: 'doc-2',
           fileName: 'contract.pdf',
@@ -149,7 +152,7 @@ describe('DocumentService', () => {
     });
 
     it('should return empty array when no documents', async () => {
-      prisma.document.findMany.mockResolvedValue([]);
+      mockRepo.findDocumentsByLead.mockResolvedValue([]);
       const result = await service.getDocumentsByLead('lead-1');
       expect(result).toEqual([]);
     });
@@ -157,7 +160,7 @@ describe('DocumentService', () => {
 
   describe('getDownloadInfo', () => {
     it('should return redirect info for S3-stored docs', async () => {
-      prisma.document.findUnique.mockResolvedValue({
+      mockRepo.findDocumentById.mockResolvedValue({
         id: 'doc-1',
         fileKey: 'documents/lead-1/file.pdf',
         mimeType: 'application/pdf',
@@ -178,7 +181,7 @@ describe('DocumentService', () => {
       const fsModule = require('fs');
       fsModule.existsSync.mockReturnValue(true);
 
-      prisma.document.findUnique.mockResolvedValue({
+      mockRepo.findDocumentById.mockResolvedValue({
         id: 'doc-2',
         fileKey: 'documents/lead-1/local.pdf',
         mimeType: 'application/pdf',
@@ -194,7 +197,7 @@ describe('DocumentService', () => {
     });
 
     it('should throw NotFoundException when document not found', async () => {
-      prisma.document.findUnique.mockResolvedValue(null);
+      mockRepo.findDocumentById.mockResolvedValue(null);
       await expect(service.getDownloadInfo('bad-id')).rejects.toThrow(NotFoundException);
     });
 
@@ -205,7 +208,7 @@ describe('DocumentService', () => {
         return true;
       });
 
-      prisma.document.findUnique.mockResolvedValue({
+      mockRepo.findDocumentById.mockResolvedValue({
         id: 'doc-3',
         fileKey: 'documents/lead-1/local-missing.pdf',
         mimeType: 'application/pdf',
@@ -221,20 +224,20 @@ describe('DocumentService', () => {
     const mockUser = { id: 'user-1', email: 'test@ecoloop.us', firstName: 'Test', lastName: 'User', role: 'ADMIN' as any, isActive: true, profileImage: null };
 
     it('should delete S3 doc and DB record', async () => {
-      prisma.document.findUnique.mockResolvedValue({
+      mockRepo.findDocumentById.mockResolvedValue({
         id: 'doc-1',
         leadId: 'lead-1',
         fileKey: 'documents/lead-1/file.pdf',
         fileName: 'file.pdf',
         metadata: { storage: 's3' },
       });
-      prisma.document.delete.mockResolvedValue({});
-      prisma.leadActivity.create.mockResolvedValue({});
+      mockRepo.deleteDocument.mockResolvedValue(undefined);
+      mockRepo.createLeadActivity.mockResolvedValue({});
 
       const result = await service.deleteDocument('doc-1', mockUser);
 
       expect(s3Service.delete).toHaveBeenCalledWith('documents/lead-1/file.pdf');
-      expect(prisma.document.delete).toHaveBeenCalledWith({ where: { id: 'doc-1' } });
+      expect(mockRepo.deleteDocument).toHaveBeenCalledWith('doc-1');
       expect(result).toEqual({ deleted: true });
     });
 
@@ -242,42 +245,42 @@ describe('DocumentService', () => {
       const fsModule = require('fs');
       fsModule.existsSync.mockReturnValue(true);
 
-      prisma.document.findUnique.mockResolvedValue({
+      mockRepo.findDocumentById.mockResolvedValue({
         id: 'doc-2',
         leadId: 'lead-1',
         fileKey: 'documents/lead-1/local.pdf',
         fileName: 'local.pdf',
         metadata: { storage: 'local' },
       });
-      prisma.document.delete.mockResolvedValue({});
-      prisma.leadActivity.create.mockResolvedValue({});
+      mockRepo.deleteDocument.mockResolvedValue(undefined);
+      mockRepo.createLeadActivity.mockResolvedValue({});
 
       const result = await service.deleteDocument('doc-2', mockUser);
 
       expect(fsModule.unlinkSync).toHaveBeenCalled();
-      expect(prisma.document.delete).toHaveBeenCalledWith({ where: { id: 'doc-2' } });
+      expect(mockRepo.deleteDocument).toHaveBeenCalledWith('doc-2');
       expect(result).toEqual({ deleted: true });
     });
 
     it('should throw NotFoundException when document not found', async () => {
-      prisma.document.findUnique.mockResolvedValue(null);
+      mockRepo.findDocumentById.mockResolvedValue(null);
       await expect(service.deleteDocument('bad-id', mockUser)).rejects.toThrow(NotFoundException);
     });
 
     it('should skip activity log when document has no leadId', async () => {
-      prisma.document.findUnique.mockResolvedValue({
+      mockRepo.findDocumentById.mockResolvedValue({
         id: 'doc-3',
         leadId: null,
         fileKey: 'documents/orphan/file.pdf',
         fileName: 'orphan.pdf',
         metadata: { storage: 'local' },
       });
-      prisma.document.delete.mockResolvedValue({});
+      mockRepo.deleteDocument.mockResolvedValue(undefined);
 
       await service.deleteDocument('doc-3', mockUser);
 
-      expect(prisma.leadActivity.create).not.toHaveBeenCalled();
-      expect(prisma.document.delete).toHaveBeenCalledWith({ where: { id: 'doc-3' } });
+      expect(mockRepo.createLeadActivity).not.toHaveBeenCalled();
+      expect(mockRepo.deleteDocument).toHaveBeenCalledWith('doc-3');
     });
   });
 });

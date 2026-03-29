@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommandBus } from '@nestjs/cqrs';
 import { CommissionController } from './commission.controller';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { CommissionQueryService } from '../application/services/commission-query.service';
 import { CommissionCalculatorDomainService } from '../domain/services/commission-calculator.domain-service';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { CalculateCommissionCommand } from '../application/commands/calculate-commission.handler';
@@ -9,7 +9,7 @@ import { CalculateCommissionCommand } from '../application/commands/calculate-co
 describe('CommissionController', () => {
   let controller: CommissionController;
   let commandBus: { execute: jest.Mock };
-  let prisma: { commission: { findMany: jest.Mock } };
+  let commissionQuery: { findByUserId: jest.Mock; findByLeadId: jest.Mock };
   let calculator: { calculate: jest.Mock };
 
   const mockUser = {
@@ -24,14 +24,14 @@ describe('CommissionController', () => {
 
   beforeEach(async () => {
     commandBus = { execute: jest.fn() };
-    prisma = { commission: { findMany: jest.fn() } };
+    commissionQuery = { findByUserId: jest.fn(), findByLeadId: jest.fn() };
     calculator = { calculate: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CommissionController],
       providers: [
         { provide: CommandBus, useValue: commandBus },
-        { provide: PrismaService, useValue: prisma },
+        { provide: CommissionQueryService, useValue: commissionQuery },
         { provide: CommissionCalculatorDomainService, useValue: calculator },
       ],
     })
@@ -43,22 +43,18 @@ describe('CommissionController', () => {
   });
 
   describe('listCommissions', () => {
-    it('should query commissions for the current user', async () => {
+    it('should delegate to CommissionQueryService.findByUserId', async () => {
       const commissions = [{ id: 'c-1', amount: 1500 }, { id: 'c-2', amount: 2000 }];
-      prisma.commission.findMany.mockResolvedValue(commissions);
+      commissionQuery.findByUserId.mockResolvedValue(commissions);
 
       const result = await controller.listCommissions(mockUser);
 
-      expect(prisma.commission.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      });
+      expect(commissionQuery.findByUserId).toHaveBeenCalledWith('user-1');
       expect(result).toEqual(commissions);
     });
 
     it('should return empty array when no commissions', async () => {
-      prisma.commission.findMany.mockResolvedValue([]);
+      commissionQuery.findByUserId.mockResolvedValue([]);
 
       const result = await controller.listCommissions(mockUser);
 
@@ -67,17 +63,13 @@ describe('CommissionController', () => {
   });
 
   describe('getCommissionsByLead', () => {
-    it('should query commissions for a specific lead', async () => {
+    it('should delegate to CommissionQueryService.findByLeadId', async () => {
       const commissions = [{ id: 'c-1', leadId: 'lead-1', amount: 1500 }];
-      prisma.commission.findMany.mockResolvedValue(commissions);
+      commissionQuery.findByLeadId.mockResolvedValue(commissions);
 
       const result = await controller.getCommissionsByLead('lead-1');
 
-      expect(prisma.commission.findMany).toHaveBeenCalledWith({
-        where: { leadId: 'lead-1' },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      });
+      expect(commissionQuery.findByLeadId).toHaveBeenCalledWith('lead-1');
       expect(result).toEqual(commissions);
     });
   });

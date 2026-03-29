@@ -10,6 +10,8 @@ import { StageEmailListener } from './application/listeners/stage-email.listener
 import { GoogleChatListener } from './application/listeners/google-chat.listener';
 import { IntegrationsModule } from '../../integrations/integrations.module';
 import { EmailProcessor } from '../../infrastructure/queue/processors/email.processor';
+import { NOTIFICATION_REPOSITORY } from './application/ports/notification.repository.port';
+import { PrismaNotificationRepository } from './infrastructure/repositories/prisma-notification.repository';
 
 @Module({
   imports: [CqrsModule, PrismaModule, IntegrationsModule],
@@ -22,6 +24,7 @@ import { EmailProcessor } from '../../infrastructure/queue/processors/email.proc
     StageEmailListener,
     GoogleChatListener,
     EmailProcessor,
+    { provide: NOTIFICATION_REPOSITORY, useClass: PrismaNotificationRepository },
   ],
   exports: [NotificationService],
 })

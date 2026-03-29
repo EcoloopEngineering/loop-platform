@@ -1,5 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import {
+  GAMIFICATION_EVENT_REPOSITORY,
+  GamificationEventRepositoryPort,
+} from '../ports/gamification-event.repository.port';
 
 /** Point values per event type */
 export const POINT_VALUES: Record<string, number> = {
@@ -27,7 +30,10 @@ export interface LeaderboardEntry {
 export class LeaderboardService {
   private readonly logger = new Logger(LeaderboardService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(GAMIFICATION_EVENT_REPOSITORY)
+    private readonly eventRepo: GamificationEventRepositoryPort,
+  ) {}
 
   /**
    * Get leaderboard for the current week (Monday to Sunday)
@@ -62,26 +68,14 @@ export class LeaderboardService {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const events = await this.prisma.gamificationEvent.findMany({
-      where: {
-        createdAt: { gte: startOfMonth, lte: now },
-      },
-      select: {
-        userId: true,
-        points: true,
-      },
-      take: 10000,
-    });
+    const events = await this.eventRepo.findByDateRange(
+      startOfMonth,
+      now,
+      { userId: true, points: true },
+    );
 
     // Get referral relationships to map users to their inviter (team lead)
-    const referrals = await this.prisma.referral.findMany({
-      where: { status: 'accepted' },
-      select: {
-        inviterId: true,
-        inviteeId: true,
-      },
-      take: 1000,
-    });
+    const referrals = await this.eventRepo.findReferrals();
 
     const inviterMap = new Map<string, string>();
     for (const r of referrals) {
@@ -101,10 +95,7 @@ export class LeaderboardService {
     const teamLeadIds = Array.from(teamPoints.keys());
     if (teamLeadIds.length === 0) return [];
 
-    const users = await this.prisma.user.findMany({
-      where: { id: { in: teamLeadIds } },
-      select: { id: true, firstName: true, lastName: true },
-    });
+    const users = await this.eventRepo.findUsersByIds(teamLeadIds);
 
     const userMap = new Map(users.map((u) => [u.id, u]));
 
@@ -128,13 +119,11 @@ export class LeaderboardService {
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
-    const events = await this.prisma.gamificationEvent.findMany({
-      where: {
-        createdAt: { gte: startOfMonth, lte: endOfMonth },
-      },
-      select: { userId: true, points: true, coins: true },
-      take: 10000,
-    });
+    const events = await this.eventRepo.findByDateRange(
+      startOfMonth,
+      endOfMonth,
+      { userId: true, points: true, coins: true },
+    );
 
     if (events.length === 0) return null;
 
@@ -162,23 +151,13 @@ export class LeaderboardService {
     if (!topUserId) return null;
 
     // Upsert monthly record for MVP
-    await this.prisma.monthlyRecord.upsert({
-      where: {
-        userId_year_month: { userId: topUserId, year, month },
-      },
-      create: {
-        userId: topUserId,
-        points: topPoints,
-        coins: topCoins,
-        year,
-        month,
-        isMvp: true,
-      },
-      update: {
-        points: topPoints,
-        coins: topCoins,
-        isMvp: true,
-      },
+    await this.eventRepo.upsertMonthlyRecord({
+      userId: topUserId,
+      year,
+      month,
+      points: topPoints,
+      coins: topCoins,
+      isMvp: true,
     });
 
     this.logger.log(`Monthly MVP for ${year}-${month}: user ${topUserId} with ${topPoints} points`);
@@ -188,15 +167,7 @@ export class LeaderboardService {
 
   /** Get recent milestone events for the public scoreboard feed */
   async getScoreboard(take: number) {
-    return this.prisma.gamificationEvent.findMany({
-      where: { eventType: { in: ['CONNECTED', 'SALE', 'CUSTOMER_SUCCESS'] } },
-      orderBy: { createdAt: 'desc' },
-      take,
-      include: {
-        user: { select: { firstName: true, lastName: true, closedDealEmoji: true } },
-        lead: { select: { customer: { select: { firstName: true, lastName: true } }, kw: true } },
-      },
-    });
+    return this.eventRepo.findScoreboardEvents(take);
   }
 
   /**
@@ -206,17 +177,15 @@ export class LeaderboardService {
     startDate: Date,
     endDate: Date,
   ): Promise<LeaderboardEntry[]> {
-    const events = await this.prisma.gamificationEvent.findMany({
-      where: {
-        createdAt: { gte: startDate, lte: endDate },
-      },
-      select: {
+    const events = await this.eventRepo.findByDateRange(
+      startDate,
+      endDate,
+      {
         userId: true,
         points: true,
         user: { select: { firstName: true, lastName: true } },
       },
-      take: 10000,
-    });
+    );
 
     // Aggregate points by user
     const pointsMap = new Map<

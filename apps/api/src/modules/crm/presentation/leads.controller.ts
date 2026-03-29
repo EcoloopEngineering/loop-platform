@@ -26,13 +26,11 @@ import { CreateLeadCommand } from '../application/commands/create-lead.command';
 import { ChangeLeadStageCommand } from '../application/commands/change-lead-stage.command';
 import { MarkLeadLostCommand } from '../application/commands/mark-lead-lost.command';
 import { MarkLeadCancelledCommand } from '../application/commands/mark-lead-cancelled.command';
+import { UpdateLeadCommand } from '../application/commands/update-lead.command';
 import { UpdateLeadMetadataCommand } from '../application/commands/update-lead-metadata.command';
 import { ListLeadsQuery } from '../application/queries/list-leads.handler';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../application/ports/lead.repository.port';
 import { LeadScoringAppService } from '../application/services/lead-scoring-app.service';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { LeadUpdatedPayload } from '../application/events/lead-events.types';
 import { UpdateLeadData } from '../application/dto/lead-data.types';
 
 @ApiTags('Leads')
@@ -45,8 +43,6 @@ export class LeadsController {
     private readonly queryBus: QueryBus,
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
     private readonly leadScoringAppService: LeadScoringAppService,
-    private readonly prisma: PrismaService,
-    private readonly emitter: EventEmitter2,
   ) {}
 
   @Post()
@@ -85,33 +81,7 @@ export class LeadsController {
     @Body() data: UpdateLeadData,
     @CurrentUser('id') userId: string,
   ): Promise<unknown> {
-    const existing = await this.leadRepo.findById(id);
-    if (!existing) throw new NotFoundException('Lead not found');
-
-    const updated = await this.leadRepo.update(id, data);
-
-    const [lead, currentUser] = await Promise.all([
-      this.prisma.lead.findUnique({
-        where: { id },
-        include: { customer: { select: { firstName: true, lastName: true } } },
-      }),
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { firstName: true, lastName: true },
-      }),
-    ]);
-
-    if (lead && currentUser) {
-      const payload: LeadUpdatedPayload = {
-        leadId: id,
-        customerName: `${lead.customer.firstName} ${lead.customer.lastName}`,
-        updatedByName: `${currentUser.firstName} ${currentUser.lastName}`,
-        changes: Object.keys(data).join(', '),
-      };
-      this.emitter.emit('lead.updated', payload);
-    }
-
-    return updated;
+    return this.commandBus.execute(new UpdateLeadCommand(id, data, userId));
   }
 
   @Patch(':id/metadata')

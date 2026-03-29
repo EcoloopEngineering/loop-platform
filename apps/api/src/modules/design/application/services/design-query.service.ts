@@ -1,20 +1,21 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Injectable, Inject } from '@nestjs/common';
+import {
+  DESIGN_REPOSITORY,
+  DesignRepositoryPort,
+} from '../ports/design.repository.port';
 
 @Injectable()
 export class DesignQueryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(DESIGN_REPOSITORY)
+    private readonly designRepo: DesignRepositoryPort,
+  ) {}
 
   async getDesignsByLead(leadId: string) {
-    return this.prisma.designRequest.findMany({
-      where: { leadId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.designRepo.findByLead(leadId);
   }
 
   async getDesignById(id: string) {
-    return this.prisma.designRequest.findUniqueOrThrow({
-      where: { id },
-    });
+    return this.designRepo.findById(id);
   }
 }

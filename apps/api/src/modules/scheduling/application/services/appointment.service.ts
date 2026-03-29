@@ -1,13 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { JobberService } from '../../../../integrations/jobber/jobber.service';
+import {
+  APPOINTMENT_REPOSITORY,
+  AppointmentRepositoryPort,
+} from '../ports/appointment.repository.port';
 
 @Injectable()
 export class AppointmentService {
   private readonly logger = new Logger(AppointmentService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(APPOINTMENT_REPOSITORY)
+    private readonly appointmentRepo: AppointmentRepositoryPort,
     private readonly jobberService: JobberService,
   ) {}
 
@@ -16,13 +20,10 @@ export class AppointmentService {
     scheduledAt: string,
     duration?: number,
   ) {
-    const appointment = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        scheduledAt: new Date(scheduledAt),
-        ...(duration !== undefined && { duration }),
-        status: 'PENDING',
-      },
+    const appointment = await this.appointmentRepo.update(id, {
+      scheduledAt: new Date(scheduledAt),
+      ...(duration !== undefined && { duration }),
+      status: 'PENDING',
     });
 
     if (appointment.jobberVisitId) {
@@ -45,12 +46,9 @@ export class AppointmentService {
   }
 
   async cancel(id: string, reason: string) {
-    const appointment = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        status: 'CANCELLED',
-        notes: reason,
-      },
+    const appointment = await this.appointmentRepo.update(id, {
+      status: 'CANCELLED',
+      notes: reason,
     });
 
     if (appointment.jobberVisitId) {

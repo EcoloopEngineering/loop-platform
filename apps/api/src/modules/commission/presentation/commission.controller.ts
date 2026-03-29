@@ -11,9 +11,9 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UserRole } from '@loop/shared';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
-import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
 import { CommissionCalculatorDomainService } from '../domain/services/commission-calculator.domain-service';
+import { CommissionQueryService } from '../application/services/commission-query.service';
 import { CalculateCommissionCommand } from '../application/commands/calculate-commission.handler';
 
 @ApiTags('commissions')
@@ -22,7 +22,7 @@ import { CalculateCommissionCommand } from '../application/commands/calculate-co
 export class CommissionController {
   constructor(
     private readonly commandBus: CommandBus,
-    private readonly prisma: PrismaService,
+    private readonly commissionQuery: CommissionQueryService,
     private readonly calculator: CommissionCalculatorDomainService,
   ) {}
 
@@ -30,22 +30,14 @@ export class CommissionController {
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'List all commissions for the current user' })
   async listCommissions(@CurrentUser() user: AuthenticatedUser) {
-    return this.prisma.commission.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    return this.commissionQuery.findByUserId(user.id);
   }
 
   @Get('leads/:leadId/commissions')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'Get commissions for a specific lead' })
   async getCommissionsByLead(@Param('leadId') leadId: string) {
-    return this.prisma.commission.findMany({
-      where: { leadId },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    return this.commissionQuery.findByLeadId(leadId);
   }
 
   @Get('leads/:leadId/commission/calculate')

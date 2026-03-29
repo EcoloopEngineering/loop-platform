@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { FaqEntry } from '@prisma/client';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { TtlCache } from '../../../../common/utils/ttl-cache';
+import {
+  FAQ_REPOSITORY,
+  FaqRepositoryPort,
+} from '../ports/faq.repository.port';
 
 export interface FaqSummary {
   id: string;
@@ -15,7 +18,10 @@ export class FaqService {
   private readonly logger = new Logger(FaqService.name);
   private readonly faqCache = new TtlCache<FaqEntry[]>(5 * 60 * 1000); // 5 min
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(FAQ_REPOSITORY)
+    private readonly faqRepo: FaqRepositoryPort,
+  ) {}
 
   async findAnswer(query: string): Promise<{ question: string; answer: string } | null> {
     const q = query.toLowerCase().trim();
@@ -23,11 +29,7 @@ export class FaqService {
     // 1. Try exact keyword match (with cache)
     let entries = this.faqCache.get();
     if (!entries) {
-      entries = await this.prisma.faqEntry.findMany({
-        where: { isActive: true },
-        orderBy: { sortOrder: 'asc' },
-        take: 200,
-      });
+      entries = await this.faqRepo.findAllActive();
       this.faqCache.set(entries);
     }
 
@@ -67,34 +69,28 @@ export class FaqService {
   }
 
   async getAllFaqs(): Promise<FaqSummary[]> {
-    return this.prisma.faqEntry.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' },
-      select: { id: true, question: true, answer: true, category: true },
-    });
+    return this.faqRepo.findAllActiveSummary();
   }
 
   async createFaq(data: { question: string; answer: string; keywords?: string[]; category?: string }) {
-    const result = await this.prisma.faqEntry.create({
-      data: {
-        question: data.question,
-        answer: data.answer,
-        keywords: data.keywords ?? [],
-        category: data.category,
-      },
+    const result = await this.faqRepo.create({
+      question: data.question,
+      answer: data.answer,
+      keywords: data.keywords ?? [],
+      category: data.category,
     });
     this.faqCache.invalidate();
     return result;
   }
 
   async updateFaq(id: string, data: { question?: string; answer?: string; keywords?: string[]; category?: string; isActive?: boolean }) {
-    const result = await this.prisma.faqEntry.update({ where: { id }, data });
+    const result = await this.faqRepo.update(id, data);
     this.faqCache.invalidate();
     return result;
   }
 
   async deleteFaq(id: string) {
-    const result = await this.prisma.faqEntry.delete({ where: { id } });
+    const result = await this.faqRepo.delete(id);
     this.faqCache.invalidate();
     return result;
   }

@@ -1,22 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LeaderboardService } from './leaderboard.service';
-import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import {
-  createMockPrismaService,
-  MockPrismaService,
-} from '../../../../test/prisma-mock.helper';
+import { GAMIFICATION_EVENT_REPOSITORY } from '../ports/gamification-event.repository.port';
 
 describe('LeaderboardService', () => {
   let service: LeaderboardService;
-  let prisma: MockPrismaService;
+  let mockRepo: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prisma = createMockPrismaService();
+    mockRepo = {
+      findByDateRange: jest.fn(),
+      findScoreboardEvents: jest.fn(),
+      findReferrals: jest.fn(),
+      findUsersByIds: jest.fn(),
+      upsertMonthlyRecord: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LeaderboardService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: GAMIFICATION_EVENT_REPOSITORY, useValue: mockRepo },
       ],
     }).compile();
 
@@ -29,7 +31,7 @@ describe('LeaderboardService', () => {
 
   describe('getWeeklyLeaderboard', () => {
     it('should return leaderboard sorted by points descending', async () => {
-      prisma.gamificationEvent.findMany.mockResolvedValue([
+      mockRepo.findByDateRange.mockResolvedValue([
         {
           userId: 'user-1',
           points: 4,
@@ -56,7 +58,7 @@ describe('LeaderboardService', () => {
     });
 
     it('should return empty array when no events exist', async () => {
-      prisma.gamificationEvent.findMany.mockResolvedValue([]);
+      mockRepo.findByDateRange.mockResolvedValue([]);
 
       const result = await service.getWeeklyLeaderboard();
 
@@ -66,7 +68,7 @@ describe('LeaderboardService', () => {
 
   describe('getMonthlyLeaderboard', () => {
     it('should return leaderboard for the current month', async () => {
-      prisma.gamificationEvent.findMany.mockResolvedValue([
+      mockRepo.findByDateRange.mockResolvedValue([
         {
           userId: 'user-1',
           points: 10,
@@ -83,17 +85,17 @@ describe('LeaderboardService', () => {
 
   describe('getTeamLeaderboard', () => {
     it('should aggregate points by team lead', async () => {
-      prisma.gamificationEvent.findMany.mockResolvedValue([
+      mockRepo.findByDateRange.mockResolvedValue([
         { userId: 'user-2', points: 4 },
         { userId: 'user-3', points: 6 },
       ]);
 
-      prisma.referral.findMany.mockResolvedValue([
+      mockRepo.findReferrals.mockResolvedValue([
         { inviterId: 'user-1', inviteeId: 'user-2' },
         { inviterId: 'user-1', inviteeId: 'user-3' },
       ]);
 
-      prisma.user.findMany.mockResolvedValue([
+      mockRepo.findUsersByIds.mockResolvedValue([
         { id: 'user-1', firstName: 'Lead', lastName: 'Person' },
       ]);
 
@@ -105,8 +107,8 @@ describe('LeaderboardService', () => {
     });
 
     it('should return empty array when no events exist', async () => {
-      prisma.gamificationEvent.findMany.mockResolvedValue([]);
-      prisma.referral.findMany.mockResolvedValue([]);
+      mockRepo.findByDateRange.mockResolvedValue([]);
+      mockRepo.findReferrals.mockResolvedValue([]);
 
       const result = await service.getTeamLeaderboard();
 
@@ -116,13 +118,13 @@ describe('LeaderboardService', () => {
 
   describe('recordMonthlyMvp', () => {
     it('should find top scorer and save as MVP', async () => {
-      prisma.gamificationEvent.findMany.mockResolvedValue([
+      mockRepo.findByDateRange.mockResolvedValue([
         { userId: 'user-1', points: 10, coins: 20 },
         { userId: 'user-2', points: 4, coins: 8 },
         { userId: 'user-1', points: 6, coins: 12 },
       ]);
 
-      prisma.monthlyRecord.upsert.mockResolvedValue({
+      mockRepo.upsertMonthlyRecord.mockResolvedValue({
         id: 'record-1',
         userId: 'user-1',
         points: 16,
@@ -135,33 +137,23 @@ describe('LeaderboardService', () => {
       const result = await service.recordMonthlyMvp(2026, 3);
 
       expect(result).toEqual({ userId: 'user-1', points: 16 });
-      expect(prisma.monthlyRecord.upsert).toHaveBeenCalledWith({
-        where: {
-          userId_year_month: { userId: 'user-1', year: 2026, month: 3 },
-        },
-        create: {
-          userId: 'user-1',
-          points: 16,
-          coins: 32,
-          year: 2026,
-          month: 3,
-          isMvp: true,
-        },
-        update: {
-          points: 16,
-          coins: 32,
-          isMvp: true,
-        },
+      expect(mockRepo.upsertMonthlyRecord).toHaveBeenCalledWith({
+        userId: 'user-1',
+        year: 2026,
+        month: 3,
+        points: 16,
+        coins: 32,
+        isMvp: true,
       });
     });
 
     it('should return null when no events exist', async () => {
-      prisma.gamificationEvent.findMany.mockResolvedValue([]);
+      mockRepo.findByDateRange.mockResolvedValue([]);
 
       const result = await service.recordMonthlyMvp(2026, 3);
 
       expect(result).toBeNull();
-      expect(prisma.monthlyRecord.upsert).not.toHaveBeenCalled();
+      expect(mockRepo.upsertMonthlyRecord).not.toHaveBeenCalled();
     });
   });
 });

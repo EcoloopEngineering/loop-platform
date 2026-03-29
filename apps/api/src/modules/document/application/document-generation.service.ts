@@ -3,9 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { PdfService } from '../../../infrastructure/pdf/pdf.service';
-import { ZapSignService } from '../../../integrations/zapsign/zapsign.service';
-import { EmailService } from '../../../infrastructure/email/email.service';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user.type';
+import { DocumentDeliveryService } from './services/document-delivery.service';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 
@@ -48,8 +47,7 @@ export class DocumentGenerationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdfService: PdfService,
-    private readonly zapSignService: ZapSignService,
-    private readonly emailService: EmailService,
+    private readonly deliveryService: DocumentDeliveryService,
   ) {}
 
   async generateChangeOrder(
@@ -157,13 +155,13 @@ export class DocumentGenerationService {
       },
     });
 
-    const zapSignResult = await this.handleCAPDelivery(
-      dto,
+    const zapSignResult = await this.deliveryService.handleCAPDelivery({
+      mode: dto.mode,
       lead,
       customerName,
       fileName,
       pdfBuffer,
-    );
+    });
 
     await this.prisma.leadActivity.create({
       data: {
@@ -189,91 +187,6 @@ export class DocumentGenerationService {
         ? { token: zapSignResult.token, status: zapSignResult.status }
         : null,
     };
-  }
-
-  private async handleCAPDelivery(
-    dto: CAPDto,
-    lead: { id: string; customer: { firstName: string; email: string | null } },
-    customerName: string,
-    fileName: string,
-    pdfBuffer: Buffer,
-  ): Promise<{ token: string; status: string } | null> {
-    if (
-      dto.mode === 'approval' &&
-      this.zapSignService.isConfigured() &&
-      lead.customer.email
-    ) {
-      return this.sendForESignature(customerName, lead.customer.email, pdfBuffer);
-    }
-
-    if (dto.mode === 'informative' && lead.customer.email) {
-      await this.sendInformativeEmail(
-        lead.customer.email,
-        lead.customer.firstName,
-        fileName,
-        pdfBuffer,
-      );
-      await this.prisma.lead.update({
-        where: { id: lead.id },
-        data: { currentStage: 'ENGINEERING' },
-      });
-    }
-
-    return null;
-  }
-
-  private async sendForESignature(
-    customerName: string,
-    customerEmail: string,
-    pdfBuffer: Buffer,
-  ): Promise<{ token: string; status: string } | null> {
-    try {
-      const base64Pdf = pdfBuffer.toString('base64');
-      const result = await this.zapSignService.createDocument({
-        name: `CAP - ${customerName}`,
-        base64_pdf: base64Pdf,
-        send_automatic_email: true,
-        signers: [
-          {
-            name: customerName,
-            email: customerEmail,
-            send_automatic_email: true,
-            lock_name: true,
-            lock_email: true,
-          },
-        ],
-      });
-      this.logger.log(`ZapSign CAP document created: ${result.token}`);
-      return result;
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`ZapSign failed: ${message}`);
-      return null;
-    }
-  }
-
-  private async sendInformativeEmail(
-    email: string,
-    firstName: string,
-    fileName: string,
-    pdfBuffer: Buffer,
-  ): Promise<void> {
-    await this.emailService.send({
-      to: email,
-      subject: 'Your Solar Project Approval - ecoLoop',
-      html: `
-        <h2>Client Approval of Project</h2>
-        <p>Hi ${firstName},</p>
-        <p>Please find attached your Client Approval of Project (CAP) document for review.</p>
-        <p>If you have any questions, please contact your ecoLoop representative.</p>
-        <br>
-        <p style="color: #6B7280; font-size: 12px;">-- The ecoLoop Team</p>
-      `,
-      attachments: [
-        { filename: fileName, content: pdfBuffer, contentType: 'application/pdf' },
-      ],
-    });
   }
 
   private savePdfLocally(

@@ -3,8 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { DocumentGenerationService } from './document-generation.service';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { PdfService } from '../../../infrastructure/pdf/pdf.service';
-import { ZapSignService } from '../../../integrations/zapsign/zapsign.service';
-import { EmailService } from '../../../infrastructure/email/email.service';
+import { DocumentDeliveryService } from './services/document-delivery.service';
 import {
   createMockPrismaService,
   MockPrismaService,
@@ -21,8 +20,7 @@ describe('DocumentGenerationService', () => {
   let service: DocumentGenerationService;
   let prisma: MockPrismaService;
   let pdfService: { generateChangeOrder: jest.Mock; generateCAP: jest.Mock };
-  let zapSignService: { isConfigured: jest.Mock; createDocument: jest.Mock };
-  let emailService: { send: jest.Mock };
+  let deliveryService: { handleCAPDelivery: jest.Mock };
 
   const mockUser: AuthenticatedUser = {
     id: 'user-1',
@@ -59,19 +57,16 @@ describe('DocumentGenerationService', () => {
       generateChangeOrder: jest.fn().mockResolvedValue(mockPdfBuffer),
       generateCAP: jest.fn().mockResolvedValue(mockPdfBuffer),
     };
-    zapSignService = {
-      isConfigured: jest.fn().mockReturnValue(false),
-      createDocument: jest.fn(),
+    deliveryService = {
+      handleCAPDelivery: jest.fn().mockResolvedValue(null),
     };
-    emailService = { send: jest.fn().mockResolvedValue(undefined) };
 
     const module = await Test.createTestingModule({
       providers: [
         DocumentGenerationService,
         { provide: PrismaService, useValue: prisma },
         { provide: PdfService, useValue: pdfService },
-        { provide: ZapSignService, useValue: zapSignService },
-        { provide: EmailService, useValue: emailService },
+        { provide: DocumentDeliveryService, useValue: deliveryService },
       ],
     }).compile();
 
@@ -137,12 +132,11 @@ describe('DocumentGenerationService', () => {
   });
 
   describe('generateCAP', () => {
-    it('should send for e-signature in approval mode when ZapSign is configured', async () => {
+    it('should delegate delivery to DocumentDeliveryService for approval mode', async () => {
       prisma.lead.findUnique.mockResolvedValue(mockLead);
       prisma.document.create.mockResolvedValue({ id: 'doc-2' });
       prisma.leadActivity.create.mockResolvedValue({});
-      zapSignService.isConfigured.mockReturnValue(true);
-      zapSignService.createDocument.mockResolvedValue({
+      deliveryService.handleCAPDelivery.mockResolvedValue({
         token: 'zap-token-123',
         status: 'pending',
       });
@@ -157,27 +151,19 @@ describe('DocumentGenerationService', () => {
         token: 'zap-token-123',
         status: 'pending',
       });
-      expect(zapSignService.createDocument).toHaveBeenCalledWith(
+      expect(deliveryService.handleCAPDelivery).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: 'CAP - Jane Smith',
-          send_automatic_email: true,
-          signers: [
-            expect.objectContaining({
-              name: 'Jane Smith',
-              email: 'jane@example.com',
-            }),
-          ],
+          mode: 'approval',
+          customerName: 'Jane Smith',
         }),
       );
-      expect(emailService.send).not.toHaveBeenCalled();
-      expect(prisma.lead.update).not.toHaveBeenCalled();
     });
 
-    it('should send email and move to ENGINEERING in informative mode', async () => {
+    it('should delegate delivery to DocumentDeliveryService for informative mode', async () => {
       prisma.lead.findUnique.mockResolvedValue(mockLead);
       prisma.document.create.mockResolvedValue({ id: 'doc-3' });
       prisma.leadActivity.create.mockResolvedValue({});
-      prisma.lead.update.mockResolvedValue({});
+      deliveryService.handleCAPDelivery.mockResolvedValue(null);
 
       const result = await service.generateCAP(
         'lead-1',
@@ -186,16 +172,11 @@ describe('DocumentGenerationService', () => {
       );
 
       expect(result.zapSign).toBeNull();
-      expect(emailService.send).toHaveBeenCalledWith(
+      expect(deliveryService.handleCAPDelivery).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: 'jane@example.com',
-          subject: 'Your Solar Project Approval - ecoLoop',
+          mode: 'informative',
         }),
       );
-      expect(prisma.lead.update).toHaveBeenCalledWith({
-        where: { id: 'lead-1' },
-        data: { currentStage: 'ENGINEERING' },
-      });
     });
 
     it('should throw NotFoundException when lead is not found', async () => {
