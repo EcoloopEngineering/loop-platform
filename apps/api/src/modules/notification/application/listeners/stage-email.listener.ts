@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { EmailService } from '../../../../infrastructure/email/email.service';
+import { QUEUE_EMAIL } from '../../../../infrastructure/queue/queue.module';
+import { EmailJobData } from '../../../../infrastructure/queue/processors/email.processor';
 import {
   getInstallReadyEmail,
   getWonOwnerEmail,
@@ -23,6 +27,7 @@ export class StageEmailListener {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    @InjectQueue(QUEUE_EMAIL) private readonly emailQueue: Queue<EmailJobData>,
   ) {}
 
   private async isNotificationEnabled(eventKey: string): Promise<boolean> {
@@ -63,11 +68,11 @@ export class StageEmailListener {
     const pmEmail = lead.projectManager?.email;
     const stageName = this.formatStage(payload.newStage);
 
-    // Determine which emails to send based on stage
+    // Determine which emails to enqueue based on stage
     switch (payload.newStage) {
       case 'INSTALL_READY':
         if (ownerEmail) {
-          await this.emailService.send({
+          await this.enqueueEmail({
             to: ownerEmail,
             subject: `⚠️ Install Ready: ${payload.customerName}`,
             html: getInstallReadyEmail({ ownerName, customerName: payload.customerName }),
@@ -78,7 +83,7 @@ export class StageEmailListener {
       case 'WON':
         // Email the owner
         if (ownerEmail) {
-          await this.emailService.send({
+          await this.enqueueEmail({
             to: ownerEmail,
             subject: `🎉 Deal Won: ${payload.customerName}`,
             html: getWonOwnerEmail({ ownerName, customerName: payload.customerName }),
@@ -86,7 +91,7 @@ export class StageEmailListener {
         }
         // Email the customer
         if (lead.customer?.email) {
-          await this.emailService.send({
+          await this.enqueueEmail({
             to: lead.customer.email,
             subject: 'Welcome to ecoLoop Solar! ☀️',
             html: getWonCustomerEmail({ customerFirstName: lead.customer.firstName }),
@@ -98,7 +103,7 @@ export class StageEmailListener {
         // Generic stage change email to owner + PM
         const recipients = [ownerEmail, pmEmail].filter(Boolean) as string[];
         if (recipients.length > 0) {
-          await this.emailService.send({
+          await this.enqueueEmail({
             to: recipients,
             subject: `Lead Update: ${payload.customerName} → ${stageName}`,
             html: getGenericStageEmail({
@@ -111,7 +116,14 @@ export class StageEmailListener {
         break;
     }
 
-    this.logger.log(`Stage email sent for ${payload.leadId}: ${payload.newStage}`);
+    this.logger.log(`Stage email jobs enqueued for ${payload.leadId}: ${payload.newStage}`);
+  }
+
+  private async enqueueEmail(data: EmailJobData): Promise<void> {
+    await this.emailQueue.add('send', data, {
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 3000 },
+    });
   }
 
   private formatStage(stage: string): string {

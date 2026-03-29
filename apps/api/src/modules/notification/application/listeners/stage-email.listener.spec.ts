@@ -1,12 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bullmq';
 import { StageEmailListener } from './stage-email.listener';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
 import { EmailService } from '../../../../infrastructure/email/email.service';
+import { QUEUE_EMAIL } from '../../../../infrastructure/queue/queue.module';
+import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('StageEmailListener', () => {
   let listener: StageEmailListener;
-  let prisma: any;
+  let prisma: MockPrismaService;
   let emailService: { send: jest.Mock; isConfigured: jest.Mock };
+  let emailQueue: { add: jest.Mock };
 
   const mockLead = {
     id: 'lead-1',
@@ -18,19 +22,19 @@ describe('StageEmailListener', () => {
   };
 
   beforeEach(async () => {
-    prisma = {
-      lead: { findUnique: jest.fn() },
-    };
+    prisma = createMockPrismaService();
     emailService = {
       send: jest.fn().mockResolvedValue(true),
       isConfigured: jest.fn().mockReturnValue(true),
     };
+    emailQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StageEmailListener,
         { provide: PrismaService, useValue: prisma },
         { provide: EmailService, useValue: emailService },
+        { provide: getQueueToken(QUEUE_EMAIL), useValue: emailQueue },
       ],
     }).compile();
 
@@ -48,10 +52,10 @@ describe('StageEmailListener', () => {
     });
 
     expect(prisma.lead.findUnique).not.toHaveBeenCalled();
-    expect(emailService.send).not.toHaveBeenCalled();
+    expect(emailQueue.add).not.toHaveBeenCalled();
   });
 
-  it('should send install-ready email to owner for INSTALL_READY stage', async () => {
+  it('should enqueue install-ready email for INSTALL_READY stage', async () => {
     prisma.lead.findUnique.mockResolvedValue(mockLead);
 
     await listener.handleStageChanged({
@@ -61,16 +65,18 @@ describe('StageEmailListener', () => {
       newStage: 'INSTALL_READY',
     });
 
-    expect(emailService.send).toHaveBeenCalledTimes(1);
-    expect(emailService.send).toHaveBeenCalledWith(
+    expect(emailQueue.add).toHaveBeenCalledTimes(1);
+    expect(emailQueue.add).toHaveBeenCalledWith(
+      'send',
       expect.objectContaining({
         to: 'owner@ecoloop.us',
         subject: expect.stringContaining('Install Ready'),
       }),
+      expect.any(Object),
     );
   });
 
-  it('should send two emails for WON stage (owner + customer)', async () => {
+  it('should enqueue two emails for WON stage (owner + customer)', async () => {
     prisma.lead.findUnique.mockResolvedValue(mockLead);
 
     await listener.handleStageChanged({
@@ -80,24 +86,26 @@ describe('StageEmailListener', () => {
       newStage: 'WON',
     });
 
-    expect(emailService.send).toHaveBeenCalledTimes(2);
-    // Owner email
-    expect(emailService.send).toHaveBeenCalledWith(
+    expect(emailQueue.add).toHaveBeenCalledTimes(2);
+    expect(emailQueue.add).toHaveBeenCalledWith(
+      'send',
       expect.objectContaining({
         to: 'owner@ecoloop.us',
         subject: expect.stringContaining('Deal Won'),
       }),
+      expect.any(Object),
     );
-    // Customer email
-    expect(emailService.send).toHaveBeenCalledWith(
+    expect(emailQueue.add).toHaveBeenCalledWith(
+      'send',
       expect.objectContaining({
         to: 'john@example.com',
         subject: expect.stringContaining('Welcome'),
       }),
+      expect.any(Object),
     );
   });
 
-  it('should send generic stage email for non-special stages', async () => {
+  it('should enqueue generic stage email for non-special stages', async () => {
     prisma.lead.findUnique.mockResolvedValue(mockLead);
 
     await listener.handleStageChanged({
@@ -107,10 +115,10 @@ describe('StageEmailListener', () => {
       newStage: 'SITE_AUDIT',
     });
 
-    expect(emailService.send).toHaveBeenCalled();
+    expect(emailQueue.add).toHaveBeenCalled();
   });
 
-  it('should send generic stage email to owner and PM for other stages', async () => {
+  it('should enqueue generic stage email to owner and PM for other stages', async () => {
     prisma.lead.findUnique.mockResolvedValue(mockLead);
 
     await listener.handleStageChanged({
@@ -120,12 +128,14 @@ describe('StageEmailListener', () => {
       newStage: 'DESIGN_IN_PROGRESS',
     });
 
-    expect(emailService.send).toHaveBeenCalledTimes(1);
-    expect(emailService.send).toHaveBeenCalledWith(
+    expect(emailQueue.add).toHaveBeenCalledTimes(1);
+    expect(emailQueue.add).toHaveBeenCalledWith(
+      'send',
       expect.objectContaining({
         to: ['owner@ecoloop.us', 'pm@ecoloop.us'],
         subject: expect.stringContaining('Design In Progress'),
       }),
+      expect.any(Object),
     );
   });
 
@@ -139,6 +149,6 @@ describe('StageEmailListener', () => {
       newStage: 'WON',
     });
 
-    expect(emailService.send).not.toHaveBeenCalled();
+    expect(emailQueue.add).not.toHaveBeenCalled();
   });
 });

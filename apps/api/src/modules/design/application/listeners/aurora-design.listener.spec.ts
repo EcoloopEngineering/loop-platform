@@ -1,28 +1,25 @@
 import { Test } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bullmq';
 import { AuroraDesignListener } from './aurora-design.listener';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
-import { AuroraService } from '../../../../integrations/aurora/aurora.service';
+import { QUEUE_DESIGN } from '../../../../infrastructure/queue/queue.module';
 import { createMockPrismaService, MockPrismaService } from '../../../../test/prisma-mock.helper';
 
 describe('AuroraDesignListener', () => {
   let listener: AuroraDesignListener;
   let prisma: MockPrismaService;
-  let auroraService: { createProject: jest.Mock };
+  let designQueue: { add: jest.Mock };
 
   beforeEach(async () => {
     prisma = createMockPrismaService();
-    auroraService = {
-      createProject: jest.fn().mockResolvedValue({ projectId: 'aurora-p1' }),
-    };
-
-    prisma.designRequest.update.mockResolvedValue({});
     prisma.leadActivity.create.mockResolvedValue({});
+    designQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
 
     const module = await Test.createTestingModule({
       providers: [
         AuroraDesignListener,
         { provide: PrismaService, useValue: prisma },
-        { provide: AuroraService, useValue: auroraService },
+        { provide: getQueueToken(QUEUE_DESIGN), useValue: designQueue },
       ],
     }).compile();
 
@@ -40,50 +37,63 @@ describe('AuroraDesignListener', () => {
     userId: 'u1',
   };
 
-  it('should create aurora project and update design request', async () => {
+  it('should enqueue aurora design job with correct data', async () => {
     await listener.handleAiDesignRequested(payload);
 
-    expect(auroraService.createProject).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'John Doe - 123 Main' }),
-    );
-    expect(prisma.designRequest.update).toHaveBeenCalledWith({
-      where: { id: 'dr-1' },
-      data: expect.objectContaining({
-        auroraProjectId: 'aurora-p1',
-        auroraProjectUrl: expect.stringContaining('aurora-p1'),
-      }),
-    });
-  });
-
-  it('should log activity on success', async () => {
-    await listener.handleAiDesignRequested(payload);
-
-    expect(prisma.leadActivity.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(designQueue.add).toHaveBeenCalledWith(
+      'aurora-enrichment',
+      expect.objectContaining({
+        designRequestId: 'dr-1',
         leadId: 'l1',
-        type: 'DESIGN_COMPLETED',
+        customerName: 'John Doe',
+        propertyAddress: '123 Main, Austin, TX 78701',
       }),
-    });
+      expect.objectContaining({ jobId: 'design-dr-1' }),
+    );
   });
 
-  it('should handle aurora failure gracefully without rethrowing', async () => {
-    auroraService.createProject.mockRejectedValue(new Error('Aurora down'));
+  it('should include all payload fields in the job data', async () => {
+    await listener.handleAiDesignRequested(payload);
+
+    const jobData = designQueue.add.mock.calls[0][1];
+    expect(jobData.monthlyBill).toBe(200);
+    expect(jobData.roofCondition).toBe('GOOD');
+    expect(jobData.propertyType).toBe('RESIDENTIAL');
+    expect(jobData.userId).toBe('u1');
+  });
+
+  it('should log fallback activity when queue enqueue fails', async () => {
+    designQueue.add.mockRejectedValue(new Error('Redis down'));
 
     await expect(listener.handleAiDesignRequested(payload)).resolves.not.toThrow();
 
     expect(prisma.leadActivity.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        leadId: 'l1',
         type: 'DESIGN_REQUESTED',
-        description: expect.stringContaining('Aurora integration failed'),
+        description: expect.stringContaining('Failed to enqueue'),
       }),
     });
   });
 
-  it('should estimate kWh from monthly bill when annualKwhUsage is absent', async () => {
-    await listener.handleAiDesignRequested({ ...payload, annualKwhUsage: undefined });
+  it('should handle missing optional fields gracefully', async () => {
+    const minimalPayload = {
+      designRequestId: 'dr-2',
+      leadId: 'l2',
+      propertyAddress: '456 Oak, Dallas, TX 75201',
+      customerName: 'Jane Smith',
+      userId: 'u2',
+    };
 
-    expect(auroraService.createProject).toHaveBeenCalledWith(
-      expect.objectContaining({ utilityBillKwh: Math.round((200 / 0.16) * 12) }),
+    await listener.handleAiDesignRequested(minimalPayload);
+
+    expect(designQueue.add).toHaveBeenCalledWith(
+      'aurora-enrichment',
+      expect.objectContaining({
+        designRequestId: 'dr-2',
+        leadId: 'l2',
+      }),
+      expect.any(Object),
     );
   });
 });

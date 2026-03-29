@@ -536,7 +536,7 @@ model CommissionPayment {
 
   @@index([leadId])
   @@index([userId, status])
-  @@index([leadId, userId, type])
+  @@unique([leadId, userId, type])
   @@map("commission_payments")
 }
 

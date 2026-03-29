@@ -1,35 +1,46 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SetMetadata } from '@nestjs/common';
+import {
+  HealthCheckService,
+  HealthCheck,
+  PrismaHealthIndicator,
+  DiskHealthIndicator,
+  MemoryHealthIndicator,
+} from '@nestjs/terminus';
 import { PrismaService } from '../database/prisma.service';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly health: HealthCheckService,
+    private readonly prismaHealth: PrismaHealthIndicator,
+    private readonly disk: DiskHealthIndicator,
+    private readonly memory: MemoryHealthIndicator,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get()
   @SetMetadata('isPublic', true)
-  @ApiOperation({ summary: 'Health check' })
-  async check() {
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'ok', database: 'connected', timestamp: new Date().toISOString() };
-    } catch {
-      return { status: 'error', database: 'disconnected', timestamp: new Date().toISOString() };
-    }
+  @ApiOperation({ summary: 'Full health check' })
+  @HealthCheck()
+  check() {
+    return this.health.check([
+      () => this.prismaHealth.pingCheck('database', this.prisma),
+      () => this.disk.checkStorage('disk', { path: '/', thresholdPercent: 0.9 }),
+      () => this.memory.checkHeap('memory_heap', 200 * 1024 * 1024),
+    ]);
   }
 
   @Get('ready')
   @SetMetadata('isPublic', true)
   @ApiOperation({ summary: 'Readiness probe' })
-  async ready() {
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'ok', timestamp: new Date().toISOString() };
-    } catch {
-      return { status: 'error', timestamp: new Date().toISOString() };
-    }
+  @HealthCheck()
+  ready() {
+    return this.health.check([
+      () => this.prismaHealth.pingCheck('database', this.prisma),
+    ]);
   }
 
   @Get('live')

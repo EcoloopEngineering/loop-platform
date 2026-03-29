@@ -6,13 +6,14 @@ import { DesignController } from './presentation/design.controller';
 import { RequestDesignHandler } from './application/commands/request-design.handler';
 import { AuroraDesignListener } from './application/listeners/aurora-design.listener';
 import { DesignQueryService } from './application/services/design-query.service';
+import { DesignProcessor } from '../../infrastructure/queue/processors/design.processor';
 
 const CommandHandlers = [RequestDesignHandler];
 
 @Module({
   imports: [CqrsModule, PrismaModule, IntegrationsModule],
   controllers: [DesignController],
-  providers: [...CommandHandlers, AuroraDesignListener, DesignQueryService],
+  providers: [...CommandHandlers, AuroraDesignListener, DesignQueryService, DesignProcessor],
   exports: [DesignQueryService],
 })
 export class DesignModule {}

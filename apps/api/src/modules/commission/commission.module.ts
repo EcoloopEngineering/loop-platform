@@ -7,6 +7,7 @@ import { CalculateCommissionHandler } from './application/commands/calculate-com
 import { CommissionCalculatorDomainService } from './domain/services/commission-calculator.domain-service';
 import { CommissionPaymentService } from './application/services/commission-payment.service';
 import { StageCommissionListener } from './application/listeners/stage-commission.listener';
+import { CommissionProcessor } from '../../infrastructure/queue/processors/commission.processor';
 
 const CommandHandlers = [CalculateCommissionHandler];
 const Listeners = [StageCommissionListener];
@@ -19,6 +20,7 @@ const Listeners = [StageCommissionListener];
     ...Listeners,
     CommissionCalculatorDomainService,
     CommissionPaymentService,
+    CommissionProcessor,
   ],
   exports: [CommissionCalculatorDomainService],
 })

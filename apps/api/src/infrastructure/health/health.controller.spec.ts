@@ -1,59 +1,71 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from './health.controller';
+import { HealthCheckService, PrismaHealthIndicator, DiskHealthIndicator, MemoryHealthIndicator } from '@nestjs/terminus';
 import { PrismaService } from '../database/prisma.service';
 import { createMockPrismaService } from '../../test/prisma-mock.helper';
 
 describe('HealthController', () => {
   let controller: HealthController;
-  let queryRawMock: jest.Mock;
+  let healthCheckService: { check: jest.Mock };
 
   beforeEach(async () => {
-    const prisma = createMockPrismaService();
-    queryRawMock = jest.fn().mockResolvedValue([{ '?column?': 1 }]);
-    (prisma as any).$queryRaw = queryRawMock;
+    healthCheckService = {
+      check: jest.fn().mockImplementation((indicators: (() => Promise<any>)[]) =>
+        Promise.all(indicators.map((fn) => fn())).then(() => ({
+          status: 'ok',
+          info: { database: { status: 'up' } },
+        })),
+      ),
+    };
+
+    const prismaHealth = {
+      pingCheck: jest.fn().mockResolvedValue({ database: { status: 'up' } }),
+    };
+
+    const diskHealth = {
+      checkStorage: jest.fn().mockResolvedValue({ disk: { status: 'up' } }),
+    };
+
+    const memoryHealth = {
+      checkHeap: jest.fn().mockResolvedValue({ memory_heap: { status: 'up' } }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
-      providers: [{ provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: HealthCheckService, useValue: healthCheckService },
+        { provide: PrismaHealthIndicator, useValue: prismaHealth },
+        { provide: DiskHealthIndicator, useValue: diskHealth },
+        { provide: MemoryHealthIndicator, useValue: memoryHealth },
+        { provide: PrismaService, useValue: createMockPrismaService() },
+      ],
     }).compile();
 
     controller = module.get(HealthController);
   });
 
   describe('check()', () => {
-    it('returns status ok and database connected when DB is reachable', async () => {
+    it('returns full health check result', async () => {
       const result = await controller.check();
       expect(result.status).toBe('ok');
-      expect(result.database).toBe('connected');
-      expect(result.timestamp).toBeDefined();
+      expect(healthCheckService.check).toHaveBeenCalled();
     });
 
-    it('returns status error and database disconnected when DB query fails', async () => {
-      queryRawMock.mockRejectedValue(new Error('connection refused'));
-      const result = await controller.check();
-      expect(result.status).toBe('error');
-      expect(result.database).toBe('disconnected');
-      expect(result.timestamp).toBeDefined();
+    it('handles health check failure', async () => {
+      healthCheckService.check.mockRejectedValue(new Error('DB down'));
+      await expect(controller.check()).rejects.toThrow('DB down');
     });
   });
 
   describe('ready()', () => {
-    it('returns status ok when DB is reachable', async () => {
+    it('returns readiness status', async () => {
       const result = await controller.ready();
       expect(result.status).toBe('ok');
-      expect(result.timestamp).toBeDefined();
-    });
-
-    it('returns status error when DB query fails', async () => {
-      queryRawMock.mockRejectedValue(new Error('connection refused'));
-      const result = await controller.ready();
-      expect(result.status).toBe('error');
-      expect(result.timestamp).toBeDefined();
     });
   });
 
   describe('live()', () => {
-    it('returns status ok with uptime', () => {
+    it('returns liveness status with uptime', () => {
       const result = controller.live();
       expect(result.status).toBe('ok');
       expect(result.uptime).toBeGreaterThanOrEqual(0);

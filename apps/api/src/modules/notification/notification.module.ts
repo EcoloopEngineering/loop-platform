@@ -9,6 +9,7 @@ import { LeadAssignmentNotificationListener } from './application/listeners/lead
 import { StageEmailListener } from './application/listeners/stage-email.listener';
 import { GoogleChatListener } from './application/listeners/google-chat.listener';
 import { IntegrationsModule } from '../../integrations/integrations.module';
+import { EmailProcessor } from '../../infrastructure/queue/processors/email.processor';
 
 @Module({
   imports: [CqrsModule, PrismaModule, IntegrationsModule],
@@ -20,6 +21,7 @@ import { IntegrationsModule } from '../../integrations/integrations.module';
     LeadAssignmentNotificationListener,
     StageEmailListener,
     GoogleChatListener,
+    EmailProcessor,
   ],
   exports: [NotificationService],
 })

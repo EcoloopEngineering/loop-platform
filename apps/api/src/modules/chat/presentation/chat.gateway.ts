@@ -29,6 +29,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(ChatGateway.name);
   private readonly jwtSecret: string;
+  private readonly messageRates = new Map<string, { count: number; resetAt: number }>();
+  private readonly MAX_MESSAGES_PER_MINUTE = 30;
 
   constructor(
     private readonly chatService: ChatService,
@@ -57,7 +59,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
+    this.messageRates.delete(client.id);
     this.logger.log(`Client disconnected: ${client.id}`);
+  }
+
+  private checkRateLimit(clientId: string): boolean {
+    const now = Date.now();
+    const rate = this.messageRates.get(clientId);
+
+    if (!rate || now > rate.resetAt) {
+      this.messageRates.set(clientId, { count: 1, resetAt: now + 60000 });
+      return true;
+    }
+
+    if (rate.count >= this.MAX_MESSAGES_PER_MINUTE) {
+      return false;
+    }
+
+    rate.count++;
+    return true;
   }
 
   @SubscribeMessage('start_conversation')
@@ -102,6 +122,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversationId: string; content: string; senderId?: string },
   ) {
+    if (!this.checkRateLimit(client.id)) {
+      client.emit('error', { message: 'Rate limit exceeded. Please slow down.' });
+      return;
+    }
+
     // Save user message
     const userMessage = await this.chatService.addMessage({
       conversationId: data.conversationId,

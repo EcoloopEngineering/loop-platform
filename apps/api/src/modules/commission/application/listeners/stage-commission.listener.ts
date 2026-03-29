@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../../../infrastructure/database/prisma.service';
+import { QUEUE_COMMISSION } from '../../../../infrastructure/queue/queue.module';
+import { CommissionJobData } from '../../../../infrastructure/queue/processors/commission.processor';
 import { TtlCache } from '../../../../common/utils/ttl-cache';
 
 interface LeadStageChangedPayload {
@@ -30,7 +33,7 @@ export class StageCommissionListener {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly emitter: EventEmitter2,
+    @InjectQueue(QUEUE_COMMISSION) private readonly commissionQueue: Queue<CommissionJobData>,
   ) {}
 
   private async getTiers(): Promise<{ M1: number; M2: number; M3: number }> {
@@ -60,113 +63,34 @@ export class StageCommissionListener {
     const tiers = await this.getTiers();
 
     if (M1_STAGES.includes(newStage)) {
-      await this.createCommissionPayments(leadId, 'M1', tiers.M1);
+      await this.enqueueCommission(leadId, 'M1', tiers.M1);
     } else if (newStage === M2_STAGE) {
-      await this.createCommissionPayments(leadId, 'M2', tiers.M2);
+      await this.enqueueCommission(leadId, 'M2', tiers.M2);
     } else if (newStage === M3_STAGE) {
-      await this.createM3IfEligible(leadId);
+      await this.enqueueM3IfEligible(leadId);
     }
   }
 
   /**
-   * Create commission payments for all primary assignees of a lead.
+   * Enqueue a commission payment job to the Bull queue.
    */
-  private async createCommissionPayments(
+  private async enqueueCommission(
     leadId: string,
     type: 'M1' | 'M2' | 'M3',
     tierPct: number,
   ): Promise<void> {
-    try {
-      const assignments = await this.prisma.leadAssignment.findMany({
-        where: { leadId, isPrimary: true },
-      });
-
-      if (!assignments.length) {
-        this.logger.warn(`No primary assignees found for lead ${leadId} — skipping ${type} commission`);
-        return;
-      }
-
-      // Get the lead commission to calculate payment amount
-      const commission = await this.prisma.commission.findFirst({
-        where: { leadId },
-      });
-
-      const baseAmount = commission?.amount
-        ? Number(commission.amount)
-        : null;
-
-      // Check for existing payments and filter to only new ones
-      const assignmentsToCreate: { userId: string; amount: number | null }[] = [];
-
-      for (const assignment of assignments) {
-        const existing = await this.prisma.commissionPayment.findFirst({
-          where: {
-            leadId,
-            userId: assignment.userId,
-            type,
-          },
-        });
-
-        if (existing) {
-          this.logger.debug(
-            `${type} commission payment already exists for user ${assignment.userId} on lead ${leadId}`,
-          );
-          continue;
-        }
-
-        const paymentAmount = baseAmount !== null
-          ? Math.round(baseAmount * tierPct * 100) / 100
-          : null;
-
-        assignmentsToCreate.push({ userId: assignment.userId, amount: paymentAmount });
-      }
-
-      if (assignmentsToCreate.length === 0) return;
-
-      // Batch all creates in a single transaction
-      const creates = assignmentsToCreate.map((a) =>
-        this.prisma.commissionPayment.create({
-          data: {
-            leadId,
-            userId: a.userId,
-            type,
-            amount: a.amount,
-            status: 'PENDING',
-          },
-        }),
-      );
-
-      const payments = await this.prisma.$transaction(creates);
-
-      // Emit events after transaction commits
-      for (let i = 0; i < payments.length; i++) {
-        const payment = payments[i];
-        const { userId, amount } = assignmentsToCreate[i];
-
-        this.emitter.emit('commission.created', {
-          paymentId: payment.id,
-          leadId,
-          userId,
-          type,
-          amount,
-        });
-
-        this.logger.log(
-          `${type} commission payment created for user ${userId} on lead ${leadId} (amount: ${amount ?? 'TBD'})`,
-        );
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Failed to create ${type} commission payments for lead ${leadId}: ${message}`,
-      );
-    }
+    await this.commissionQueue.add(
+      `commission-${type}`,
+      { leadId, type, tierPct },
+      { jobId: `${type}-${leadId}` }, // deduplicate by lead+type
+    );
+    this.logger.log(`Enqueued ${type} commission job for lead ${leadId}`);
   }
 
   /**
-   * Create M3 commission only if M2 advance was NOT already paid.
+   * Enqueue M3 commission only if M2 advance was NOT already paid.
    */
-  private async createM3IfEligible(leadId: string): Promise<void> {
+  private async enqueueM3IfEligible(leadId: string): Promise<void> {
     try {
       const m2Paid = await this.prisma.commissionPayment.findFirst({
         where: {
@@ -184,7 +108,7 @@ export class StageCommissionListener {
       }
 
       const tiers = await this.getTiers();
-      await this.createCommissionPayments(leadId, 'M3', tiers.M3);
+      await this.enqueueCommission(leadId, 'M3', tiers.M3);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(

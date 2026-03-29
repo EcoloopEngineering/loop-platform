@@ -23,6 +23,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { TaskModule } from './modules/task/task.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { HealthModule } from './infrastructure/health/health.module';
+import { QueueModule } from './infrastructure/queue/queue.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { HealthModule } from './infrastructure/health/health.module';
     }]),
     PrismaModule,
     FirebaseModule,
+    QueueModule,
     EmailModule,
     PdfModule,
     StorageModule,
