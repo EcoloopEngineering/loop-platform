@@ -18,7 +18,7 @@
       <q-tab name="preferences" label="Preferences" icon="tune" />
     </q-tabs>
 
-    <q-tab-panels v-model="activeTab" animated>
+    <q-tab-panels v-model="activeTab" animated keep-alive>
       <q-tab-panel name="company" class="q-pa-none">
         <SettingsCompanyTab ref="companyTab" />
       </q-tab-panel>
@@ -77,19 +77,19 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 .settings-page {
-  background: #F8FAFB;
   min-height: 100vh;
   max-width: 100%;
 }
 
-.page-title {
-  color: #1A1A2E;
-}
-
 .settings-tabs {
-  background: #fff;
   border: 1px solid #E5E7EB;
   border-radius: 12px;
   overflow: hidden;
+}
+
+.body--dark & {
+  .settings-tabs {
+    border-color: #333;
+  }
 }
 </style>

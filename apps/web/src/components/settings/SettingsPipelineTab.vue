@@ -100,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
 
@@ -144,6 +144,8 @@ async function loadPipelineStages() {
     loadingPipeline.value = false;
   }
 }
+
+onMounted(() => loadPipelineStages());
 
 // Color picker
 const showColorPicker = ref(false);
