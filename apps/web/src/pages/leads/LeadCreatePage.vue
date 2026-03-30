@@ -120,7 +120,6 @@ function onStepClick(step: number) {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #F8FAFB;
   padding-top: 8px;
 }
 
@@ -128,20 +127,15 @@ function onStepClick(step: number) {
   flex: 1;
   overflow-y: auto;
   padding: 0 16px;
-  max-width: 680px;
-  margin: 0 auto;
   width: 100%;
 }
 
 .wizard-footer {
-  background: #FFFFFF;
-  border-top: 1px solid #F3F4F6;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   position: sticky;
   bottom: 0;
   padding: 12px 16px;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
-  max-width: 680px;
-  margin: 0 auto;
   width: 100%;
 
   .back-btn {
