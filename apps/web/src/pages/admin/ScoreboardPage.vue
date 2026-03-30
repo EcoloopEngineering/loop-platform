@@ -22,21 +22,21 @@
           <q-card flat bordered class="rounded-card text-center q-pa-md">
             <q-icon name="monetization_on" color="amber-8" size="32px" />
             <div class="text-h5 text-weight-bold q-mt-sm">{{ balance.coins ?? 0 }}</div>
-            <div class="text-caption" style="color: var(--text-secondary)">Coin Balance</div>
+            <div class="text-caption text-secondary-color">Coin Balance</div>
           </q-card>
         </div>
         <div class="col-12 col-sm-4">
           <q-card flat bordered class="rounded-card text-center q-pa-md">
             <q-icon name="trending_up" color="primary" size="32px" />
             <div class="text-h5 text-weight-bold q-mt-sm">{{ weeklyPoints }}</div>
-            <div class="text-caption" style="color: var(--text-secondary)">Points This Week</div>
+            <div class="text-caption text-secondary-color">Points This Week</div>
           </q-card>
         </div>
         <div class="col-12 col-sm-4">
           <q-card flat bordered class="rounded-card text-center q-pa-md">
             <q-icon name="emoji_events" color="amber" size="32px" />
             <div class="text-h5 text-weight-bold q-mt-sm">#{{ myRank || '--' }}</div>
-            <div class="text-caption" style="color: var(--text-secondary)">Rank</div>
+            <div class="text-caption text-secondary-color">Rank</div>
           </q-card>
         </div>
       </div>
@@ -99,7 +99,7 @@
                 <q-icon name="emoji_events" color="amber" size="24px" class="q-mr-sm" />
                 <div class="col">
                   <div class="text-body2 text-weight-medium">{{ milestoneDescription(m) }}</div>
-                  <div class="text-caption" style="color: var(--text-tertiary)">{{ timeAgo(m.createdAt) }}</div>
+                  <div class="text-caption text-tertiary-color">{{ timeAgo(m.createdAt) }}</div>
                 </div>
               </div>
             </q-card-section>
@@ -243,6 +243,8 @@ onMounted(() => { loadData(); });
 .page-bg {
   background: var(--bg-page, #F8FAFB);
 }
+.text-secondary-color { color: var(--text-secondary, #6B7280); }
+.text-tertiary-color { color: var(--text-tertiary, #9CA3AF); }
 .rounded-card {
   border-radius: 12px;
   border-color: var(--border-default, #E5E7EB);

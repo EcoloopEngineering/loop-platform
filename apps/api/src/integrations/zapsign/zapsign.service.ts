@@ -111,6 +111,10 @@ export class ZapSignService {
     return this.configured;
   }
 
+  getCircuitState(): import('../../common/utils/resilience').CircuitState {
+    return this.circuitBreaker.getState();
+  }
+
   private assertConfigured(): void {
     if (!this.configured) {
       throw new Error('ZapSign integration is not configured');

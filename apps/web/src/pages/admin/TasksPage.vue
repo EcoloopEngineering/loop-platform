@@ -36,11 +36,11 @@
     </div>
 
     <!-- Error -->
-    <q-banner v-if="error" class="bg-negative text-white q-mb-md" rounded>
+    <q-banner v-if="tasksApi.error.value" class="bg-negative text-white q-mb-md" rounded>
       <template #avatar><q-icon name="error" /></template>
-      {{ error }}
+      {{ tasksApi.error.value }}
       <template #action>
-        <q-btn flat label="Retry" @click="fetchTasks" />
+        <q-btn flat label="Retry" @click="loadTasks" />
       </template>
     </q-banner>
 
@@ -50,7 +50,7 @@
         :rows="filteredTasks"
         :columns="columns"
         row-key="id"
-        :loading="loading"
+        :loading="tasksApi.loading.value"
         flat
         :pagination="{ rowsPerPage: 25 }"
         :rows-per-page-options="[10, 25, 50]"
@@ -77,7 +77,7 @@
             </q-td>
             <q-td key="status" :props="props">
               <q-badge
-                :style="{ background: statusColor(props.row.status) }"
+                :style="{ background: statusColorMap(props.row.status) }"
                 text-color="white"
                 class="status-badge"
               >
@@ -108,11 +108,11 @@
                   v-if="props.row.status !== 'COMPLETED' && props.row.status !== 'CANCELLED'"
                   flat dense round icon="check_circle" size="sm" color="positive"
                   aria-label="Mark task as complete"
-                  @click.stop="completeTask(props.row.id)"
+                  @click.stop="handleCompleteTask(props.row.id)"
                 >
                   <q-tooltip>Complete</q-tooltip>
                 </q-btn>
-                <q-btn flat dense round icon="delete" size="sm" color="negative" aria-label="Delete task" @click.stop="deleteTask(props.row.id)">
+                <q-btn flat dense round icon="delete" size="sm" color="negative" aria-label="Delete task" @click.stop="handleDeleteTask(props.row.id)">
                   <q-tooltip>Delete</q-tooltip>
                 </q-btn>
               </div>
@@ -122,7 +122,7 @@
             <q-td colspan="100%" class="bg-grey-1 expanded-detail">
               <div v-if="props.row.description" class="q-mb-md">
                 <div class="text-weight-bold text-grey-7 q-mb-xs text-12">DESCRIPTION</div>
-                <div style="font-size: 13px; white-space: pre-wrap">{{ props.row.description }}</div>
+                <div class="detail-text">{{ props.row.description }}</div>
               </div>
               <div v-if="props.row.subtasks && props.row.subtasks.length > 0">
                 <div class="text-weight-bold text-grey-7 q-mb-xs text-12">SUBTASKS</div>
@@ -187,7 +187,7 @@
 
         <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat no-caps label="Cancel" color="grey-7" @click="showCreate = false" aria-label="Cancel task creation" />
-          <q-btn unelevated no-caps label="Create" color="primary" :loading="creating" :disable="!form.title" @click="createTask" class="radius-md" aria-label="Confirm create task" />
+          <q-btn unelevated no-caps label="Create" color="primary" :loading="creating" :disable="!form.title" @click="handleCreateTask" class="radius-md" aria-label="Confirm create task" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -197,35 +197,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { api } from '@/boot/axios';
+import { useTasksApi, type TaskRow } from '@/composables/useTasksApi';
 import { titleCase } from '@/composables/useLeadFormatting';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 
-interface Subtask {
-  id: string;
-  title: string;
-  completed: boolean;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: string;
-  priority: string;
-  dueDate?: string;
-  createdAt: string;
-  assignee?: { id: string; firstName?: string; lastName?: string; name?: string };
-  lead?: { id: string; customerName: string };
-  subtasks?: Subtask[];
-}
-
 const $q = useQuasar();
+const tasksApi = useTasksApi();
 
-const loading = ref(false);
-const error = ref<string | null>(null);
 const creating = ref(false);
-const tasks = ref<Task[]>([]);
+const tasks = ref<TaskRow[]>([]);
 const showCreate = ref(false);
 
 const filterStatus = ref<string | null>(null);
@@ -259,8 +239,8 @@ const assigneeOptions = ref<{ label: string; value: string }[]>([]);
 
 const columns = [
   { name: 'title', label: 'Task Title', field: 'title', align: 'left' as const, sortable: true },
-  { name: 'lead', label: 'Lead Name', field: (row: Task) => row.lead?.customerName ?? '', align: 'left' as const, sortable: true },
-  { name: 'assignee', label: 'Assignee', field: (row: Task) => assigneeName(row.assignee), align: 'left' as const, sortable: true },
+  { name: 'lead', label: 'Lead Name', field: (row: TaskRow) => row.lead?.customerName ?? '', align: 'left' as const, sortable: true },
+  { name: 'assignee', label: 'Assignee', field: (row: TaskRow) => assigneeName(row.assignee), align: 'left' as const, sortable: true },
   { name: 'status', label: 'Status', field: 'status', align: 'left' as const, sortable: true },
   { name: 'priority', label: 'Priority', field: 'priority', align: 'left' as const, sortable: true },
   { name: 'dueDate', label: 'Due Date', field: 'dueDate', align: 'left' as const, sortable: true },
@@ -299,7 +279,7 @@ function assigneeName(assignee?: { firstName?: string; lastName?: string; name?:
   return `${assignee.firstName ?? ''} ${assignee.lastName ?? ''}`.trim();
 }
 
-function statusColor(status: string): string {
+function statusColorMap(status: string): string {
   const map: Record<string, string> = {
     OPEN: '#2196F3',
     IN_PROGRESS: '#FF9800',
@@ -328,98 +308,69 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function isOverdue(task: Task): boolean {
+function isOverdue(task: TaskRow): boolean {
   if (!task.dueDate || task.status === 'COMPLETED' || task.status === 'CANCELLED') return false;
   return new Date(task.dueDate).getTime() < Date.now();
 }
 
-async function fetchTasks() {
-  loading.value = true;
-  error.value = null;
-  try {
-    const params: Record<string, string> = {};
-    if (filterStatus.value) params.status = filterStatus.value;
-    if (filterAssignee.value) params.assigneeId = filterAssignee.value;
-    const { data } = await api.get<Task[] | { data: Task[] }>('/tasks', { params });
-    tasks.value = Array.isArray(data) ? data : (data as { data: Task[] }).data ?? [];
-  } catch {
-    error.value = 'Failed to load tasks. Please try again.';
-    tasks.value = [];
-  } finally {
-    loading.value = false;
-  }
+async function loadTasks() {
+  tasks.value = await tasksApi.fetchTasks({
+    status: filterStatus.value ?? undefined,
+    assigneeId: filterAssignee.value ?? undefined,
+  });
 }
 
-async function fetchUsers() {
-  try {
-    interface UserOption { id: string; firstName?: string; lastName?: string; email: string }
-    const { data } = await api.get<UserOption[] | { data: UserOption[] }>('/users');
-    const users: UserOption[] = Array.isArray(data) ? data : (data as { data: UserOption[] }).data ?? [];
-    assigneeOptions.value = users.map((u) => ({
-      label: titleCase(`${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email),
-      value: u.id,
-    }));
-  } catch {
-    assigneeOptions.value = [];
-  }
-}
-
-async function createTask() {
+async function handleCreateTask() {
   creating.value = true;
-  try {
-    const payload: Record<string, string | number | null | undefined> = {
-      title: form.value.title,
-      description: form.value.description || undefined,
-      priority: form.value.priority,
-      assigneeId: form.value.assigneeId || undefined,
-      dueDate: form.value.dueDate || undefined,
-      leadId: form.value.leadId || undefined,
-    };
-    await api.post('/tasks', payload);
+  const ok = await tasksApi.createTask({
+    title: form.value.title,
+    description: form.value.description || undefined,
+    priority: form.value.priority,
+    assigneeId: form.value.assigneeId,
+    dueDate: form.value.dueDate || undefined,
+    leadId: form.value.leadId || undefined,
+  });
+  if (ok) {
     showCreate.value = false;
     form.value = { title: '', description: '', priority: 'MEDIUM', assigneeId: null, dueDate: '', leadId: '' };
     $q.notify({ type: 'positive', message: 'Task created successfully' });
-    fetchTasks();
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    $q.notify({ type: 'negative', message: axErr?.response?.data?.message ?? 'Failed to create task' });
-  } finally {
-    creating.value = false;
+    loadTasks();
+  } else {
+    $q.notify({ type: 'negative', message: tasksApi.error.value ?? 'Failed to create task' });
   }
+  creating.value = false;
 }
 
-async function completeTask(id: string) {
-  try {
-    await api.patch(`/tasks/${id}/complete`);
+async function handleCompleteTask(id: string) {
+  const ok = await tasksApi.completeTask(id);
+  if (ok) {
     $q.notify({ type: 'positive', message: 'Task completed' });
-    fetchTasks();
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    $q.notify({ type: 'negative', message: axErr?.response?.data?.message ?? 'Failed to complete task' });
+    loadTasks();
+  } else {
+    $q.notify({ type: 'negative', message: tasksApi.error.value ?? 'Failed to complete task' });
   }
 }
 
-async function deleteTask(id: string) {
+function handleDeleteTask(id: string) {
   $q.dialog({
     title: 'Delete Task',
     message: 'Are you sure you want to delete this task?',
     cancel: true,
     persistent: true,
   }).onOk(async () => {
-    try {
-      await api.delete(`/tasks/${id}`);
+    const ok = await tasksApi.deleteTask(id);
+    if (ok) {
       $q.notify({ type: 'positive', message: 'Task deleted' });
-      fetchTasks();
-    } catch (err: unknown) {
-      const axErr = err as { response?: { data?: { message?: string } } };
-      $q.notify({ type: 'negative', message: axErr?.response?.data?.message ?? 'Failed to delete task' });
+      loadTasks();
+    } else {
+      $q.notify({ type: 'negative', message: tasksApi.error.value ?? 'Failed to delete task' });
     }
   });
 }
 
-onMounted(() => {
-  fetchTasks();
-  fetchUsers();
+onMounted(async () => {
+  assigneeOptions.value = await tasksApi.fetchAssigneeOptions();
+  loadTasks();
 });
 </script>
 

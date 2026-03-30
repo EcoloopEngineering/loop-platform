@@ -2,6 +2,19 @@
   <q-page class="q-pa-md">
     <h5 class="q-my-none text-weight-bold q-mb-md">Dashboard</h5>
 
+    <!-- Loading -->
+    <div v-if="loading" class="row justify-center q-pa-xl">
+      <q-spinner-dots color="primary" size="40px" />
+    </div>
+
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-ma-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action><q-btn flat label="Retry" @click="loadData" /></template>
+    </q-banner>
+
+    <template v-else>
     <!-- Stat Cards -->
     <div class="row q-col-gutter-md q-mb-lg">
       <div v-for="card in statCards" :key="card.label" class="col-6 col-sm-3">
@@ -54,6 +67,7 @@
         </div>
       </q-card-section>
     </q-card>
+    </template>
   </q-page>
 </template>
 
@@ -74,6 +88,9 @@ interface Goal {
   target: number;
 }
 
+const loading = ref(false);
+const error = ref<string | null>(null);
+
 const statCards = ref([
   { label: 'Leads This Month', icon: 'people', color: 'primary', value: '--' },
   { label: 'Won Deals', icon: 'emoji_events', color: 'positive', value: '--' },
@@ -83,7 +100,9 @@ const statCards = ref([
 
 const goals = ref<Goal[]>([]);
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true;
+  error.value = null;
   try {
     const [statsRes, goalsRes] = await Promise.all([
       api.get<DashboardStats>('/dashboard/stats'),
@@ -98,9 +117,13 @@ onMounted(async () => {
 
     goals.value = goalsRes.data;
   } catch {
-    // Defaults remain
+    error.value = 'Failed to load dashboard data. Please try again.';
+  } finally {
+    loading.value = false;
   }
-});
+}
+
+onMounted(() => { loadData(); });
 </script>
 
 <style lang="scss" scoped>

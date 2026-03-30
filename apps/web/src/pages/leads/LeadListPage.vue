@@ -40,6 +40,12 @@
           <q-spinner-dots color="primary" size="40px" />
         </div>
 
+        <q-banner v-else-if="error" class="bg-negative text-white q-ma-md" rounded>
+          <template #avatar><q-icon name="error" /></template>
+          {{ error }}
+          <template #action><q-btn flat label="Retry" @click="loadLeads" /></template>
+        </q-banner>
+
         <template v-else-if="leads.length">
           <LeadCard v-for="lead in leads" :key="lead.id" :lead="lead" />
         </template>
@@ -61,6 +67,7 @@ const leadStore = useLeadStore();
 const search = ref('');
 const activeTab = ref('all');
 const leads = ref(leadStore.leads);
+const error = ref<string | null>(null);
 
 const STAGE_MAP: Record<string, string | undefined> = {
   all: undefined,
@@ -74,10 +81,15 @@ onMounted(() => loadLeads());
 watch(activeTab, () => loadLeads());
 
 async function loadLeads() {
-  await leadStore.fetchLeads({
-    stage: STAGE_MAP[activeTab.value],
-  });
-  leads.value = leadStore.leads;
+  error.value = null;
+  try {
+    await leadStore.fetchLeads({
+      stage: STAGE_MAP[activeTab.value],
+    });
+    leads.value = leadStore.leads;
+  } catch {
+    error.value = 'Failed to load leads. Please try again.';
+  }
 }
 
 let searchTimeout: ReturnType<typeof setTimeout>;

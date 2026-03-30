@@ -152,14 +152,14 @@
         </template>
         <q-card-section class="q-pt-none section-body">
           <div v-for="appt in appointments" :key="appt.id" class="sidebar-field">
-            <div class="row items-center no-wrap q-mb-xs" style="gap: 8px">
+            <div class="row items-center no-wrap q-mb-xs gap-sm">
               <q-icon
                 :name="appt.type === 'SITE_AUDIT' ? 'home_work' : 'solar_power'"
                 :color="apptStatusColor(appt.status)"
                 size="20px"
               />
               <div class="col">
-                <div class="text-weight-medium" style="font-size: 13px">
+                <div class="text-weight-medium text-13">
                   {{ appt.type === 'SITE_AUDIT' ? 'Site Audit' : 'Installation' }}
                 </div>
                 <div class="text-caption text-grey-6">
@@ -169,12 +169,12 @@
               <q-badge
                 :color="apptStatusColor(appt.status)"
                 text-color="white"
-                style="border-radius: 6px; padding: 2px 8px; font-size: 10px"
+                class="badge-pill-sm"
               >
                 {{ appt.status }}
               </q-badge>
             </div>
-            <div class="text-caption text-grey-5" style="margin-left: 28px">
+            <div class="text-caption text-grey-5 ml-avatar">
               Duration: {{ appt.duration }}min
               <span v-if="appt.notes"> · {{ appt.notes }}</span>
             </div>

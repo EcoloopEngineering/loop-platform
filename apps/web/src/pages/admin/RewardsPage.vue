@@ -25,14 +25,14 @@
       </q-card-section>
     </q-card>
 
-    <div v-if="loadingProducts" class="row justify-center q-pa-xl">
+    <div v-if="rewardsApi.loading.value" class="row justify-center q-pa-xl">
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
     <!-- Error -->
-    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+    <q-banner v-else-if="pageError" class="bg-negative text-white q-mb-md" rounded>
       <template #avatar><q-icon name="error" /></template>
-      {{ error }}
+      {{ pageError }}
       <template #action>
         <q-btn flat label="Retry" @click="loadData" />
       </template>
@@ -53,12 +53,12 @@
               class="rounded-card-top"
               fit="cover"
             />
-            <div v-else class="row justify-center items-center" style="height: 120px; background: #F3F4F6">
+            <div v-else class="row justify-center items-center product-placeholder">
               <q-icon name="card_giftcard" size="48px" color="grey-4" />
             </div>
             <q-card-section class="col column">
               <div class="text-subtitle2 text-weight-bold">{{ p.name }}</div>
-              <div v-if="p.description" class="text-caption text-grey-6 q-mt-xs" style="flex: 1">{{ p.description }}</div>
+              <div v-if="p.description" class="text-caption text-grey-6 q-mt-xs product-description">{{ p.description }}</div>
               <div class="row items-center q-mt-sm">
                 <q-icon name="monetization_on" color="amber-8" size="18px" class="q-mr-xs" />
                 <span class="text-weight-bold text-body1">{{ p.price }}</span>
@@ -144,7 +144,7 @@
                 label="Fulfill"
                 size="sm"
                 aria-label="Fulfill this order"
-                @click="fulfillOrder(props.row.id)"
+                @click="handleFulfillOrder(props.row.id)"
               />
               <q-btn
                 v-if="props.row.status === 'PENDING'"
@@ -156,9 +156,9 @@
                 size="sm"
                 class="q-ml-xs"
                 aria-label="Cancel this order"
-                @click="cancelOrder(props.row.id)"
+                @click="handleCancelOrder(props.row.id)"
               />
-              <span v-if="props.row.status !== 'PENDING'" class="text-grey-5">—</span>
+              <span v-if="props.row.status !== 'PENDING'" class="text-grey-5">--</span>
             </q-td>
           </template>
           <template #no-data>
@@ -170,7 +170,7 @@
 
     <!-- Add Product Dialog (Admin only) -->
     <q-dialog v-model="showAddDialog" persistent @keyup.esc="showAddDialog = false" aria-label="Add reward product dialog">
-      <q-card style="min-width: 400px; border-radius: 12px">
+      <q-card class="dialog-card-lg">
         <q-card-section>
           <div class="text-h6 text-weight-bold">Add Reward Product</div>
         </q-card-section>
@@ -190,7 +190,7 @@
             :disable="!newProduct.name || !newProduct.price"
             :loading="savingProduct"
             aria-label="Confirm create reward product"
-            @click="createProduct"
+            @click="handleCreateProduct"
           />
         </q-card-actions>
       </q-card>
@@ -201,46 +201,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { api } from '@/boot/axios';
+import { useRewardsApi } from '@/composables/useRewardsApi';
 import { useUserStore } from '@/stores/user.store';
-
-interface Balance {
-  coins: number;
-  balance?: number;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  imageUrl?: string;
-}
-
-interface Order {
-  id: string;
-  productName: string;
-  price: number;
-  status: string;
-  createdAt: string;
-}
+import type { RewardProduct, RewardOrder, RewardBalance } from '@/types/api';
 
 const $q = useQuasar();
+const rewardsApi = useRewardsApi();
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.user?.role === 'ADMIN');
 
-const balance = ref<Balance>({ coins: 0 });
-const error = ref<string | null>(null);
-const products = ref<Product[]>([]);
-const orders = ref<Order[]>([]);
-interface AdminOrder extends Order {
-  coinsSpent?: number;
-  userName?: string;
-  product?: { name?: string; price?: number };
-  user?: { firstName?: string; lastName?: string };
-}
-const allOrders = ref<AdminOrder[]>([]);
-const loadingProducts = ref(false);
+const balance = ref<RewardBalance>({ coins: 0 });
+const pageError = ref<string | null>(null);
+const products = ref<RewardProduct[]>([]);
+const orders = ref<RewardOrder[]>([]);
+const allOrders = ref<RewardOrder[]>([]);
 const loadingOrders = ref(false);
 const loadingAllOrders = ref(false);
 
@@ -272,95 +246,45 @@ function statusColor(status: string) {
   return map[status] ?? 'grey';
 }
 
-async function fetchBalance() {
-  try {
-    const { data } = await api.get<{ balance?: number; coins?: number }>('/gamification/balance');
-    balance.value = { coins: data.balance ?? data.coins ?? 0 };
-  } catch {
-    // endpoint may not exist yet
-  }
-}
-
-async function fetchProducts() {
-  loadingProducts.value = true;
-  try {
-    const { data } = await api.get<Product[]>('/rewards');
-    products.value = Array.isArray(data) ? data : (data as { data?: Product[] }).data ?? [];
-  } catch {
-    products.value = [];
-  } finally {
-    loadingProducts.value = false;
-  }
-}
-
-async function fetchOrders() {
-  loadingOrders.value = true;
-  try {
-    interface RawOrder {
-      id: string; productName?: string; price?: number; status: string; createdAt: string;
-      coinsSpent?: number; product?: { name?: string; price?: number };
-    }
-    const { data } = await api.get<RawOrder[] | { data: RawOrder[] }>('/rewards/orders');
-    const raw: RawOrder[] = Array.isArray(data) ? data : (data as { data: RawOrder[] }).data ?? [];
-    orders.value = raw.map((o) => ({
-      ...o,
-      productName: o.product?.name ?? o.productName ?? '--',
-      price: o.coinsSpent ?? o.product?.price ?? o.price ?? 0,
-    }));
-  } catch {
-    orders.value = [];
-  } finally {
-    loadingOrders.value = false;
-  }
-}
-
-function confirmRedeem(product: Product) {
+function confirmRedeem(product: RewardProduct) {
   $q.dialog({
     title: 'Confirm Redemption',
     message: `Redeem "${product.name}" for ${product.price} coins?`,
     cancel: true,
     persistent: true,
   }).onOk(async () => {
-    try {
-      await api.post('/rewards/order', { productId: product.id });
+    const ok = await rewardsApi.createOrder(product.id);
+    if (ok) {
       $q.notify({ type: 'positive', message: 'Order placed successfully!' });
-      await Promise.all([fetchBalance(), fetchOrders()]);
-    } catch (err: unknown) {
-      const axErr = err as { response?: { data?: { message?: string } } };
-      $q.notify({
-        type: 'negative',
-        message: axErr?.response?.data?.message ?? 'Failed to place order',
-      });
+      balance.value = await rewardsApi.fetchBalance();
+      orders.value = await rewardsApi.fetchOrders();
+    } else {
+      $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed to place order' });
     }
   });
 }
 
-async function createProduct() {
+async function handleCreateProduct() {
   savingProduct.value = true;
-  try {
-    await api.post('/rewards', {
-      name: newProduct.value.name,
-      description: newProduct.value.description || undefined,
-      price: newProduct.value.price,
-      imageUrl: newProduct.value.imageUrl || undefined,
-    });
+  const ok = await rewardsApi.createProduct({
+    name: newProduct.value.name,
+    description: newProduct.value.description || undefined,
+    price: newProduct.value.price,
+    imageUrl: newProduct.value.imageUrl || undefined,
+  });
+  if (ok) {
     $q.notify({ type: 'positive', message: 'Product created!' });
     showAddDialog.value = false;
     newProduct.value = { name: '', description: '', price: 0, imageUrl: '' };
-    await fetchProducts();
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    $q.notify({
-      type: 'negative',
-      message: axErr?.response?.data?.message ?? 'Failed to create product',
-    });
-  } finally {
-    savingProduct.value = false;
+    products.value = await rewardsApi.fetchProducts();
+  } else {
+    $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed to create product' });
   }
+  savingProduct.value = false;
 }
 
 const adminOrderColumns = [
-  { name: 'user', label: 'User', field: (row: AdminOrder) => row.userName ?? '--', align: 'left' as const },
+  { name: 'user', label: 'User', field: (row: RewardOrder) => row.userName ?? '--', align: 'left' as const },
   { name: 'productName', label: 'Product', field: 'productName', align: 'left' as const },
   { name: 'coinsSpent', label: 'Coins', field: 'coinsSpent', align: 'center' as const },
   { name: 'status', label: 'Status', field: 'status', align: 'center' as const },
@@ -368,53 +292,51 @@ const adminOrderColumns = [
   { name: 'actions', label: 'Actions', field: 'actions', align: 'center' as const },
 ];
 
-async function fetchAllOrders() {
-  if (!isAdmin.value) return;
-  loadingAllOrders.value = true;
-  try {
-    // Use the same endpoint but we need all orders — for now query all users' orders
-    const { data } = await api.get<AdminOrder[] | { data: AdminOrder[] }>('/rewards/orders/all');
-    const raw: AdminOrder[] = Array.isArray(data) ? data : (data as { data: AdminOrder[] }).data ?? [];
-    allOrders.value = raw.map((o) => ({
-      ...o,
-      productName: o.product?.name ?? '--',
-      userName: o.user ? `${o.user.firstName ?? ''} ${o.user.lastName ?? ''}`.trim() : '--',
-    }));
-  } catch {
-    allOrders.value = [];
-  } finally {
-    loadingAllOrders.value = false;
-  }
-}
-
-async function fulfillOrder(orderId: string) {
-  try {
-    await api.patch(`/rewards/orders/${orderId}/fulfill`);
+async function handleFulfillOrder(orderId: string) {
+  const ok = await rewardsApi.fulfillOrder(orderId);
+  if (ok) {
     $q.notify({ type: 'positive', message: 'Order fulfilled!' });
-    await fetchAllOrders();
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    $q.notify({ type: 'negative', message: axErr?.response?.data?.message ?? 'Failed' });
+    allOrders.value = await rewardsApi.fetchAllOrders();
+  } else {
+    $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed' });
   }
 }
 
-async function cancelOrder(orderId: string) {
-  try {
-    await api.patch(`/rewards/orders/${orderId}/cancel`);
+async function handleCancelOrder(orderId: string) {
+  const ok = await rewardsApi.cancelOrder(orderId);
+  if (ok) {
     $q.notify({ type: 'positive', message: 'Order cancelled. Coins refunded.' });
-    await Promise.all([fetchAllOrders(), fetchBalance()]);
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    $q.notify({ type: 'negative', message: axErr?.response?.data?.message ?? 'Failed' });
+    [allOrders.value, balance.value] = await Promise.all([
+      rewardsApi.fetchAllOrders(),
+      rewardsApi.fetchBalance(),
+    ]);
+  } else {
+    $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed' });
   }
 }
 
 async function loadData() {
-  error.value = null;
+  pageError.value = null;
   try {
-    await Promise.all([fetchBalance(), fetchProducts(), fetchOrders(), fetchAllOrders()]);
+    loadingOrders.value = true;
+    loadingAllOrders.value = true;
+
+    const [bal, prods, ords, adminOrds] = await Promise.all([
+      rewardsApi.fetchBalance(),
+      rewardsApi.fetchProducts(),
+      rewardsApi.fetchOrders(),
+      isAdmin.value ? rewardsApi.fetchAllOrders() : Promise.resolve([]),
+    ]);
+
+    balance.value = bal;
+    products.value = prods;
+    orders.value = ords;
+    allOrders.value = adminOrds;
   } catch {
-    error.value = 'Failed to load rewards data. Please try again.';
+    pageError.value = 'Failed to load rewards data. Please try again.';
+  } finally {
+    loadingOrders.value = false;
+    loadingAllOrders.value = false;
   }
 }
 
@@ -422,9 +344,6 @@ onMounted(() => { loadData(); });
 </script>
 
 <style lang="scss" scoped>
-.page-bg {
-  background: #F8FAFB;
-}
 .rounded-card {
   border-radius: 12px;
   border-color: #E5E7EB;
@@ -434,5 +353,12 @@ onMounted(() => { loadData(); });
 }
 .rounded-btn {
   border-radius: 8px;
+}
+.product-placeholder {
+  height: 120px;
+  background: #F3F4F6;
+}
+.product-description {
+  flex: 1;
 }
 </style>

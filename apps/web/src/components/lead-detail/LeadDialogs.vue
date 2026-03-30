@@ -1,7 +1,7 @@
 <template>
   <!-- Change Order Dialog -->
   <q-dialog v-model="showChangeOrder" persistent @keyup.esc="showChangeOrder = false" aria-label="Generate change order dialog">
-    <q-card style="min-width: 420px; border-radius: 16px">
+    <q-card class="dialog-card">
       <q-card-section><div class="text-h6 text-weight-bold">Generate Change Order</div></q-card-section>
       <q-card-section class="q-gutter-md q-pt-none">
         <q-input v-model="changeOrderNote" label="Changes (one per line)" type="textarea" outlined autogrow />
@@ -9,14 +9,14 @@
       </q-card-section>
       <q-card-actions align="right" class="q-pa-md">
         <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel change order" />
-        <q-btn unelevated no-caps label="Generate PDF" color="orange-8" :loading="generatingDoc" @click="generateChangeOrder" style="border-radius: 10px" aria-label="Generate change order PDF" />
+        <q-btn unelevated no-caps label="Generate PDF" color="orange-8" :loading="generatingDoc" @click="generateChangeOrder" class="radius-10" aria-label="Generate change order PDF" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 
   <!-- CAP Dialog -->
   <q-dialog v-model="showCap" persistent @keyup.esc="showCap = false" aria-label="Generate CAP document dialog">
-    <q-card style="min-width: 420px; border-radius: 16px">
+    <q-card class="dialog-card">
       <q-card-section><div class="text-h6 text-weight-bold">Generate CAP</div></q-card-section>
       <q-card-section class="q-gutter-md q-pt-none">
         <q-option-group v-model="capMode" :options="[{ label: 'Send for e-signature (ZapSign)', value: 'approval' }, { label: 'Send informative email', value: 'informative' }]" color="primary" />
@@ -25,42 +25,42 @@
       </q-card-section>
       <q-card-actions align="right" class="q-pa-md">
         <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel CAP generation" />
-        <q-btn unelevated no-caps label="Generate CAP" color="purple" :loading="generatingDoc" @click="generateCAP" style="border-radius: 10px" aria-label="Generate CAP document" />
+        <q-btn unelevated no-caps label="Generate CAP" color="purple" :loading="generatingDoc" @click="generateCAP" class="radius-10" aria-label="Generate CAP document" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 
   <!-- Mark as Lost Dialog -->
   <q-dialog v-model="showLost" persistent @keyup.esc="showLost = false" aria-label="Mark lead as lost dialog">
-    <q-card style="min-width: 420px; border-radius: 16px">
+    <q-card class="dialog-card">
       <q-card-section><div class="text-h6 text-weight-bold">Mark as Lost</div></q-card-section>
       <q-card-section class="q-pt-none">
         <q-input v-model="lostReason" label="Reason for losing this lead" type="textarea" outlined autogrow />
       </q-card-section>
       <q-card-actions align="right" class="q-pa-md">
         <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel marking as lost" />
-        <q-btn unelevated no-caps label="Mark as Lost" color="red" :loading="markingStatus" @click="markAsLost" style="border-radius: 10px" aria-label="Confirm mark lead as lost" />
+        <q-btn unelevated no-caps label="Mark as Lost" color="red" :loading="markingStatus" @click="markAsLost" class="radius-10" aria-label="Confirm mark lead as lost" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 
   <!-- Mark as Cancelled Dialog -->
   <q-dialog v-model="showCancelled" persistent @keyup.esc="showCancelled = false" aria-label="Mark lead as cancelled dialog">
-    <q-card style="min-width: 420px; border-radius: 16px">
+    <q-card class="dialog-card">
       <q-card-section><div class="text-h6 text-weight-bold">Mark as Cancelled</div></q-card-section>
       <q-card-section class="q-pt-none">
         <q-input v-model="cancelledReason" label="Reason for cancellation" type="textarea" outlined autogrow />
       </q-card-section>
       <q-card-actions align="right" class="q-pa-md">
         <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel marking as cancelled" />
-        <q-btn unelevated no-caps label="Mark as Cancelled" color="grey-7" :loading="markingStatus" @click="markAsCancelled" style="border-radius: 10px" aria-label="Confirm mark lead as cancelled" />
+        <q-btn unelevated no-caps label="Mark as Cancelled" color="grey-7" :loading="markingStatus" @click="markAsCancelled" class="radius-10" aria-label="Confirm mark lead as cancelled" />
       </q-card-actions>
     </q-card>
   </q-dialog>
 
   <!-- Schedule Dialog -->
   <q-dialog v-model="showSchedule" persistent @keyup.esc="showSchedule = false" aria-label="Schedule appointment dialog">
-    <q-card style="min-width: 420px; border-radius: 16px">
+    <q-card class="dialog-card">
       <q-card-section><div class="text-h6 text-weight-bold">Schedule Appointment</div></q-card-section>
       <q-card-section class="q-gutter-md q-pt-none">
         <q-select v-model="scheduleType" :options="['SITE_AUDIT', 'INSTALLATION']" label="Type" outlined dense />
@@ -70,7 +70,7 @@
       </q-card-section>
       <q-card-actions align="right" class="q-pa-md">
         <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel scheduling" />
-        <q-btn unelevated no-caps label="Book Appointment" color="blue" :loading="scheduling" @click="bookAppointment" style="border-radius: 10px" aria-label="Confirm and book appointment" />
+        <q-btn unelevated no-caps label="Book Appointment" color="blue" :loading="scheduling" @click="bookAppointment" class="radius-10" aria-label="Confirm and book appointment" />
       </q-card-actions>
     </q-card>
   </q-dialog>

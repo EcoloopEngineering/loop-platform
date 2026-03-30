@@ -143,7 +143,8 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
   async findByStageGrouped(
     pipelineId?: string,
     filters?: { search?: string; source?: string; dateFrom?: string; dateTo?: string },
-  ): Promise<Record<string, LeadDetail[]>> {
+    limitPerStage = 50,
+  ): Promise<Record<string, { leads: LeadDetail[]; totalCount: number }>> {
     const where: Prisma.LeadWhereInput = { isActive: true, status: 'ACTIVE' };
     if (pipelineId) {
       where.pipelineId = pipelineId;
@@ -165,12 +166,30 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
       where.source = filters.source as Prisma.EnumLeadSourceFilter;
     }
 
+    // Apply date filter; default to last 90 days if no date filter specified
     if (filters?.dateFrom || filters?.dateTo) {
       where.createdAt = {};
       if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
       if (filters.dateTo) where.createdAt.lte = new Date(filters.dateTo + 'T23:59:59Z');
+    } else {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      where.createdAt = { gte: ninetyDaysAgo };
     }
 
+    // Get total counts per stage first (lightweight query)
+    const stageCounts = await this.prisma.lead.groupBy({
+      by: ['currentStage'],
+      where,
+      _count: { id: true },
+    });
+
+    const stageCountMap: Record<string, number> = {};
+    for (const sc of stageCounts) {
+      stageCountMap[sc.currentStage] = sc._count.id;
+    }
+
+    // Fetch leads with limit per stage — use one query ordered by stage + createdAt
     const leads = await this.prisma.lead.findMany({
       where,
       include: {
@@ -191,11 +210,22 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
       orderBy: { createdAt: 'desc' },
     });
 
-    const grouped: Record<string, LeadDetail[]> = {};
+    const grouped: Record<string, { leads: LeadDetail[]; totalCount: number }> = {};
     for (const lead of leads) {
       const stage = lead.currentStage;
-      if (!grouped[stage]) grouped[stage] = [];
-      grouped[stage].push(lead as unknown as LeadDetail);
+      if (!grouped[stage]) {
+        grouped[stage] = { leads: [], totalCount: stageCountMap[stage] ?? 0 };
+      }
+      if (grouped[stage].leads.length < limitPerStage) {
+        grouped[stage].leads.push(lead as unknown as LeadDetail);
+      }
+    }
+
+    // Ensure stages with counts but no leads still appear
+    for (const [stage, count] of Object.entries(stageCountMap)) {
+      if (!grouped[stage]) {
+        grouped[stage] = { leads: [], totalCount: count };
+      }
     }
 
     return grouped;

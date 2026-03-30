@@ -34,8 +34,11 @@ export class PipelineController {
     @Query('source') source?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('limitPerStage') limitPerStage?: number,
   ) {
-    return this.queryBus.execute(new GetPipelineViewQuery(pipelineId, search, source, dateFrom, dateTo));
+    return this.queryBus.execute(
+      new GetPipelineViewQuery(pipelineId, search, source, dateFrom, dateTo, limitPerStage),
+    );
   }
 
   @Get('stages')

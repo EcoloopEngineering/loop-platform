@@ -1,6 +1,6 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
-import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
+import { LEAD_QUERY_REPOSITORY, LeadQueryRepositoryPort } from '../ports/lead-query.repository.port';
 import { LeadDetail } from '../dto/lead-data.types';
 import { STAGE_COLORS, STAGE_LABELS, PIPELINE_STAGES } from '@loop/shared';
 
@@ -11,6 +11,7 @@ export class GetPipelineViewQuery {
     public readonly source?: string,
     public readonly dateFrom?: string,
     public readonly dateTo?: string,
+    public readonly limitPerStage?: number,
   ) {}
 }
 
@@ -21,31 +22,37 @@ export interface PipelineStageView {
   order: number;
   leads: LeadDetail[];
   count: number;
+  totalCount: number;
 }
 
 @QueryHandler(GetPipelineViewQuery)
 export class GetPipelineViewHandler implements IQueryHandler<GetPipelineViewQuery> {
   constructor(
-    @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
+    @Inject(LEAD_QUERY_REPOSITORY) private readonly leadQueryRepo: LeadQueryRepositoryPort,
   ) {}
 
   async execute(query: GetPipelineViewQuery): Promise<PipelineStageView[]> {
-    const grouped = await this.leadRepo.findByStageGrouped(query.pipelineId, {
-      search: query.search,
-      source: query.source,
-      dateFrom: query.dateFrom,
-      dateTo: query.dateTo,
-    });
+    const grouped = await this.leadQueryRepo.findByStageGrouped(
+      query.pipelineId,
+      {
+        search: query.search,
+        source: query.source,
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      },
+      query.limitPerStage,
+    );
 
     const stageOrderMap = this.buildStageOrderMap();
 
-    return Object.entries(grouped).map(([stage, leads]) => ({
+    return Object.entries(grouped).map(([stage, { leads, totalCount }]) => ({
       stage,
       label: STAGE_LABELS[stage] ?? this.formatStageLabel(stage),
       color: STAGE_COLORS[stage] ?? '#757575',
       order: stageOrderMap[stage] ?? 99,
       leads,
       count: leads.length,
+      totalCount,
     }));
   }
 

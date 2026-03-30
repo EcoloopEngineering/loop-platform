@@ -3,7 +3,7 @@
     <div class="row items-center q-mb-lg">
       <div class="col">
         <h1 class="page-title q-ma-none">Financiers</h1>
-        <p class="text-grey-6 q-ma-none q-mt-xs" style="font-size: 13px">
+        <p class="text-grey-6 q-ma-none q-mt-xs text-13">
           Manage financial institutions for solar financing
         </p>
       </div>
@@ -54,8 +54,7 @@
               v-if="props.row.website"
               :href="props.row.website.startsWith('http') ? props.row.website : 'https://' + props.row.website"
               target="_blank"
-              class="text-primary"
-              style="text-decoration: none"
+              class="text-primary no-text-decoration"
             >
               {{ props.row.website }}
             </a>
@@ -78,7 +77,7 @@
 
     <!-- Create/Edit Dialog -->
     <q-dialog v-model="dialogOpen" persistent>
-      <q-card style="min-width: 480px; border-radius: 16px">
+      <q-card class="dialog-card-lg">
         <q-card-section>
           <div class="text-h6 text-weight-bold">
             {{ editingFinancier ? 'Edit Financier' : 'Add Financier' }}
@@ -112,7 +111,7 @@
             color="primary"
             :loading="saving"
             :disable="!form.name || !form.type"
-            style="border-radius: 10px"
+            class="radius-10"
             @click="saveFinancier"
           />
         </q-card-actions>
@@ -286,5 +285,9 @@ function confirmDelete(financier: Financier) {
 .rounded-btn {
   border-radius: 10px;
   font-weight: 600;
+}
+
+.no-text-decoration {
+  text-decoration: none;
 }
 </style>

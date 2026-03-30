@@ -19,13 +19,13 @@
     </q-input>
 
     <!-- Pending Approval Banner -->
-    <q-banner v-if="!loading && pendingUsers.length" class="bg-amber-1 q-mb-md" rounded>
+    <q-banner v-if="!usersApi.loading.value && pendingUsers.length" class="bg-amber-1 q-mb-md" rounded>
       <template #avatar><q-icon name="pending_actions" color="amber-8" /></template>
       <strong>{{ pendingUsers.length }} user{{ pendingUsers.length > 1 ? 's' : '' }} pending approval</strong>
     </q-banner>
 
     <!-- Pending Users Table -->
-    <q-card v-if="!loading && pendingUsers.length" flat class="table-card q-mb-lg">
+    <q-card v-if="!usersApi.loading.value && pendingUsers.length" flat class="table-card q-mb-lg">
       <q-card-section class="q-pb-none">
         <div class="text-subtitle1 text-weight-bold">Pending Approval</div>
       </q-card-section>
@@ -87,14 +87,14 @@
       </q-table>
     </q-card>
 
-    <div v-if="loading" class="text-center q-pa-xl">
+    <div v-if="usersApi.loading.value" class="text-center q-pa-xl">
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
     <!-- Error -->
-    <q-banner v-else-if="error" class="bg-negative text-white q-ma-md" rounded>
+    <q-banner v-else-if="usersApi.error.value" class="bg-negative text-white q-ma-md" rounded>
       <template #avatar><q-icon name="error" /></template>
-      {{ error }}
+      {{ usersApi.error.value }}
       <template #action>
         <q-btn flat label="Retry" @click="loadData" />
       </template>
@@ -141,7 +141,7 @@
                   borderless
                   class="role-select"
                   aria-label="Change user role"
-                  @update:model-value="(val: string) => updateUser(props.row.id, { role: val })"
+                  @update:model-value="(val: string) => handleUpdateUser(props.row.id, { role: val })"
                 />
               </q-td>
             </template>
@@ -151,7 +151,7 @@
                 <q-toggle
                   :model-value="props.row.isActive"
                   color="primary"
-                  @update:model-value="(val: boolean) => updateUser(props.row.id, { isActive: val })"
+                  @update:model-value="(val: boolean) => handleUpdateUser(props.row.id, { isActive: val })"
                 />
               </q-td>
             </template>
@@ -228,7 +228,7 @@
                 <q-toggle
                   :model-value="props.row.isActive"
                   color="primary"
-                  @update:model-value="(val: boolean) => updateUser(props.row.id, { isActive: val })"
+                  @update:model-value="(val: boolean) => handleUpdateUser(props.row.id, { isActive: val })"
                 />
               </q-td>
             </template>
@@ -284,14 +284,14 @@
 
         <q-card-actions align="right" class="q-pa-md">
           <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel user creation" />
-          <q-btn unelevated no-caps label="Create User" color="primary" :loading="creating" @click="createUser" class="radius-10" aria-label="Confirm create user" />
+          <q-btn unelevated no-caps label="Create User" color="primary" :loading="creating" @click="handleCreateUser" class="radius-10" aria-label="Confirm create user" />
         </q-card-actions>
       </q-card>
     </q-dialog>
 
     <!-- Approve User Dialog -->
     <q-dialog v-model="showApproveDialog" @keyup.esc="showApproveDialog = false" aria-label="Approve user dialog">
-      <q-card style="min-width: 380px" class="dialog-card">
+      <q-card class="dialog-card">
         <q-card-section>
           <div class="text-h6 text-weight-bold">Approve User</div>
         </q-card-section>
@@ -323,7 +323,7 @@
             :loading="approving"
             class="radius-10"
             aria-label="Confirm user approval"
-            @click="approveUser"
+            @click="handleApproveUser"
           />
         </q-card-actions>
       </q-card>
@@ -370,31 +370,14 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { api } from '@/boot/axios';
+import { useUsersApi, type UserRow } from '@/composables/useUsersApi';
 import { titleCase } from '@/composables/useLeadFormatting';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const $q = useQuasar();
-
-interface UserRow {
-  id: string;
-  name: string;
-  initials: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  role: string;
-  nickname?: string;
-  isActive: boolean;
-  referredBy?: string;
-  leadCount: number;
-  createdAt: string;
-}
+const usersApi = useUsersApi();
 
 const allUsers = ref<UserRow[]>([]);
-const loading = ref(true);
-const error = ref<string | null>(null);
 const search = ref('');
 const activeTab = ref('employees');
 
@@ -473,21 +456,19 @@ function openApproveDialog(user: UserRow) {
   showApproveDialog.value = true;
 }
 
-async function approveUser() {
+async function handleApproveUser() {
   if (!approveTarget.value) return;
   approving.value = true;
-  try {
-    await api.patch(`/users/${approveTarget.value.id}/approve`, { role: approveRole.value });
+  const ok = await usersApi.approveUser(approveTarget.value.id, approveRole.value);
+  if (ok) {
     $q.notify({ type: 'positive', message: `${approveTarget.value.firstName} ${approveTarget.value.lastName} approved` });
     showApproveDialog.value = false;
     approveTarget.value = null;
     await loadData();
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    $q.notify({ type: 'negative', message: axErr?.response?.data?.message || 'Failed to approve user' });
-  } finally {
-    approving.value = false;
+  } else {
+    $q.notify({ type: 'negative', message: usersApi.error.value || 'Failed to approve user' });
   }
+  approving.value = false;
 }
 
 // ---- Reject User ----
@@ -498,13 +479,12 @@ function confirmReject(user: UserRow) {
     cancel: true,
     ok: { label: 'Reject', color: 'negative', flat: true },
   }).onOk(async () => {
-    try {
-      await api.delete(`/users/${user.id}/reject`);
+    const ok = await usersApi.rejectUser(user.id);
+    if (ok) {
       $q.notify({ type: 'positive', message: 'User rejected and removed' });
       await loadData();
-    } catch (err: unknown) {
-      const axErr = err as { response?: { data?: { message?: string } } };
-      $q.notify({ type: 'negative', message: axErr?.response?.data?.message || 'Failed to reject user' });
+    } else {
+      $q.notify({ type: 'negative', message: usersApi.error.value || 'Failed to reject user' });
     }
   });
 }
@@ -516,58 +496,20 @@ function formatDate(dateStr: string): string {
 }
 
 async function loadData() {
-  loading.value = true;
-  error.value = null;
-  try {
-    const { data } = await api.get('/users');
-    const list = Array.isArray(data) ? data : data.data ?? [];
-    interface RawUser {
-      id: string; firstName: string; lastName: string; email: string;
-      phone?: string; role: string; nickname?: string; isActive: boolean; createdAt: string;
-      referralsReceived?: Array<{ inviter: { firstName: string; lastName: string } }>;
-      _count?: { leadAssignments?: number };
-    }
-    allUsers.value = (list as RawUser[]).map((u) => ({
-      id: u.id,
-      name: `${u.firstName} ${u.lastName}`,
-      initials: `${u.firstName?.charAt(0) ?? ''}${u.lastName?.charAt(0) ?? ''}`.toUpperCase(),
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
-      phone: u.phone ?? '',
-      role: u.role,
-      nickname: u.nickname,
-      isActive: u.isActive,
-      referredBy: u.referralsReceived?.[0]?.inviter
-        ? `${u.referralsReceived[0].inviter.firstName} ${u.referralsReceived[0].inviter.lastName}`
-        : undefined,
-      leadCount: u._count?.leadAssignments ?? 0,
-      createdAt: u.createdAt,
-    }));
-  } catch {
-    error.value = 'Failed to load users. Please try again.';
-  } finally {
-    loading.value = false;
-  }
+  allUsers.value = await usersApi.fetchUsers();
 }
 
 onMounted(() => { loadData(); });
 
 // ---- Update User ----
-async function updateUser(userId: string, updates: Record<string, string | boolean>) {
-  try {
-    // Role changes use dedicated admin endpoint
-    if (updates.role) {
-      await api.patch(`/users/${userId}/role`, { role: updates.role });
-    } else {
-      await api.put(`/users/${userId}`, updates);
-    }
+async function handleUpdateUser(userId: string, updates: Record<string, string | boolean>) {
+  const ok = await usersApi.updateUser(userId, updates);
+  if (ok) {
     const user = allUsers.value.find((u) => u.id === userId);
     if (user) Object.assign(user, updates);
     $q.notify({ type: 'positive', message: 'User updated' });
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    $q.notify({ type: 'negative', message: axErr?.response?.data?.message || 'Failed to update user' });
+  } else {
+    $q.notify({ type: 'negative', message: usersApi.error.value || 'Failed to update user' });
   }
 }
 
@@ -583,24 +525,21 @@ const newUser = reactive({
   password: '',
 });
 
-async function createUser() {
+async function handleCreateUser() {
   if (!newUser.firstName || !newUser.email) {
     $q.notify({ type: 'warning', message: 'Name and email are required' });
     return;
   }
   creating.value = true;
-  try {
-    await api.post('/users', newUser);
+  const ok = await usersApi.createUser(newUser);
+  if (ok) {
     $q.notify({ type: 'positive', message: 'User created successfully' });
     showCreateDialog.value = false;
-    // Reload
     location.reload();
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    $q.notify({ type: 'negative', message: axErr?.response?.data?.message || 'Failed to create user' });
-  } finally {
-    creating.value = false;
+  } else {
+    $q.notify({ type: 'negative', message: usersApi.error.value || 'Failed to create user' });
   }
+  creating.value = false;
 }
 
 // ---- Edit User Dialog ----
@@ -631,18 +570,14 @@ function editUser(user: UserRow) {
 
 async function saveEdit() {
   saving.value = true;
-  try {
-    // Update profile fields
-    await api.put(`/users/${editForm.id}`, {
-      firstName: editForm.firstName,
-      lastName: editForm.lastName,
-      phone: editForm.phone,
-    });
-    // Update role separately via admin endpoint
-    const currentRole = allUsers.value.find(u => u.id === editForm.id)?.role;
-    if (editForm.role && editForm.role !== currentRole) {
-      await api.patch(`/users/${editForm.id}/role`, { role: editForm.role });
-    }
+  const currentRole = allUsers.value.find(u => u.id === editForm.id)?.role;
+  const ok = await usersApi.updateUserProfile(
+    editForm.id,
+    { firstName: editForm.firstName, lastName: editForm.lastName, phone: editForm.phone },
+    editForm.role,
+    currentRole,
+  );
+  if (ok) {
     const user = allUsers.value.find((u) => u.id === editForm.id);
     if (user) {
       user.firstName = editForm.firstName;
@@ -654,11 +589,10 @@ async function saveEdit() {
     }
     $q.notify({ type: 'positive', message: 'User updated' });
     showEditDialog.value = false;
-  } catch {
+  } else {
     $q.notify({ type: 'negative', message: 'Failed to update user' });
-  } finally {
-    saving.value = false;
   }
+  saving.value = false;
 }
 
 function resetPassword(user: UserRow) {
@@ -679,7 +613,7 @@ function deactivateUser(user: UserRow) {
     cancel: true,
     ok: { label: 'Deactivate', color: 'negative', flat: true },
   }).onOk(() => {
-    updateUser(user.id, { isActive: false });
+    handleUpdateUser(user.id, { isActive: false });
   });
 }
 </script>

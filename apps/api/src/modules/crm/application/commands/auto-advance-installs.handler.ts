@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LEAD_REPOSITORY, LeadRepositoryPort } from '../ports/lead.repository.port';
+import { LEAD_QUERY_REPOSITORY, LeadQueryRepositoryPort } from '../ports/lead-query.repository.port';
 
 @Injectable()
 export class AutoAdvanceInstallsHandler {
@@ -9,6 +10,7 @@ export class AutoAdvanceInstallsHandler {
 
   constructor(
     @Inject(LEAD_REPOSITORY) private readonly leadRepo: LeadRepositoryPort,
+    @Inject(LEAD_QUERY_REPOSITORY) private readonly leadQueryRepo: LeadQueryRepositoryPort,
     private readonly emitter: EventEmitter2,
   ) {}
 
@@ -28,7 +30,7 @@ export class AutoAdvanceInstallsHandler {
     this.logger.log(`Auto-advance installs check for date: ${dateStr}`);
 
     try {
-      const leads = await this.leadRepo.findByStageWithCustomer('INSTALL');
+      const leads = await this.leadQueryRepo.findByStageWithCustomer('INSTALL');
 
       let advancedCount = 0;
 

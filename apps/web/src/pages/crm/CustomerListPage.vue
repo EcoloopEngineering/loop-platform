@@ -4,6 +4,12 @@
       <h5 class="q-my-none text-weight-bold col">Customers</h5>
     </div>
 
+    <q-banner v-if="customerStore.error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ customerStore.error }}
+      <template #action><q-btn flat label="Retry" @click="loadCustomers" /></template>
+    </q-banner>
+
     <q-input
       v-model="search"
       dense

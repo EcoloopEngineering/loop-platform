@@ -26,8 +26,8 @@
               Best for standard rooftops. Aurora generates the design automatically.
             </p>
             <q-list dense class="text-body2">
-              <q-item v-for="item in aiPoints" :key="item" class="q-px-none" style="min-height: 28px">
-                <q-item-section avatar style="min-width: 28px">
+              <q-item v-for="item in aiPoints" :key="item" class="q-px-none design-list-item">
+                <q-item-section avatar class="design-list-avatar">
                   <q-icon name="check_circle" color="teal" size="18px" />
                 </q-item-section>
                 <q-item-section>{{ item }}</q-item-section>
@@ -57,8 +57,8 @@
               Required for complex projects. The design team will review and build manually in Aurora.
             </p>
             <q-list dense class="text-body2">
-              <q-item v-for="item in manualPoints" :key="item" class="q-px-none" style="min-height: 28px">
-                <q-item-section avatar style="min-width: 28px">
+              <q-item v-for="item in manualPoints" :key="item" class="q-px-none design-list-item">
+                <q-item-section avatar class="design-list-avatar">
                   <q-icon name="check_circle" color="orange" size="18px" />
                 </q-item-section>
                 <q-item-section>{{ item }}</q-item-section>
@@ -118,6 +118,14 @@ const manualPoints = [
     border-color: #00897b;
     box-shadow: 0 0 0 1px #00897b;
   }
+}
+
+.design-list-item {
+  min-height: 28px;
+}
+
+.design-list-avatar {
+  min-width: 28px;
 }
 
 .e-input {

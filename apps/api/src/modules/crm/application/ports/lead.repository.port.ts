@@ -122,7 +122,8 @@ export interface LeadRepositoryPort {
   findByStageGrouped(
     pipelineId?: string,
     filters?: { search?: string; source?: string; dateFrom?: string; dateTo?: string },
-  ): Promise<Record<string, LeadDetail[]>>;
+    limitPerStage?: number,
+  ): Promise<Record<string, { leads: LeadDetail[]; totalCount: number }>>;
   update(id: string, data: UpdateLeadData): Promise<LeadEntity>;
   updateStage(id: string, stage: string): Promise<LeadEntity>;
   delete(id: string): Promise<void>;

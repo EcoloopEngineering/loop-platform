@@ -11,17 +11,17 @@ import {
 import { Request } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { StripeService } from './stripe.service';
+import { WebhookEventService } from '../../infrastructure/webhook/webhook-event.service';
 import Stripe from 'stripe';
 
 @Controller('webhooks/stripe')
 export class StripeWebhookController {
   private readonly logger = new Logger(StripeWebhookController.name);
-  private readonly processedEvents = new Map<string, number>();
-  private readonly EVENT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
   constructor(
     private readonly stripeService: StripeService,
     private readonly emitter: EventEmitter2,
+    private readonly webhookEventService: WebhookEventService,
   ) {}
 
   @Post()
@@ -43,12 +43,33 @@ export class StripeWebhookController {
       throw new BadRequestException('Invalid webhook signature');
     }
 
-    // Idempotency: skip already-processed events
-    if (this.isEventProcessed(event.id)) {
+    // Idempotency: skip already-processed events (DB-backed)
+    if (await this.webhookEventService.isAlreadyProcessed('stripe', event.id)) {
       this.logger.debug(`Skipping already-processed Stripe event: ${event.id}`);
       return { received: true };
     }
 
+    // Persist event before processing
+    const record = await this.webhookEventService.recordEvent({
+      provider: 'stripe',
+      externalId: event.id,
+      eventType: event.type,
+      payload: event.data.object,
+    });
+
+    try {
+      await this.processEvent(event);
+      await this.webhookEventService.markProcessed(record.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to process Stripe event ${event.id}: ${message}`);
+      await this.webhookEventService.markFailed(record.id, message);
+    }
+
+    return { received: true };
+  }
+
+  private async processEvent(event: Stripe.Event): Promise<void> {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -83,35 +104,6 @@ export class StripeWebhookController {
       }
       default:
         this.logger.debug(`Unhandled Stripe event type: ${event.type}`);
-    }
-
-    this.markEventProcessed(event.id);
-    return { received: true };
-  }
-
-  private isEventProcessed(eventId: string): boolean {
-    const timestamp = this.processedEvents.get(eventId);
-    if (!timestamp) return false;
-
-    // Expire old entries
-    if (Date.now() - timestamp > this.EVENT_TTL_MS) {
-      this.processedEvents.delete(eventId);
-      return false;
-    }
-    return true;
-  }
-
-  private markEventProcessed(eventId: string): void {
-    this.processedEvents.set(eventId, Date.now());
-
-    // Periodic cleanup of old entries (every 100 events)
-    if (this.processedEvents.size % 100 === 0) {
-      const now = Date.now();
-      for (const [id, ts] of this.processedEvents) {
-        if (now - ts > this.EVENT_TTL_MS) {
-          this.processedEvents.delete(id);
-        }
-      }
     }
   }
 }

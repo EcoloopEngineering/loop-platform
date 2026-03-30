@@ -7,13 +7,16 @@ export interface RetryOptions {
   initialDelayMs?: number;
   maxDelayMs?: number;
   backoffMultiplier?: number;
+  /** Label used in log messages (e.g. URL or integration name) */
+  label?: string;
 }
 
-const RETRY_DEFAULTS: Required<RetryOptions> = {
+const RETRY_DEFAULTS = {
   maxAttempts: 3,
   initialDelayMs: 1000,
   maxDelayMs: 10_000,
   backoffMultiplier: 2,
+  label: '',
 };
 
 /**
@@ -26,13 +29,36 @@ export async function withRetry<T>(
   logger?: Logger,
 ): Promise<T> {
   const opts = { ...RETRY_DEFAULTS, ...options };
+  const label = (options as RetryOptions | undefined)?.label;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
+    const start = Date.now();
+
+    if (label) {
+      logger?.log(
+        `[Integration] Calling ${label} (attempt ${attempt}/${opts.maxAttempts})`,
+      );
+    }
+
     try {
-      return await fn();
+      const result = await fn();
+      if (label) {
+        const duration = Date.now() - start;
+        logger?.log(`[Integration] ${label} → success (${duration}ms)`);
+      }
+      return result;
     } catch (error) {
       lastError = error;
+      const duration = Date.now() - start;
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (label) {
+        logger?.warn(
+          `[Integration] ${label} FAILED → ${message} (${duration}ms)`,
+        );
+      }
+
       if (attempt === opts.maxAttempts) break;
 
       const baseDelay = Math.min(
@@ -43,7 +69,6 @@ export async function withRetry<T>(
       const jitter = baseDelay * (0.5 + Math.random() * 0.5);
       const delay = Math.round(jitter);
 
-      const message = error instanceof Error ? error.message : String(error);
       logger?.warn(
         `Retry attempt ${attempt}/${opts.maxAttempts} failed: ${message}. Retrying in ${delay}ms`,
       );

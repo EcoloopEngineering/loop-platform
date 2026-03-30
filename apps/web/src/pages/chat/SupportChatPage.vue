@@ -5,7 +5,7 @@
       <div class="row items-center no-wrap">
         <q-icon name="support_agent" size="24px" color="primary" class="q-mr-sm" />
         <div>
-          <div class="text-weight-bold" style="font-size: 15px">Support</div>
+          <div class="text-weight-bold text-15">Support</div>
           <div class="text-caption" :class="statusClass">{{ statusText }}</div>
         </div>
         <q-space />
@@ -18,7 +18,7 @@
       <div class="chat-intro-scroll q-pa-md">
         <div class="text-center q-mb-lg">
           <q-icon name="chat_bubble_outline" size="48px" color="grey-4" />
-          <div class="text-h6 text-weight-bold q-mt-sm" style="color: #1A1A2E">How can we help?</div>
+          <div class="text-h6 text-weight-bold q-mt-sm text-dark">How can we help?</div>
           <div class="text-caption text-grey-5">Ask a question or browse common topics below</div>
         </div>
 
@@ -35,12 +35,12 @@
 
         <!-- FAQ list -->
         <div v-else-if="faqs.length" class="q-mb-md">
-          <div class="text-caption text-weight-bold text-grey-6 text-uppercase q-mb-sm" style="letter-spacing: 0.04em">Common Questions</div>
+          <div class="text-caption text-weight-bold text-grey-6 text-uppercase q-mb-sm faq-heading">Common Questions</div>
           <q-card v-for="faq in faqs" :key="faq.id" flat class="faq-card q-mb-xs" clickable @click="startWithQuestion(faq.question)">
             <q-card-section class="q-pa-sm">
               <div class="row items-center no-wrap">
                 <q-icon name="help_outline" color="primary" size="18px" class="q-mr-sm" />
-                <span style="font-size: 13px">{{ faq.question }}</span>
+                <span class="text-13">{{ faq.question }}</span>
                 <q-space />
                 <q-icon name="chevron_right" color="grey-4" size="18px" />
               </div>
@@ -344,6 +344,10 @@ watch(messages, () => scrollToBottom(), { deep: true });
 .chat-intro-scroll {
   flex: 1;
   overflow-y: auto;
+}
+
+.faq-heading {
+  letter-spacing: 0.04em;
 }
 
 .faq-card {

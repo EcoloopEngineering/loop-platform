@@ -32,14 +32,14 @@
     <div v-for="note in notes" :key="note.id" class="note-item q-mb-md">
       <div class="row items-center q-mb-xs">
         <q-avatar size="30px" color="grey-3" text-color="grey-7" class="q-mr-sm">
-          <span style="font-size: 10px">{{ initials(note.userName) }}</span>
+          <span class="text-10">{{ initials(note.userName) }}</span>
         </q-avatar>
         <span class="text-weight-medium text-body2">{{ note.userName }}</span>
         <q-space />
         <span class="text-caption text-grey-5">{{ formatDateTime(note.createdAt) }}</span>
         <q-btn flat dense round icon="more_vert" size="xs" color="grey-5" class="q-ml-xs">
           <q-menu>
-            <q-list dense style="min-width: 120px">
+            <q-list dense class="note-menu">
               <q-item clickable v-close-popup @click="startEditNote(note)">
                 <q-item-section avatar><q-icon name="edit" size="16px" /></q-item-section>
                 <q-item-section>Edit</q-item-section>
@@ -69,7 +69,7 @@
       </div>
       <!-- View mode -->
       <div v-else class="text-body2 text-grey-8 note-body">{{ note.body }}</div>
-      <div v-if="note.editedAt" class="text-caption text-grey-4 q-mt-xs" style="font-size: 10px">(edited)</div>
+      <div v-if="note.editedAt" class="text-caption text-grey-4 q-mt-xs text-10">(edited)</div>
     </div>
   </q-tab-panel>
 </template>
@@ -200,6 +200,10 @@ function initials(name: string) {
 .note-body {
   padding-left: 34px;
   white-space: pre-wrap;
+}
+
+.note-menu {
+  min-width: 120px;
 }
 
 .rounded-btn {

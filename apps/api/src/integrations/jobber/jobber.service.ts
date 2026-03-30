@@ -53,6 +53,10 @@ export class JobberService {
     return this.configured;
   }
 
+  getCircuitState(): import('../../common/utils/resilience').CircuitState {
+    return this.circuitBreaker.getState();
+  }
+
   async getAvailabilitySlots(
     type: string,
     lat: number,

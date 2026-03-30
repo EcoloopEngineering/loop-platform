@@ -31,10 +31,10 @@ describe('PipelineController', () => {
       const pipelineData = { NEW_LEAD: [], DESIGN_READY: [] };
       queryBus.execute.mockResolvedValue(pipelineData);
 
-      const result = await controller.getPipelineView('pipe-1', 'search', undefined, undefined, undefined);
+      const result = await controller.getPipelineView('pipe-1', 'search', undefined, undefined, undefined, undefined);
 
       expect(queryBus.execute).toHaveBeenCalledWith(
-        new GetPipelineViewQuery('pipe-1', 'search', undefined, undefined, undefined),
+        new GetPipelineViewQuery('pipe-1', 'search', undefined, undefined, undefined, undefined),
       );
       expect(result).toEqual(pipelineData);
     });
@@ -42,20 +42,20 @@ describe('PipelineController', () => {
     it('should pass all filter parameters to the query', async () => {
       queryBus.execute.mockResolvedValue({});
 
-      await controller.getPipelineView('pipe-1', 'test', 'REFERRAL', '2026-01-01', '2026-12-31');
+      await controller.getPipelineView('pipe-1', 'test', 'REFERRAL', '2026-01-01', '2026-12-31', 25);
 
       expect(queryBus.execute).toHaveBeenCalledWith(
-        new GetPipelineViewQuery('pipe-1', 'test', 'REFERRAL', '2026-01-01', '2026-12-31'),
+        new GetPipelineViewQuery('pipe-1', 'test', 'REFERRAL', '2026-01-01', '2026-12-31', 25),
       );
     });
 
     it('should work without any filters', async () => {
       queryBus.execute.mockResolvedValue({});
 
-      await controller.getPipelineView(undefined, undefined, undefined, undefined, undefined);
+      await controller.getPipelineView(undefined, undefined, undefined, undefined, undefined, undefined);
 
       expect(queryBus.execute).toHaveBeenCalledWith(
-        new GetPipelineViewQuery(undefined, undefined, undefined, undefined, undefined),
+        new GetPipelineViewQuery(undefined, undefined, undefined, undefined, undefined, undefined),
       );
     });
   });

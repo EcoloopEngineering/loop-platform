@@ -51,6 +51,44 @@ describe('withRetry', () => {
     expect(result).toBe('done');
     expect(fn).toHaveBeenCalledTimes(2);
   });
+
+  it('should log before each attempt when label is provided', async () => {
+    const fn = jest.fn().mockResolvedValue('ok');
+    const logger = { log: jest.fn(), warn: jest.fn() } as any;
+
+    await withRetry(fn, { label: 'POST /api/test' }, logger);
+
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.stringContaining('[Integration] Calling POST /api/test (attempt 1/3)'),
+    );
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.stringContaining('[Integration] POST /api/test → success'),
+    );
+  });
+
+  it('should log failure with duration when label is provided', async () => {
+    const fn = jest.fn().mockRejectedValue(new Error('timeout'));
+    const logger = { log: jest.fn(), warn: jest.fn() } as any;
+
+    await expect(
+      withRetry(fn, { maxAttempts: 1, label: 'GET /api/test' }, logger),
+    ).rejects.toThrow('timeout');
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('[Integration] GET /api/test FAILED'),
+    );
+  });
+
+  it('should not log integration messages when label is not provided', async () => {
+    const fn = jest.fn().mockResolvedValue('ok');
+    const logger = { log: jest.fn(), warn: jest.fn() } as any;
+
+    await withRetry(fn, {}, logger);
+
+    expect(logger.log).not.toHaveBeenCalledWith(
+      expect.stringContaining('[Integration]'),
+    );
+  });
 });
 
 describe('CircuitBreaker', () => {

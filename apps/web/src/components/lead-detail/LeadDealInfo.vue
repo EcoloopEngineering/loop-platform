@@ -81,8 +81,8 @@
                 <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
               </template>
               <template #selected-item="scope">
-                <div class="row items-center no-wrap" style="gap: 6px">
-                  <q-avatar size="18px" color="primary" text-color="white" style="font-size: 9px">
+                <div class="row items-center no-wrap gap-xs">
+                  <q-avatar size="18px" color="primary" text-color="white" class="avatar-text-sm">
                     {{ scope.opt?.label?.charAt(0) || '?' }}
                   </q-avatar>
                   <span class="text-caption">{{ scope.opt?.label || 'Unassigned' }}</span>
@@ -116,8 +116,8 @@
                 <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
               </template>
               <template #selected-item="scope">
-                <div v-if="scope.opt" class="row items-center no-wrap" style="gap: 6px">
-                  <q-avatar size="18px" color="orange-8" text-color="white" style="font-size: 9px">
+                <div v-if="scope.opt" class="row items-center no-wrap gap-xs">
+                  <q-avatar size="18px" color="orange-8" text-color="white" class="avatar-text-sm">
                     {{ scope.opt?.label?.charAt(0) || '?' }}
                   </q-avatar>
                   <span class="text-caption">{{ scope.opt?.label }}</span>

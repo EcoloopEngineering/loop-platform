@@ -59,6 +59,7 @@ export type MockPrismaService = {
   conversation: MockModel;
   message: MockModel;
   faqEntry: MockModel;
+  webhookEvent: MockModel;
   $connect: jest.Mock;
   $disconnect: jest.Mock;
   $transaction: jest.Mock;
@@ -96,6 +97,7 @@ export function createMockPrismaService(): MockPrismaService {
     conversation: createMockModel(),
     message: createMockModel(),
     faqEntry: createMockModel(),
+    webhookEvent: createMockModel(),
     $connect: jest.fn(),
     $disconnect: jest.fn(),
     $transaction: jest.fn((arg: any) => {

@@ -2,10 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CqrsModule } from '@nestjs/cqrs';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { FirebaseAuthGuard } from './common/guards/firebase-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
 import { PrismaModule } from './infrastructure/database/prisma.module';
 import { FirebaseModule } from './infrastructure/firebase/firebase.module';
 import { IdentityModule } from './modules/identity/identity.module';
@@ -27,6 +28,7 @@ import { GamificationModule } from './modules/gamification/gamification.module';
 import { HealthModule } from './infrastructure/health/health.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
 import { CacheModule } from './infrastructure/cache/cache.module';
+import { WebhookEventModule } from './infrastructure/webhook/webhook-event.module';
 
 @Module({
   imports: [
@@ -41,6 +43,7 @@ import { CacheModule } from './infrastructure/cache/cache.module';
     FirebaseModule,
     QueueModule.forRoot(),
     CacheModule,
+    WebhookEventModule,
     EmailModule,
     PdfModule,
     StorageModule,
@@ -60,7 +63,7 @@ import { CacheModule } from './infrastructure/cache/cache.module';
     HealthModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: UserThrottlerGuard },
     { provide: APP_GUARD, useClass: FirebaseAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

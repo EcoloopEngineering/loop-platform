@@ -102,7 +102,7 @@
               <q-input v-model="forgotEmail" label="Email" type="email" outlined dense class="portal-input" :rules="[v => !!v || 'Required']">
                 <template #prepend><q-icon name="email" color="grey-5" size="18px" /></template>
               </q-input>
-              <q-btn unelevated no-caps color="primary" label="Send Reset Link" type="submit" :loading="loading" class="full-width submit-btn" />
+              <q-btn unelevated no-caps color="primary" label="Send Reset Link" type="submit" :loading="forgotLoading" class="full-width submit-btn" />
             </q-form>
 
             <q-banner v-if="forgotSent" class="bg-positive text-white q-mt-md" rounded dense style="font-size: 13px">
@@ -114,48 +114,12 @@
           <q-tab-panels v-if="view !== 'forgot'" v-model="authTab" animated>
             <!-- Login -->
             <q-tab-panel name="login" class="q-pa-none">
-              <q-form @submit.prevent="handleLogin" class="form-fields">
-                <q-input v-model="loginEmail" label="Email" type="email" outlined dense class="portal-input" :rules="[v => !!v || 'Required']">
-                  <template #prepend><q-icon name="email" color="grey-5" size="18px" /></template>
-                </q-input>
-                <q-input v-model="loginPassword" label="Password" :type="showPass ? 'text' : 'password'" outlined dense class="portal-input" :rules="[v => !!v || 'Required']">
-                  <template #prepend><q-icon name="lock" color="grey-5" size="18px" /></template>
-                  <template #append>
-                    <q-icon :name="showPass ? 'visibility_off' : 'visibility'" class="cursor-pointer" color="grey-4" size="18px" @click="showPass = !showPass" />
-                  </template>
-                </q-input>
-                <div class="forgot-link-row">
-                  <span class="forgot-link" @click="view = 'forgot'">Forgot password?</span>
-                </div>
-                <q-btn unelevated no-caps color="primary" label="Sign In" type="submit" :loading="loading" class="full-width submit-btn" />
-              </q-form>
+              <PortalLoginForm @forgot="view = 'forgot'" @error="error = $event" />
             </q-tab-panel>
 
             <!-- Register -->
             <q-tab-panel name="register" class="q-pa-none">
-              <q-form @submit.prevent="handleRegister" class="form-fields">
-                <div class="name-row">
-                  <q-input v-model="regFirstName" label="First Name" outlined dense class="portal-input" :rules="[v => !!v || 'Required']" />
-                  <q-input v-model="regLastName" label="Last Name" outlined dense class="portal-input" :rules="[v => !!v || 'Required']" />
-                </div>
-                <q-input v-model="regEmail" label="Email" type="email" outlined dense class="portal-input"
-                  :rules="[v => !!v || 'Required', v => /.+@.+\..+/.test(v) || 'Invalid email']"
-                  hint="Use the email your installer has on file. Your project links automatically">
-                  <template #prepend><q-icon name="email" color="grey-5" size="18px" /></template>
-                </q-input>
-                <q-input v-model="regPhone" label="Phone" mask="(###) ###-####" unmasked-value outlined dense class="portal-input"
-                  :rules="[v => !!v || 'Required', v => v && v.length >= 10 || 'Enter a valid 10-digit number']">
-                  <template #prepend><q-icon name="phone" color="grey-5" size="18px" /></template>
-                </q-input>
-                <q-input v-model="regPassword" label="Password" :type="showRegPass ? 'text' : 'password'" outlined dense class="portal-input"
-                  :rules="[v => !!v || 'Required', v => v?.length >= 8 || 'Min 8 characters']">
-                  <template #prepend><q-icon name="lock" color="grey-5" size="18px" /></template>
-                  <template #append>
-                    <q-icon :name="showRegPass ? 'visibility_off' : 'visibility'" class="cursor-pointer" color="grey-4" size="18px" @click="showRegPass = !showRegPass" />
-                  </template>
-                </q-input>
-                <q-btn unelevated no-caps color="primary" label="Create Account" type="submit" :loading="loading" class="full-width submit-btn" />
-              </q-form>
+              <PortalRegisterForm @error="error = $event" />
             </q-tab-panel>
           </q-tab-panels>
 
@@ -174,14 +138,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
-import { usePortalAuthStore } from '@/stores/portal-auth.store';
+import PortalLoginForm from '@/components/portal/PortalLoginForm.vue';
+import PortalRegisterForm from '@/components/portal/PortalRegisterForm.vue';
 
-const router = useRouter();
 const $q = useQuasar();
-const portalAuth = usePortalAuthStore();
 
 // Portal login always stays in light mode — isolated from admin dark mode
 let previousDarkMode = false;
@@ -251,43 +213,17 @@ onUnmounted(() => {
   $q.dark.set(previousDarkMode);
   if (slideTimer) clearInterval(slideTimer);
 });
+
 const authTab = ref('login');
 const view = ref<'login' | 'forgot'>('login');
-const loading = ref(false);
 const error = ref('');
-const showPass = ref(false);
-const showRegPass = ref(false);
-
-const loginEmail = ref('');
-const loginPassword = ref('');
-const regFirstName = ref('');
-const regLastName = ref('');
-const regEmail = ref('');
-const regPhone = ref('');
-const regPassword = ref('');
 
 const forgotEmail = ref('');
 const forgotSent = ref(false);
-
-async function handleLogin() {
-  loading.value = true;
-  error.value = '';
-  try {
-    await portalAuth.login(loginEmail.value, loginPassword.value);
-    if (portalAuth.error) {
-      error.value = portalAuth.error;
-      return;
-    }
-    router.push('/portal');
-  } catch {
-    error.value = portalAuth.error || 'Invalid email or password.';
-  } finally {
-    loading.value = false;
-  }
-}
+const forgotLoading = ref(false);
 
 async function handleForgot() {
-  loading.value = true;
+  forgotLoading.value = true;
   error.value = '';
   try {
     await api.post('/portal/auth/forgot-password', { email: forgotEmail.value });
@@ -295,30 +231,7 @@ async function handleForgot() {
   } catch {
     forgotSent.value = true; // Always show success to avoid email enumeration
   } finally {
-    loading.value = false;
-  }
-}
-
-async function handleRegister() {
-  loading.value = true;
-  error.value = '';
-  try {
-    await portalAuth.register({
-      firstName: regFirstName.value,
-      lastName: regLastName.value,
-      email: regEmail.value,
-      phone: regPhone.value,
-      password: regPassword.value,
-    });
-    if (portalAuth.error) {
-      error.value = portalAuth.error;
-      return;
-    }
-    router.push('/portal');
-  } catch {
-    error.value = portalAuth.error || 'Registration failed.';
-  } finally {
-    loading.value = false;
+    forgotLoading.value = false;
   }
 }
 </script>
@@ -335,7 +248,7 @@ async function handleRegister() {
   }
 }
 
-// ── Left branding ──
+// -- Left branding --
 .brand-side {
   flex: 1;
   background: linear-gradient(145deg, #042F1E 0%, #064E32 35%, #00897B 100%);
@@ -467,7 +380,7 @@ async function handleRegister() {
   to   { background-position: 200% center; }
 }
 
-// ── Slide stats ──
+// -- Slide stats --
 .slide-stats {
   display: flex;
   gap: 28px;
@@ -488,7 +401,7 @@ async function handleRegister() {
   margin-top: 3px;
 }
 
-// ── Dots ──
+// -- Dots --
 .slide-dots {
   display: flex;
   gap: 6px;
@@ -509,7 +422,7 @@ async function handleRegister() {
   }
 }
 
-// ── Slide transition ──
+// -- Slide transition --
 .slide-content-enter-active {
   transition: opacity 0.4s ease 0.05s, transform 0.4s ease 0.05s;
 }
@@ -525,7 +438,7 @@ async function handleRegister() {
   transform: translateY(-12px);
 }
 
-// ── Badge icons — one animation per slide ──
+// -- Badge icons — one animation per slide --
 
 // Slide 0: sun — slow spin with color glow
 .icon-sun {
@@ -594,7 +507,7 @@ async function handleRegister() {
 .deco-2 { width: 300px; height: 300px; bottom: -80px; left: -60px; }
 .deco-3 { width: 200px; height: 200px; top: 50%; left: 60%; border-color: rgba(52, 211, 153, 0.1); }
 
-// ── Right form ──
+// -- Right form --
 .form-side {
   flex: 0 0 480px;
   display: flex;
@@ -642,10 +555,6 @@ async function handleRegister() {
   color: #9CA3AF;
 }
 
-.form-card {
-  // No background — stays on white form-side
-}
-
 .auth-tabs {
   :deep(.q-tab) {
     font-weight: 600;
@@ -666,16 +575,6 @@ async function handleRegister() {
   }
 }
 
-.name-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-
-  @media (max-width: 420px) {
-    grid-template-columns: 1fr;
-  }
-}
-
 .submit-btn {
   border-radius: 10px;
   font-weight: 600;
@@ -689,21 +588,6 @@ async function handleRegister() {
   margin-top: 32px;
   font-size: 12px;
   color: #9CA3AF;
-}
-
-.forgot-link-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: -4px;
-}
-
-.forgot-link {
-  font-size: 13px;
-  color: #00897B;
-  font-weight: 500;
-  cursor: pointer;
-
-  &:hover { text-decoration: underline; }
 }
 
 .forgot-view {

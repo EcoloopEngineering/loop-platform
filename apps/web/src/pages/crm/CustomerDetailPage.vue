@@ -4,6 +4,12 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <q-banner v-else-if="customerStore.error" class="bg-negative text-white q-ma-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ customerStore.error }}
+      <template #action><q-btn flat label="Retry" @click="loadCustomer" /></template>
+    </q-banner>
+
     <template v-else-if="customer">
       <div class="row items-center q-mb-md">
         <q-btn flat round dense icon="arrow_back" @click="$router.push('/crm/customers')" class="q-mr-sm" />
@@ -118,8 +124,12 @@ function formatDate(iso: string) {
   });
 }
 
-onMounted(() => {
+function loadCustomer() {
   customerStore.fetchCustomer(props.id);
+}
+
+onMounted(() => {
+  loadCustomer();
 });
 </script>
 

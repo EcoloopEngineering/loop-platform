@@ -905,3 +905,31 @@ model AppSetting {
 
   @@map("app_settings")
 }
+
+// ============================
+// Webhook Events (idempotency + retry)
+// ============================
+
+enum WebhookEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model WebhookEvent {
+  id           String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  provider     String             @db.VarChar(50)   // e.g. "stripe", "zapsign"
+  externalId   String             @map("external_id") @db.VarChar(255)
+  eventType    String             @map("event_type") @db.VarChar(100)
+  payload      Json
+  status       WebhookEventStatus @default(PENDING)
+  errorMessage String?            @map("error_message")
+  attempts     Int                @default(0)
+  processedAt  DateTime?          @map("processed_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  @@unique([provider, externalId])
+  @@index([status])
+  @@index([provider, status])
+  @@map("webhook_events")
+}

@@ -24,6 +24,7 @@ import { GetPipelineViewHandler } from './application/queries/get-pipeline-view.
 
 // Repository ports
 import { LEAD_REPOSITORY } from './application/ports/lead.repository.port';
+import { LEAD_QUERY_REPOSITORY } from './application/ports/lead-query.repository.port';
 import { LEAD_ACTIVITY_REPOSITORY } from './application/ports/lead-activity.repository.port';
 import { LEAD_ENRICHMENT_REPOSITORY } from './application/ports/lead-enrichment.repository.port';
 import { CUSTOMER_REPOSITORY } from './application/ports/customer.repository.port';
@@ -31,6 +32,7 @@ import { PROPERTY_REPOSITORY } from './application/ports/property.repository.por
 
 // Repository implementations
 import { PrismaLeadRepository } from './infrastructure/repositories/prisma-lead.repository';
+import { PrismaLeadQueryRepository } from './infrastructure/repositories/prisma-lead-query.repository';
 import { PrismaLeadActivityRepository } from './infrastructure/repositories/prisma-lead-activity.repository';
 import { PrismaLeadEnrichmentRepository } from './infrastructure/repositories/prisma-lead-enrichment.repository';
 import { PrismaCustomerRepository } from './infrastructure/repositories/prisma-customer.repository';
@@ -91,6 +93,10 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
       useClass: PrismaLeadRepository,
     },
     {
+      provide: LEAD_QUERY_REPOSITORY,
+      useClass: PrismaLeadQueryRepository,
+    },
+    {
       provide: LEAD_ACTIVITY_REPOSITORY,
       useClass: PrismaLeadActivityRepository,
     },
@@ -107,6 +113,6 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
       useClass: PrismaPropertyRepository,
     },
   ],
-  exports: [LEAD_REPOSITORY, LEAD_ACTIVITY_REPOSITORY, LEAD_ENRICHMENT_REPOSITORY, CUSTOMER_REPOSITORY, PROPERTY_REPOSITORY, LeadScoringDomainService],
+  exports: [LEAD_REPOSITORY, LEAD_QUERY_REPOSITORY, LEAD_ACTIVITY_REPOSITORY, LEAD_ENRICHMENT_REPOSITORY, CUSTOMER_REPOSITORY, PROPERTY_REPOSITORY, LeadScoringDomainService],
 })
 export class CrmModule {}

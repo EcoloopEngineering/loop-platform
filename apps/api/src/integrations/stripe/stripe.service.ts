@@ -42,6 +42,14 @@ export class StripeService {
     });
   }
 
+  isConfigured(): boolean {
+    return this.stripe !== null;
+  }
+
+  getCircuitState(): import('../../common/utils/resilience').CircuitState {
+    return this.circuitBreaker.getState();
+  }
+
   async createPayment(amount: number, userId: string): Promise<PaymentResult> {
     if (!this.stripe) throw new Error('Stripe not configured');
 

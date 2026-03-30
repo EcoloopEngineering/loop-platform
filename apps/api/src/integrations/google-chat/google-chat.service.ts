@@ -46,6 +46,10 @@ export class GoogleChatService {
     return this.credentials !== null;
   }
 
+  getCircuitState(): import('../../common/utils/resilience').CircuitState {
+    return this.circuitBreaker.getState();
+  }
+
   private async getClient(): Promise<chat_v1.Chat> {
     const auth = new google.auth.GoogleAuth({
       credentials: this.credentials as Record<string, unknown>,

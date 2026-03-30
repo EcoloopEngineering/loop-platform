@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ListLeadsHandler, ListLeadsQuery } from './list-leads.handler';
-import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
+import { LEAD_QUERY_REPOSITORY } from '../ports/lead-query.repository.port';
 import { LeadFilterDto } from '../dto/lead-filter.dto';
 
 describe('ListLeadsHandler', () => {
@@ -10,19 +10,14 @@ describe('ListLeadsHandler', () => {
   beforeEach(async () => {
     leadRepo = {
       findAll: jest.fn(),
-      create: jest.fn(),
-      findById: jest.fn(),
-      findByIdWithRelations: jest.fn(),
       findByStageGrouped: jest.fn(),
-      update: jest.fn(),
-      updateStage: jest.fn(),
-      delete: jest.fn(),
+      findByStageWithCustomer: jest.fn(),
     };
 
     const module = await Test.createTestingModule({
       providers: [
         ListLeadsHandler,
-        { provide: LEAD_REPOSITORY, useValue: leadRepo },
+        { provide: LEAD_QUERY_REPOSITORY, useValue: leadRepo },
       ],
     }).compile();
 

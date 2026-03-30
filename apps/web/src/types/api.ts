@@ -292,6 +292,33 @@ export interface Appointment {
   status?: string;
 }
 
+// ─── Reward / Gamification ──────────────────────────────────────────
+
+export interface RewardProduct {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;
+}
+
+export interface RewardOrder {
+  id: string;
+  productName: string;
+  price: number;
+  status: string;
+  createdAt: string;
+  coinsSpent?: number;
+  userName?: string;
+  product?: { name?: string; price?: number };
+  user?: { firstName?: string; lastName?: string };
+}
+
+export interface RewardBalance {
+  coins: number;
+  balance?: number;
+}
+
 // ─── Settings ───────────────────────────────────────────────────────
 
 export interface Settings {

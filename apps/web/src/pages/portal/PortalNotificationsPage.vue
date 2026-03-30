@@ -4,8 +4,8 @@
 
     <div v-if="notifications.length === 0" class="text-center q-pa-xl">
       <q-icon name="notifications_none" size="64px" color="grey-4" />
-      <div class="text-grey-6 q-mt-md" style="font-size: 15px">No notifications yet</div>
-      <div class="text-grey-5" style="font-size: 13px">You'll receive updates about your solar project here</div>
+      <div class="text-grey-6 q-mt-md text-15">No notifications yet</div>
+      <div class="text-grey-5 text-13">You'll receive updates about your solar project here</div>
     </div>
 
     <q-list v-else separator>
@@ -16,8 +16,8 @@
           </q-avatar>
         </q-item-section>
         <q-item-section>
-          <q-item-label class="text-weight-medium" style="font-size: 14px">{{ n.title }}</q-item-label>
-          <q-item-label style="font-size: 13px; color: #6B7280">{{ n.message }}</q-item-label>
+          <q-item-label class="text-weight-medium text-14">{{ n.title }}</q-item-label>
+          <q-item-label class="text-13 text-muted">{{ n.message }}</q-item-label>
           <q-item-label caption>{{ n.date }}</q-item-label>
         </q-item-section>
         <q-item-section side v-if="!n.isRead">

@@ -52,6 +52,10 @@ export class AuroraService {
     return this.configured;
   }
 
+  getCircuitState(): import('../../common/utils/resilience').CircuitState {
+    return this.circuitBreaker.getState();
+  }
+
   async createProject(input: AuroraCreateProjectPayload): Promise<AuroraProject> {
     this.assertConfigured();
 

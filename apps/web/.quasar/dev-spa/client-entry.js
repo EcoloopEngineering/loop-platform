@@ -35,6 +35,8 @@ import 'quasar/dist/quasar.css'
 
 import 'src/css/app.scss'
 
+import 'src/css/design-tokens.scss'
+
 
 import createQuasarApp from './app.js'
 import quasarUserOptions from './quasar-user-options.js'

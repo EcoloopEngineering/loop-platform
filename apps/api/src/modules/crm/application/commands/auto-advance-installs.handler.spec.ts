@@ -2,17 +2,21 @@ import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AutoAdvanceInstallsHandler } from './auto-advance-installs.handler';
 import { LEAD_REPOSITORY } from '../ports/lead.repository.port';
+import { LEAD_QUERY_REPOSITORY } from '../ports/lead-query.repository.port';
 
 describe('AutoAdvanceInstallsHandler', () => {
   let handler: AutoAdvanceInstallsHandler;
   let leadRepo: Record<string, jest.Mock>;
+  let leadQueryRepo: Record<string, jest.Mock>;
   let emitter: { emit: jest.Mock };
 
   beforeEach(async () => {
     leadRepo = {
-      findByStageWithCustomer: jest.fn(),
       updateStage: jest.fn().mockResolvedValue({}),
       createActivity: jest.fn().mockResolvedValue({}),
+    };
+    leadQueryRepo = {
+      findByStageWithCustomer: jest.fn(),
     };
     emitter = { emit: jest.fn() };
 
@@ -20,6 +24,7 @@ describe('AutoAdvanceInstallsHandler', () => {
       providers: [
         AutoAdvanceInstallsHandler,
         { provide: LEAD_REPOSITORY, useValue: leadRepo },
+        { provide: LEAD_QUERY_REPOSITORY, useValue: leadQueryRepo },
         { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
@@ -30,7 +35,7 @@ describe('AutoAdvanceInstallsHandler', () => {
   it('should advance leads with matching scheduleDate to COMMISSION', async () => {
     const today = new Date().toISOString().split('T')[0];
 
-    leadRepo.findByStageWithCustomer.mockResolvedValue([
+    leadQueryRepo.findByStageWithCustomer.mockResolvedValue([
       {
         id: 'lead-1',
         currentStage: 'INSTALL',
@@ -55,7 +60,7 @@ describe('AutoAdvanceInstallsHandler', () => {
   });
 
   it('should not advance leads whose scheduleDate does not match today', async () => {
-    leadRepo.findByStageWithCustomer.mockResolvedValue([
+    leadQueryRepo.findByStageWithCustomer.mockResolvedValue([
       {
         id: 'lead-2',
         currentStage: 'INSTALL',
@@ -73,7 +78,7 @@ describe('AutoAdvanceInstallsHandler', () => {
   });
 
   it('should not advance leads without metadata.scheduleDate', async () => {
-    leadRepo.findByStageWithCustomer.mockResolvedValue([
+    leadQueryRepo.findByStageWithCustomer.mockResolvedValue([
       {
         id: 'lead-3',
         currentStage: 'INSTALL',
@@ -92,7 +97,7 @@ describe('AutoAdvanceInstallsHandler', () => {
   it('should handle multiple leads and advance only matching ones', async () => {
     const today = new Date().toISOString().split('T')[0];
 
-    leadRepo.findByStageWithCustomer.mockResolvedValue([
+    leadQueryRepo.findByStageWithCustomer.mockResolvedValue([
       {
         id: 'lead-a',
         currentStage: 'INSTALL',
@@ -124,7 +129,7 @@ describe('AutoAdvanceInstallsHandler', () => {
   });
 
   it('should return 0 when no leads match', async () => {
-    leadRepo.findByStageWithCustomer.mockResolvedValue([]);
+    leadQueryRepo.findByStageWithCustomer.mockResolvedValue([]);
 
     const count = await handler.advanceInstalls();
 

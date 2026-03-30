@@ -17,6 +17,12 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action><q-btn flat label="Retry" @click="loadForms" /></template>
+    </q-banner>
+
     <template v-else-if="forms.length">
       <q-card
         v-for="form in forms"
@@ -80,18 +86,22 @@ interface PublicForm {
 const $q = useQuasar();
 const forms = ref<PublicForm[]>([]);
 const loading = ref(false);
+const error = ref<string | null>(null);
 
-onMounted(async () => {
+async function loadForms() {
   loading.value = true;
+  error.value = null;
   try {
     const { data } = await api.get<PublicForm[]>('/forms');
     forms.value = data;
   } catch {
-    // Empty state
+    error.value = 'Failed to load forms. Please try again.';
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(() => { loadForms(); });
 
 async function copyFormLink(form: PublicForm) {
   const url = `${window.location.origin}/f/${form.slug}`;

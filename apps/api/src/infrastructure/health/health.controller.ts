@@ -9,6 +9,7 @@ import {
   MemoryHealthIndicator,
 } from '@nestjs/terminus';
 import { PrismaService } from '../database/prisma.service';
+import { IntegrationHealthService, IntegrationStatus } from './integration-health.service';
 
 @ApiTags('Health')
 @Controller('health')
@@ -19,6 +20,7 @@ export class HealthController {
     private readonly disk: DiskHealthIndicator,
     private readonly memory: MemoryHealthIndicator,
     private readonly prisma: PrismaService,
+    private readonly integrationHealth: IntegrationHealthService,
   ) {}
 
   @Get()
@@ -52,5 +54,12 @@ export class HealthController {
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
     };
+  }
+
+  @Get('integrations')
+  @SetMetadata('isPublic', true)
+  @ApiOperation({ summary: 'Integration health status' })
+  checkIntegrations(): Record<string, IntegrationStatus> {
+    return this.integrationHealth.checkAll();
   }
 }

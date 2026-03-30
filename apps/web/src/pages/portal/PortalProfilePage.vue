@@ -18,12 +18,12 @@
 
           <q-separator class="q-my-md" />
 
-          <div class="text-weight-bold q-mb-sm" style="font-size: 14px">Property Address</div>
+          <div class="text-weight-bold q-mb-sm text-14">Property Address</div>
           <q-input v-model="form.address" label="Address" outlined dense disable />
 
           <q-separator class="q-my-md" />
 
-          <div class="text-weight-bold q-mb-sm" style="font-size: 14px">Display</div>
+          <div class="text-weight-bold q-mb-sm text-14">Display</div>
           <q-item tag="label" class="q-px-none">
             <q-item-section>
               <q-item-label>Dark mode</q-item-label>
@@ -33,7 +33,7 @@
             </q-item-section>
           </q-item>
 
-          <q-btn unelevated no-caps color="primary" label="Save Changes" type="submit" :loading="saving" class="full-width q-mt-md" style="border-radius: 10px; min-height: 44px; font-weight: 600" />
+          <q-btn unelevated no-caps color="primary" label="Save Changes" type="submit" :loading="saving" class="full-width q-mt-md radius-10 save-btn" />
         </q-form>
       </q-card-section>
     </q-card>
@@ -41,8 +41,8 @@
     <!-- Danger Zone -->
     <q-card flat class="danger-card">
       <q-card-section>
-        <div class="text-weight-bold text-negative q-mb-sm" style="font-size: 14px">Account</div>
-        <q-btn outline no-caps color="negative" label="Sign Out" icon="logout" @click="logout" style="border-radius: 10px" />
+        <div class="text-weight-bold text-negative q-mb-sm text-14">Account</div>
+        <q-btn outline no-caps color="negative" label="Sign Out" icon="logout" @click="logout" class="radius-10" />
       </q-card-section>
     </q-card>
   </q-page>
@@ -110,6 +110,11 @@ function logout() {
   margin: 0;
   font-weight: 700;
   color: #111827;
+}
+
+.save-btn {
+  min-height: 44px;
+  font-weight: 600;
 }
 
 .danger-card {

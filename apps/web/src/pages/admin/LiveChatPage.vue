@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md" style="background: #F8FAFB">
+  <q-page class="q-pa-md page-bg">
     <div class="row items-center q-mb-md">
       <h5 class="q-my-none text-weight-bold">Live Chat</h5>
       <q-badge v-if="waitingCount > 0" color="orange" text-color="white" class="q-ml-sm">
@@ -23,7 +23,7 @@
       </template>
     </q-banner>
 
-    <div v-else class="row q-col-gutter-md" style="height: calc(100vh - 140px)">
+    <div v-else class="row q-col-gutter-md chat-layout">
       <!-- Conversation list -->
       <div class="col-12 col-md-4">
         <q-card flat class="conv-list-card full-height">
@@ -60,7 +60,7 @@
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
-                <q-badge v-if="conv.status === 'WAITING_AGENT'" color="orange" text-color="white" style="font-size: 10px">
+                <q-badge v-if="conv.status === 'WAITING_AGENT'" color="orange" text-color="white" class="text-10">
                   Waiting
                 </q-badge>
                 <q-item-label v-else caption>{{ timeAgo(conv.updatedAt) }}</q-item-label>
@@ -87,7 +87,7 @@
                 class="q-mr-sm"
               />
               <div>
-                <div class="text-weight-bold" style="font-size: 14px">
+                <div class="text-weight-bold text-14">
                   {{ selectedConv.visitorName || (selectedConv.user ? `${selectedConv.user.firstName} ${selectedConv.user.lastName}` : 'Visitor') }}
                 </div>
                 <div class="text-caption text-grey-5" v-if="selectedConv.visitorEmail">
@@ -98,7 +98,7 @@
                 </div>
               </div>
               <q-space />
-              <q-btn v-if="selectedConv.status === 'WAITING_AGENT'" unelevated no-caps color="primary" label="Join Chat" size="sm" style="border-radius: 8px" @click="joinChat" />
+              <q-btn v-if="selectedConv.status === 'WAITING_AGENT'" unelevated no-caps color="primary" label="Join Chat" size="sm" class="radius-md" @click="joinChat" />
               <q-btn v-if="selectedConv.status !== 'CLOSED'" flat dense icon="close" color="grey-6" @click="closeChat">
                 <q-tooltip>Close conversation</q-tooltip>
               </q-btn>
@@ -299,6 +299,10 @@ watch(chatMessages, () => scrollToBottom(), { deep: true });
 </script>
 
 <style lang="scss" scoped>
+.chat-layout {
+  height: calc(100vh - 140px);
+}
+
 .conv-list-card {
   background: #fff;
   border: 1px solid #E5E7EB;
