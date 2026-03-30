@@ -139,4 +139,28 @@ const filteredCategories = computed(() => {
   border-radius: 16px;
   background: linear-gradient(135deg, #F0FDFA, #ECFDF5);
 }
+
+// Dark mode
+:global(.body--dark) {
+  .portal-faq {
+    background: #121212;
+  }
+  .page-title {
+    color: #F3F4F6;
+  }
+  .faq-item {
+    background: #1e1e1e;
+    border-color: #333;
+
+    :deep(.q-item__label) {
+      color: #E5E7EB;
+    }
+  }
+  .faq-answer {
+    color: #9CA3AF !important;
+  }
+  .contact-card {
+    background: linear-gradient(135deg, #1a2e2a, #1e2e25);
+  }
+}
 </style>

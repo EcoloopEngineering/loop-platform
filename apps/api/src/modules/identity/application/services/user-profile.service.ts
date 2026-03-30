@@ -10,6 +10,7 @@ import {
   USER_REPOSITORY,
   UserRepositoryPort,
 } from '../ports/user.repository.port';
+import { normalizeName } from '../../../../common/utils/normalize-name';
 
 /**
  * Strips sensitive fields from a user record before returning to the client.
@@ -62,8 +63,8 @@ export class UserProfileService {
     }
 
     const updated = await this.userRepo.updateRaw(user.id, {
-      ...(dto.firstName !== undefined && { firstName: dto.firstName }),
-      ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+      ...(dto.firstName !== undefined && { firstName: normalizeName(dto.firstName) }),
+      ...(dto.lastName !== undefined && { lastName: normalizeName(dto.lastName) }),
       ...(dto.phone !== undefined && { phone: dto.phone }),
       ...(dto.profileImage !== undefined && { profileImage: dto.profileImage }),
       ...(dto.nickname !== undefined && { nickname: dto.nickname }),

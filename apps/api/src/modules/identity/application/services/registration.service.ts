@@ -13,6 +13,7 @@ import { AuthService } from './auth.service';
 import { validatePasswordPolicy } from '../../../../common/validators/password-policy.validator';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
+import { normalizeName } from '../../../../common/utils/normalize-name';
 
 @Injectable()
 export class RegistrationService {
@@ -65,8 +66,8 @@ export class RegistrationService {
     const user = await this.userRepo.createRaw({
       email: params.email.toLowerCase(),
       passwordHash,
-      firstName: params.firstName,
-      lastName: params.lastName,
+      firstName: normalizeName(params.firstName),
+      lastName: normalizeName(params.lastName),
       phone: params.phone,
       role,
       isActive: false,

@@ -8,6 +8,7 @@ import {
   CustomerRepositoryPort,
 } from '../ports/customer.repository.port';
 import { PortalAuthService, CustomerMetadata } from './portal-auth.service';
+import { normalizeName } from '../../../../common/utils/normalize-name';
 import * as bcrypt from 'bcryptjs';
 
 export interface PortalRegisterInput {
@@ -44,8 +45,8 @@ export class PortalRegistrationService {
   private async createNewCustomer(dto: PortalRegisterInput) {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const customer = await this.customerRepo.createWithMetadata({
-      firstName: dto.firstName,
-      lastName: dto.lastName,
+      firstName: normalizeName(dto.firstName),
+      lastName: normalizeName(dto.lastName),
       email: dto.email.toLowerCase(),
       phone: dto.phone,
       metadata: { passwordHash },
@@ -64,8 +65,8 @@ export class PortalRegistrationService {
   ) {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     await this.customerRepo.updateRaw(existing.id, {
-      firstName: dto.firstName,
-      lastName: dto.lastName,
+      firstName: normalizeName(dto.firstName),
+      lastName: normalizeName(dto.lastName),
       phone: dto.phone ?? existing.phone,
       metadata: { ...meta, passwordHash },
     });
