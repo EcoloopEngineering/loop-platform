@@ -57,11 +57,6 @@
       <EInput v-model="form.accountNumber" label="Account Number" />
       <EInput v-model="form.routingNumber" label="Routing Number" />
 
-      <div class="q-mt-lg">
-        <EBtn type="submit" :loading="saving" class="full-width">
-          Save Changes
-        </EBtn>
-      </div>
     </q-form>
 
     <!-- Appearance -->
@@ -76,7 +71,7 @@
     <q-card flat class="q-mb-md">
       <q-card-section>
         <div class="text-h6 q-mb-md">Delivery Channels</div>
-        <div class="q-gutter-md">
+        <div class="row q-gutter-md">
           <q-toggle v-model="emailNotifications" label="Email notifications" @update:model-value="saveNotificationPrefs" />
           <q-toggle v-model="pushNotifications" label="Push notifications" @update:model-value="saveNotificationPrefs" />
         </div>
@@ -97,6 +92,13 @@
         </div>
       </q-card-section>
     </q-card>
+
+    <!-- Save button at bottom -->
+    <div class="q-mt-lg q-mb-xl">
+      <EBtn :loading="saving" class="full-width" @click="save">
+        Save Changes
+      </EBtn>
+    </div>
     </template>
   </q-page>
 </template>

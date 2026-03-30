@@ -41,20 +41,23 @@ export class UserProfileService {
     const fullUser = await this.queryBus.execute(new GetUserByIdQuery(userId));
     const safe = sanitiseUser(fullUser as Record<string, unknown>);
     const meta = ((fullUser as Record<string, unknown>).metadata as Record<string, unknown>) ?? {};
-    return { ...safe, darkMode: meta.darkMode ?? false, compactView: meta.compactView ?? false };
+    return { ...safe, darkMode: meta.darkMode ?? false, compactView: meta.compactView ?? false, emailNotifications: meta.emailNotifications ?? true, pushNotifications: meta.pushNotifications ?? false };
   }
 
   /* ------------------------------------------------------------------ */
   /*  PUT /users/me                                                      */
   /* ------------------------------------------------------------------ */
-  async updateProfile(user: AuthenticatedUser, dto: UpdateUserDto & { darkMode?: boolean; compactView?: boolean }) {
+  async updateProfile(user: AuthenticatedUser, dto: UpdateUserDto) {
     let metadataUpdate: Record<string, unknown> | undefined;
 
-    if (dto.darkMode !== undefined || dto.compactView !== undefined) {
+    const hasMetaFields = dto.darkMode !== undefined || dto.compactView !== undefined || dto.emailNotifications !== undefined || dto.pushNotifications !== undefined;
+    if (hasMetaFields) {
       const current = await this.userRepo.findSelectById(user.id, { metadata: true });
       const meta = ((current?.metadata ?? {}) as Record<string, unknown>);
       if (dto.darkMode !== undefined) meta.darkMode = dto.darkMode;
       if (dto.compactView !== undefined) meta.compactView = dto.compactView;
+      if (dto.emailNotifications !== undefined) meta.emailNotifications = dto.emailNotifications;
+      if (dto.pushNotifications !== undefined) meta.pushNotifications = dto.pushNotifications;
       metadataUpdate = meta;
     }
 
