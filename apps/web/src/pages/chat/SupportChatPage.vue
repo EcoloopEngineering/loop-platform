@@ -22,8 +22,19 @@
           <div class="text-caption text-grey-5">Ask a question or browse common topics below</div>
         </div>
 
+        <!-- FAQ loading -->
+        <div v-if="loadingFaqs" class="flex flex-center q-pa-md">
+          <q-spinner-dots size="30px" color="primary" />
+        </div>
+
+        <!-- FAQ error -->
+        <q-banner v-else-if="errorFaqs" class="bg-orange-1 text-orange-9 q-mb-md" rounded dense>
+          <template #avatar><q-icon name="warning" color="orange" /></template>
+          {{ errorFaqs }}
+        </q-banner>
+
         <!-- FAQ list -->
-        <div v-if="faqs.length" class="q-mb-md">
+        <div v-else-if="faqs.length" class="q-mb-md">
           <div class="text-caption text-weight-bold text-grey-6 text-uppercase q-mb-sm" style="letter-spacing: 0.04em">Common Questions</div>
           <q-card v-for="faq in faqs" :key="faq.id" flat class="faq-card q-mb-xs" clickable @click="startWithQuestion(faq.question)">
             <q-card-section class="q-pa-sm">
@@ -124,6 +135,8 @@ const socket = ref<Socket | null>(null);
 const conversationId = ref<string | null>(localStorage.getItem(STORAGE_KEY));
 const messages = ref<ChatMessage[]>([]);
 const faqs = ref<FaqItem[]>([]);
+const loadingFaqs = ref(true);
+const errorFaqs = ref<string | null>(null);
 const initialMessage = ref('');
 const newMessage = ref('');
 const status = ref('');
@@ -166,7 +179,11 @@ onMounted(async () => {
   try {
     const res = await fetch(`${API_URL}/api/v1/chat/faq`);
     faqs.value = await res.json();
-  } catch { /* ignore */ }
+  } catch {
+    errorFaqs.value = 'Failed to load FAQ. You can still type your question below.';
+  } finally {
+    loadingFaqs.value = false;
+  }
 
   // Connect socket
   socket.value = io(`${API_URL}/chat`, { transports: ['websocket', 'polling'] });

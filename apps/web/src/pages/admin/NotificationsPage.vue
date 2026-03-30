@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md" style="background: #F8FAFB">
+  <q-page class="q-pa-md page-bg">
     <div class="row items-center q-mb-lg">
       <div class="text-h6 text-weight-bold">Notifications</div>
       <q-space />
@@ -18,10 +18,19 @@
       <q-spinner-dots size="40px" color="primary" />
     </div>
 
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
     <div v-else-if="notifications.length === 0" class="text-center q-pa-xl">
       <q-icon name="notifications_none" size="64px" color="grey-4" />
-      <div class="text-grey-6 q-mt-md" style="font-size: 16px">No notifications yet</div>
-      <div class="text-grey-5" style="font-size: 13px">You'll see lead updates, system alerts, and more here</div>
+      <div class="text-grey-6 q-mt-md text-16">No notifications yet</div>
+      <div class="text-grey-5 text-13">You'll see lead updates, system alerts, and more here</div>
     </div>
 
     <div v-else class="notification-list">
@@ -33,7 +42,7 @@
         @click="toggle(n)"
       >
         <div class="notification-header">
-          <div class="row items-center no-wrap" style="gap: 12px">
+          <div class="row items-center no-wrap gap-lg">
             <q-icon
               :name="iconFor(n.event)"
               :color="!n.isRead ? 'primary' : 'grey-5'"
@@ -43,7 +52,7 @@
               <div class="notification-title">{{ n.title }}</div>
               <div class="notification-time">{{ timeAgo(n.createdAt) }}</div>
             </div>
-            <div class="row items-center" style="gap: 6px">
+            <div class="row items-center gap-xs">
               <q-icon
                 v-if="n.isRead"
                 name="done"
@@ -66,7 +75,7 @@
           <div v-show="expandedId === n.id" class="notification-body">
             <q-separator class="q-my-sm" />
             <div class="notification-message">{{ n.message }}</div>
-            <div class="row items-center q-mt-sm" style="gap: 8px">
+            <div class="row items-center q-mt-sm gap-sm">
               <q-chip
                 dense
                 :color="!n.isRead ? 'blue-1' : 'grey-2'"
@@ -115,18 +124,23 @@ interface Notification {
 
 const notifications = ref<Notification[]>([]);
 const loading = ref(true);
+const error = ref<string | null>(null);
 const expandedId = ref<string | null>(null);
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true;
+  error.value = null;
   try {
     const { data } = await api.get<Notification[]>('/notifications');
     notifications.value = Array.isArray(data) ? data : (data as { data?: Notification[] }).data ?? [];
   } catch {
-    // API may not return notifications yet
+    error.value = 'Failed to load notifications. Please try again.';
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(() => { loadData(); });
 
 function toggle(n: Notification) {
   expandedId.value = expandedId.value === n.id ? null : n.id;

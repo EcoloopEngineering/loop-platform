@@ -1,9 +1,9 @@
 <template>
-  <q-page class="q-pa-md" style="background: #F8FAFB">
+  <q-page class="q-pa-md page-bg">
     <div class="row items-center q-mb-md">
       <h5 class="q-my-none text-weight-bold">Users</h5>
       <q-space />
-      <q-btn unelevated no-caps color="primary" icon="person_add" label="Create User" style="border-radius: 10px" aria-label="Create a new user" @click="showCreateDialog = true" />
+      <q-btn unelevated no-caps color="primary" icon="person_add" label="Create User" class="radius-10" aria-label="Create a new user" @click="showCreateDialog = true" />
     </div>
 
     <!-- Tabs -->
@@ -22,6 +22,21 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-ma-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
+    <!-- Empty -->
+    <div v-else-if="allUsers.length === 0" class="text-center q-pa-xl text-grey-5">
+      <q-icon name="group" size="48px" class="q-mb-md" />
+      <div>No users found</div>
+    </div>
+
     <!-- Employees Tab -->
     <q-tab-panels v-else v-model="activeTab" animated>
       <q-tab-panel name="employees" class="q-pa-none">
@@ -36,7 +51,7 @@
           >
             <template #body-cell-name="props">
               <q-td :props="props">
-                <div class="row items-center no-wrap" style="gap: 10px">
+                <div class="row items-center no-wrap gap-md">
                   <UserAvatar :user-id="props.row.id" :name="titleCase(props.row.name)" size="36px" />
                   <div>
                     <div class="text-weight-medium">{{ titleCase(props.row.name) }}</div>
@@ -76,7 +91,7 @@
               <q-td :props="props" auto-width>
                 <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="User actions menu">
                   <q-menu>
-                    <q-list dense style="min-width: 150px">
+                    <q-list dense class="menu-sm">
                       <q-item clickable v-close-popup @click="editUser(props.row)">
                         <q-item-section avatar><q-icon name="edit" size="18px" /></q-item-section>
                         <q-item-section>Edit</q-item-section>
@@ -112,7 +127,7 @@
           >
             <template #body-cell-name="props">
               <q-td :props="props">
-                <div class="row items-center no-wrap" style="gap: 10px">
+                <div class="row items-center no-wrap gap-md">
                   <UserAvatar :user-id="props.row.id" :name="titleCase(props.row.name)" size="36px" color="orange-7" />
                   <div>
                     <div class="text-weight-medium">{{ titleCase(props.row.name) }}</div>
@@ -123,8 +138,8 @@
 
             <template #body-cell-referredBy="props">
               <q-td :props="props">
-                <div v-if="props.row.referredBy" class="row items-center no-wrap" style="gap: 6px">
-                  <q-avatar size="26px" color="primary" text-color="white" style="font-size: 11px">
+                <div v-if="props.row.referredBy" class="row items-center no-wrap gap-xs">
+                  <q-avatar size="26px" color="primary" text-color="white" class="avatar-text-md">
                     {{ props.row.referredBy.charAt(0) }}
                   </q-avatar>
                   <span class="text-caption">{{ titleCase(props.row.referredBy) }}</span>
@@ -153,7 +168,7 @@
               <q-td :props="props" auto-width>
                 <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="Partner actions menu">
                   <q-menu>
-                    <q-list dense style="min-width: 150px">
+                    <q-list dense class="menu-sm">
                       <q-item clickable v-close-popup @click="editUser(props.row)">
                         <q-item-section avatar><q-icon name="edit" size="18px" /></q-item-section>
                         <q-item-section>Edit</q-item-section>
@@ -170,7 +185,7 @@
 
     <!-- Create User Dialog -->
     <q-dialog v-model="showCreateDialog" persistent @keyup.esc="showCreateDialog = false" aria-label="Create user dialog">
-      <q-card style="min-width: 420px; border-radius: 16px">
+      <q-card class="dialog-card">
         <q-card-section>
           <div class="text-h6 text-weight-bold">Create User</div>
         </q-card-section>
@@ -200,14 +215,14 @@
 
         <q-card-actions align="right" class="q-pa-md">
           <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel user creation" />
-          <q-btn unelevated no-caps label="Create User" color="primary" :loading="creating" @click="createUser" style="border-radius: 10px" aria-label="Confirm create user" />
+          <q-btn unelevated no-caps label="Create User" color="primary" :loading="creating" @click="createUser" class="radius-10" aria-label="Confirm create user" />
         </q-card-actions>
       </q-card>
     </q-dialog>
 
     <!-- Edit User Dialog -->
     <q-dialog v-model="showEditDialog" persistent @keyup.esc="showEditDialog = false" aria-label="Edit user dialog">
-      <q-card style="min-width: 420px; border-radius: 16px">
+      <q-card class="dialog-card">
         <q-card-section>
           <div class="text-h6 text-weight-bold">Edit User</div>
         </q-card-section>
@@ -236,7 +251,7 @@
 
         <q-card-actions align="right" class="q-pa-md">
           <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel editing user" />
-          <q-btn unelevated no-caps label="Save Changes" color="primary" :loading="saving" @click="saveEdit" style="border-radius: 10px" aria-label="Save user changes" />
+          <q-btn unelevated no-caps label="Save Changes" color="primary" :loading="saving" @click="saveEdit" class="radius-10" aria-label="Save user changes" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -270,6 +285,7 @@ interface UserRow {
 
 const allUsers = ref<UserRow[]>([]);
 const loading = ref(true);
+const error = ref<string | null>(null);
 const search = ref('');
 const activeTab = ref('employees');
 
@@ -320,7 +336,9 @@ const partnerColumns = [
   { name: 'actions', label: '', field: 'id', align: 'right' as const },
 ];
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true;
+  error.value = null;
   try {
     const { data } = await api.get('/users');
     const list = Array.isArray(data) ? data : data.data ?? [];
@@ -348,11 +366,13 @@ onMounted(async () => {
       createdAt: u.createdAt,
     }));
   } catch {
-    // fallback
+    error.value = 'Failed to load users. Please try again.';
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(() => { loadData(); });
 
 // ---- Update User ----
 async function updateUser(userId: string, updates: Record<string, string | boolean>) {

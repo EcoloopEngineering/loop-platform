@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateLeadHandler } from './create-lead.handler';
 import { CreateLeadCommand } from './create-lead.command';
@@ -87,7 +88,7 @@ describe('CreateLeadHandler', () => {
 
     await expect(
       handler.execute(new CreateLeadCommand(baseDto as any, 'user-1')),
-    ).rejects.toThrow('No default pipeline found');
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('should set initial stage to DESIGN_READY for AI_DESIGN', async () => {

@@ -1,12 +1,12 @@
 <template>
-  <q-page class="q-pa-md" style="background: #F8FAFB; min-height: 100vh">
+  <q-page class="q-pa-md page-bg">
     <div class="row items-center q-mb-md">
       <h5 class="q-my-none text-weight-bold">My Leads</h5>
-      <q-badge v-if="filteredLeads.length" color="grey-3" text-color="grey-7" class="q-ml-sm" style="font-size: 12px">
+      <q-badge v-if="filteredLeads.length" color="grey-3" text-color="grey-7" class="q-ml-sm text-12">
         {{ filteredLeads.length }}
       </q-badge>
       <q-space />
-      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" style="border-radius: 10px" />
+      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" class="radius-10" />
     </div>
 
     <!-- Search -->
@@ -15,8 +15,7 @@
       dense
       outlined
       placeholder="Search by name, email, or phone..."
-      class="q-mb-md"
-      style="max-width: 400px"
+      class="q-mb-md max-w-400"
       @update:model-value="onSearch"
     >
       <template #prepend><q-icon name="search" /></template>
@@ -30,11 +29,20 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-ma-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
     <!-- Empty state -->
     <div v-else-if="filteredLeads.length === 0" class="text-center q-pa-xl">
       <q-icon name="person_search" size="64px" color="grey-4" />
-      <div class="text-grey-6 q-mt-md" style="font-size: 16px">No leads found</div>
-      <div class="text-grey-5 q-mt-xs" style="font-size: 13px">
+      <div class="text-grey-6 q-mt-md text-16">No leads found</div>
+      <div class="text-grey-5 q-mt-xs text-13">
         {{ search ? 'Try a different search' : 'Create your first lead to get started' }}
       </div>
       <q-btn
@@ -44,8 +52,7 @@
         color="primary"
         icon="add"
         label="Create Lead"
-        class="q-mt-md"
-        style="border-radius: 10px"
+        class="q-mt-md radius-10"
         @click="$router.push('/leads/new')"
       />
     </div>
@@ -64,7 +71,7 @@
       >
         <template #body-cell-name="props">
           <q-td :props="props">
-            <div class="row items-center no-wrap" style="gap: 10px">
+            <div class="row items-center no-wrap gap-md">
               <UserAvatar :name="titleCase(props.row.name)" size="32px" />
               <div>
                 <div class="text-weight-bold text-primary cursor-pointer">{{ titleCase(props.row.name) }}</div>
@@ -79,7 +86,7 @@
             <q-badge
               :style="{ background: stageColor(props.row.stage) }"
               text-color="white"
-              style="border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600"
+              class="badge-pill"
             >
               {{ formatStage(props.row.stage) }}
             </q-badge>
@@ -88,13 +95,13 @@
 
         <template #body-cell-score="props">
           <q-td :props="props">
-            <div class="row items-center no-wrap" style="gap: 6px">
+            <div class="row items-center no-wrap gap-xs">
               <q-linear-progress
                 :value="props.row.score / 100"
                 :color="props.row.score >= 70 ? 'positive' : props.row.score >= 40 ? 'warning' : 'grey-5'"
                 track-color="grey-3"
                 rounded
-                style="width: 40px; height: 5px"
+                class="score-bar"
               />
               <span class="text-caption text-weight-medium">{{ props.row.score }}</span>
             </div>
@@ -132,6 +139,7 @@ const { stageColor, formatStage, formatSource, timeAgo } = useLeadFormatting();
 
 const router = useRouter();
 const loading = ref(true);
+const error = ref<string | null>(null);
 const search = ref('');
 const leads = ref<Lead[]>([]);
 const currentUserId = ref<string | null>(null);
@@ -179,7 +187,10 @@ const filteredLeads = computed(() => {
   return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 });
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true;
+  error.value = null;
+
   try {
     const { data: me } = await api.get('/auth/me');
     currentUserId.value = me.id;
@@ -188,10 +199,14 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/leads', { params: { limit: 100 } });
     leads.value = Array.isArray(data) ? data : data.data ?? [];
-  } catch { /* ignore */ }
+  } catch {
+    error.value = 'Failed to load leads. Please try again.';
+  } finally {
+    loading.value = false;
+  }
+}
 
-  loading.value = false;
-});
+onMounted(() => { loadData(); });
 
 function onSearch() { /* reactive via computed */ }
 

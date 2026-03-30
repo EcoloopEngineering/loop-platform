@@ -9,26 +9,26 @@
         <q-card-section class="q-pt-none section-body">
           <div v-if="lead.createdBy" class="sidebar-field">
             <div class="sidebar-field-label">Created by</div>
-            <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
-              <q-avatar size="26px" :color="isExternalCreator ? 'orange-6' : 'primary'" text-color="white" style="font-size: 11px">
+            <div class="sidebar-field-value row items-center no-wrap gap-xs">
+              <q-avatar size="26px" :color="isExternalCreator ? 'orange-6' : 'primary'" text-color="white" class="avatar-text-md">
                 {{ lead.createdBy.firstName?.charAt(0) }}
               </q-avatar>
               <span>{{ titleCase(lead.createdBy.firstName + ' ' + lead.createdBy.lastName) }}</span>
-              <q-badge v-if="isExternalCreator" color="orange-2" text-color="orange-9" dense style="font-size: 10px">Partner</q-badge>
-              <q-badge v-else color="blue-1" text-color="blue-8" dense style="font-size: 10px">Employee</q-badge>
+              <q-badge v-if="isExternalCreator" color="orange-2" text-color="orange-9" dense class="text-10">Partner</q-badge>
+              <q-badge v-else color="blue-1" text-color="blue-8" dense class="text-10">Employee</q-badge>
             </div>
-            <div class="text-caption text-grey-5" style="margin-left: 26px">{{ lead.createdBy.email }}</div>
+            <div class="text-caption text-grey-5 ml-avatar">{{ lead.createdBy.email }}</div>
           </div>
           <div v-if="referredBy" class="sidebar-field">
             <div class="sidebar-field-label">Referred by</div>
-            <div class="sidebar-field-value row items-center no-wrap" style="gap: 6px">
-              <q-avatar size="26px" color="primary" text-color="white" style="font-size: 11px">
+            <div class="sidebar-field-value row items-center no-wrap gap-xs">
+              <q-avatar size="26px" color="primary" text-color="white" class="avatar-text-md">
                 {{ referredBy.firstName?.charAt(0) }}
               </q-avatar>
               <span>{{ titleCase(referredBy.firstName + ' ' + referredBy.lastName) }}</span>
-              <q-badge color="green-1" text-color="green-8" dense style="font-size: 10px">Rep</q-badge>
+              <q-badge color="green-1" text-color="green-8" dense class="text-10">Rep</q-badge>
             </div>
-            <div class="text-caption text-grey-5" style="margin-left: 26px">{{ referredBy.email }}</div>
+            <div class="text-caption text-grey-5 ml-avatar">{{ referredBy.email }}</div>
           </div>
           <div v-if="!lead.createdBy && !referredBy" class="text-grey-5 text-caption">No attribution data</div>
         </q-card-section>
@@ -161,7 +161,7 @@
               <div class="field-row">
                 <div class="field-label">Status</div>
                 <div class="field-value">
-                  <q-badge :color="designStatusColor(dr.status)" text-color="white" style="border-radius: 6px; padding: 2px 8px; font-size: 10px">
+                  <q-badge :color="designStatusColor(dr.status)" text-color="white" class="badge-pill-sm">
                     {{ formatDesignStatus(dr.status) }}
                   </q-badge>
                 </div>

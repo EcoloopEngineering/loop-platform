@@ -1,24 +1,3 @@
-// ─── Shared / Utility ───────────────────────────────────────────────
-
-/** Shape of an Axios error's nested response. Use with `unknown` catch blocks. */
-export interface AxiosErrorLike {
-  response?: { status?: number; data?: { message?: string | string[] } };
-}
-
-export function extractApiMessage(err: unknown, fallback: string): string {
-  const axErr = err as AxiosErrorLike;
-  const msg = axErr?.response?.data?.message;
-  if (Array.isArray(msg)) return msg.join(', ');
-  if (typeof msg === 'string' && !msg.includes('status code') && !msg.includes('Request failed')) return msg;
-  return fallback;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  meta?: { total: number };
-}
-
 // ─── User ───────────────────────────────────────────────────────────
 
 export interface User {
@@ -253,14 +232,6 @@ export interface Notification {
 
 // ─── Pipeline ───────────────────────────────────────────────────────
 
-export interface PipelineStageConfig {
-  id: string;
-  stage: string;
-  label: string;
-  color: string;
-  order: number;
-}
-
 export interface PipelineLead {
   id: string;
   customerName: string;
@@ -310,16 +281,6 @@ export interface Commission {
   createdAt?: string;
 }
 
-// ─── Dashboard ──────────────────────────────────────────────────────
-
-export interface DashboardMetrics {
-  totalLeads: number;
-  wonDeals: number;
-  referralLeads: number;
-  conversionRate: number;
-  revenue?: number;
-}
-
 // ─── Appointment ────────────────────────────────────────────────────
 
 export interface Appointment {
@@ -329,15 +290,6 @@ export interface Appointment {
   duration: number;
   notes?: string;
   status?: string;
-}
-
-// ─── Integration Status ─────────────────────────────────────────────
-
-export interface IntegrationStatus {
-  name: string;
-  description: string;
-  icon: string;
-  connected: boolean;
 }
 
 // ─── Settings ───────────────────────────────────────────────────────

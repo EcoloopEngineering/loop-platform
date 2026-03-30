@@ -6,11 +6,20 @@
       <div class="greeting-sub">Here's your sales overview</div>
     </div>
 
+    <!-- Error -->
+    <q-banner v-if="errorLeads" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ errorLeads }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
     <!-- Stats -->
     <div class="row q-col-gutter-sm q-mb-lg">
       <div class="col-6" v-for="stat in stats" :key="stat.label">
         <div class="stat-card">
-          <div class="row items-center q-mb-xs" style="gap: 6px">
+          <div class="row items-center q-mb-xs gap-xs">
             <q-icon :name="stat.icon" :color="stat.color" size="16px" />
             <span class="stat-label">{{ stat.label }}</span>
           </div>
@@ -36,7 +45,7 @@
     <div class="q-mb-lg">
       <div class="row items-center q-mb-sm">
         <div class="section-title">My Leads</div>
-        <q-badge v-if="myLeads.length" color="grey-3" text-color="grey-7" class="q-ml-sm" style="font-size: 11px">
+        <q-badge v-if="myLeads.length" color="grey-3" text-color="grey-7" class="q-ml-sm text-11">
           {{ myLeads.length }}
         </q-badge>
         <q-space />
@@ -51,7 +60,7 @@
         <q-card flat>
           <q-card-section class="text-center q-pa-lg">
             <q-icon name="person_search" size="40px" color="grey-4" />
-            <div class="text-grey-6 q-mt-sm" style="font-size: 13px">No leads assigned to you yet</div>
+            <div class="text-grey-6 q-mt-sm text-13">No leads assigned to you yet</div>
           </q-card-section>
         </q-card>
       </div>
@@ -62,13 +71,13 @@
             <div class="row items-center no-wrap">
               <UserAvatar :name="titleCase(lead.name)" size="36px" class="q-mr-sm" />
               <div class="col">
-                <div class="text-weight-medium" style="font-size: 13px">{{ titleCase(lead.name) }}</div>
+                <div class="text-weight-medium text-13">{{ titleCase(lead.name) }}</div>
                 <div class="text-caption text-grey-5">{{ lead.source }} · {{ lead.timeAgo }}</div>
               </div>
               <q-badge
                 :style="{ background: stageColor(lead.stage) }"
                 text-color="white"
-                style="border-radius: 6px; padding: 2px 8px; font-size: 10px"
+                class="badge-pill-sm"
               >
                 {{ formatStage(lead.stage) }}
               </q-badge>
@@ -77,7 +86,7 @@
         </q-card>
 
         <!-- Pagination -->
-        <div v-if="totalPages > 1" class="row justify-center q-mt-sm" style="gap: 4px">
+        <div v-if="totalPages > 1" class="row justify-center q-mt-sm gap-xxs">
           <q-btn
             v-for="p in totalPages"
             :key="p"
@@ -109,14 +118,14 @@
               </q-avatar>
             </q-item-section>
             <q-item-section>
-              <q-item-label style="font-size: 12px">{{ a.message || a.title }}</q-item-label>
-              <q-item-label caption style="font-size: 11px">{{ timeAgo(a.createdAt) }}</q-item-label>
+              <q-item-label class="text-12">{{ a.message || a.title }}</q-item-label>
+              <q-item-label caption class="text-11">{{ timeAgo(a.createdAt) }}</q-item-label>
             </q-item-section>
           </q-item>
         </q-list>
         <q-card-section v-else class="text-center q-pa-lg">
           <q-icon name="inbox" size="40px" color="grey-4" />
-          <div class="text-grey-6 q-mt-sm" style="font-size: 13px">No recent activity</div>
+          <div class="text-grey-6 q-mt-sm text-13">No recent activity</div>
         </q-card-section>
       </q-card>
     </div>
@@ -150,6 +159,7 @@ interface ActivityItem {
 const { stageColor, formatStage, formatSource, timeAgo } = useLeadFormatting();
 
 const loadingLeads = ref(true);
+const errorLeads = ref<string | null>(null);
 const leads = ref<Lead[]>([]);
 const activities = ref<ActivityItem[]>([]);
 const currentUser = ref<CurrentUserInfo | null>(null);
@@ -222,8 +232,10 @@ const myLeads = computed(() =>
     })),
 );
 
-onMounted(async () => {
-  // Load current user info for filtering
+async function loadData() {
+  loadingLeads.value = true;
+  errorLeads.value = null;
+
   try {
     const { data: me } = await api.get('/auth/me');
     currentUser.value = me;
@@ -240,11 +252,13 @@ onMounted(async () => {
     const notifsData = notifsRes.data;
     activities.value = (Array.isArray(notifsData) ? notifsData : notifsData.data ?? []).slice(0, 5);
   } catch {
-    // fallback
+    errorLeads.value = 'Failed to load your sales data. Please try again.';
   } finally {
     loadingLeads.value = false;
   }
-});
+}
+
+onMounted(() => { loadData(); });
 
 const ICONS: Record<string, string> = {
   LEAD_ASSIGNED: 'person_add', STAGE_CHANGE: 'swap_horiz', DESIGN_COMPLETED: 'check_circle',

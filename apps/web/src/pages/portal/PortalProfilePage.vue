@@ -52,9 +52,11 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { usePortalAuthStore } from '@/stores/portal-auth.store';
 
 const router = useRouter();
 const $q = useQuasar();
+const portalAuth = usePortalAuthStore();
 const saving = ref(false);
 const darkMode = ref($q.dark.isActive);
 
@@ -67,14 +69,13 @@ const form = ref({
 });
 
 onMounted(() => {
-  const stored = localStorage.getItem('portalCustomer');
-  if (stored) {
-    const data = JSON.parse(stored);
-    form.value.firstName = data.firstName || '';
-    form.value.lastName = data.lastName || '';
-    form.value.email = data.email || '';
-    form.value.phone = data.phone || '';
-    form.value.address = data.address || '';
+  const c = portalAuth.customer;
+  if (c) {
+    form.value.firstName = c.firstName || '';
+    form.value.lastName = c.lastName || '';
+    form.value.email = c.email || '';
+    form.value.phone = c.phone || '';
+    form.value.address = (c as Record<string, unknown>).address as string || '';
   }
 });
 
@@ -92,8 +93,7 @@ function toggleDark(val: boolean) {
 }
 
 function logout() {
-  localStorage.removeItem('portalToken');
-  localStorage.removeItem('portalCustomer');
+  portalAuth.logout();
   router.push('/portal/login');
 }
 </script>

@@ -1,4 +1,8 @@
 export { default as LeadInfoCard } from './LeadInfoCard.vue';
+export { default as LeadHeaderCard } from './LeadHeaderCard.vue';
+export { default as LeadDealInfo } from './LeadDealInfo.vue';
+export { default as LeadQuickActions } from './LeadQuickActions.vue';
+export { default as LeadDialogs } from './LeadDialogs.vue';
 export { default as LeadTimelineSection } from './LeadTimelineSection.vue';
 export { default as LeadAssignmentsSection } from './LeadAssignmentsSection.vue';
 export { default as LeadNotesSection } from './LeadNotesSection.vue';

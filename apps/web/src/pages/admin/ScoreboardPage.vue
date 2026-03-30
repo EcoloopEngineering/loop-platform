@@ -6,6 +6,15 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
     <template v-else>
       <!-- Section 1: My Stats -->
       <div class="row q-col-gutter-md q-mb-lg">
@@ -135,6 +144,7 @@ const userStore = useUserStore();
 const currentUserId = computed(() => userStore.user?.id ?? '');
 
 const loading = ref(false);
+const error = ref<string | null>(null);
 const balance = ref<Balance>({ coins: 0, points: 0 });
 const period = ref<'weekly' | 'monthly'>('weekly');
 const leaderboard = ref<LeaderboardEntry[]>([]);
@@ -214,14 +224,19 @@ async function fetchScoreboard() {
 
 watch(period, () => fetchLeaderboard());
 
-onMounted(async () => {
+async function loadData() {
   loading.value = true;
+  error.value = null;
   try {
     await Promise.all([fetchBalance(), fetchLeaderboard(), fetchScoreboard()]);
+  } catch {
+    error.value = 'Failed to load scoreboard data. Please try again.';
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(() => { loadData(); });
 </script>
 
 <style lang="scss" scoped>

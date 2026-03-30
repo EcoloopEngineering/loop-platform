@@ -8,6 +8,7 @@ import {
 import routes from './routes';
 import { useUserStore } from '@/stores/user.store';
 import { useAuthStore } from '@/stores/auth.store';
+import { usePortalAuthStore } from '@/stores/portal-auth.store';
 
 // Role-based route access map
 const ROLE_ROUTES: Record<string, string[]> = {
@@ -48,9 +49,9 @@ export default route(function () {
     // Handle portal routes separately — portal has its own auth
     if (to.path.startsWith('/portal')) {
       if (to.path !== '/portal/login' && to.path !== '/portal/reset-password') {
-        const portalToken = localStorage.getItem('portalToken');
-        if (!portalToken) {
-          return next({ path: '/auth/login' });
+        const portalAuth = usePortalAuthStore();
+        if (!portalAuth.isAuthenticated) {
+          return next({ path: '/portal/login' });
         }
       }
       return next();

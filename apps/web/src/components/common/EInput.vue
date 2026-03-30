@@ -9,7 +9,7 @@
     lazy-rules="ondemand"
     :class="['e-input', `e-input--${size}`]"
   >
-    <template v-for="(_, name) in $slots" #[name]="slotData">
+    <template v-for="(_, name) in $slots" :key="name" #[name]="slotData">
       <slot :name="name" v-bind="slotData ?? {}" />
     </template>
   </q-input>

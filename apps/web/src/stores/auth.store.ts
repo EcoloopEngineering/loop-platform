@@ -11,6 +11,8 @@ export const useAuthStore = defineStore(
     const token = ref<string | null>(null);
     const lastActivity = ref<number>(Date.now());
     const user = ref<User | null>(null);
+    const loading = ref(false);
+    const error = ref<string | null>(null);
 
     const isAuthenticated = computed(() => !!token.value && !isSessionExpired());
 
@@ -24,12 +26,22 @@ export const useAuthStore = defineStore(
     }
 
     async function login(email: string, password: string) {
-      const { data } = await api.post('/auth/login', { email, password });
-      token.value = data.token;
-      user.value = data.user;
-      lastActivity.value = Date.now();
-      // Set token in axios defaults
-      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+      loading.value = true;
+      error.value = null;
+      try {
+        const { data } = await api.post('/auth/login', { email, password });
+        token.value = data.token;
+        user.value = data.user;
+        lastActivity.value = Date.now();
+        // Set token in axios defaults
+        api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+      } catch (err: unknown) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        error.value = axErr?.response?.data?.message || 'Login failed';
+        throw err;
+      } finally {
+        loading.value = false;
+      }
     }
 
     async function signUp(email: string, password: string, extra?: {
@@ -38,20 +50,30 @@ export const useAuthStore = defineStore(
       role?: string;
       inviteCode?: string;
     }) {
-      const [firstName, ...rest] = (extra?.name || '').split(' ');
-      const { data } = await api.post('/auth/register', {
-        email,
-        password,
-        firstName: firstName || email.split('@')[0],
-        lastName: rest.join(' ') || '',
-        phone: extra?.phone,
-        role: extra?.role,
-        inviteCode: extra?.inviteCode,
-      });
-      token.value = data.token;
-      user.value = data.user;
-      lastActivity.value = Date.now();
-      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+      loading.value = true;
+      error.value = null;
+      try {
+        const [firstName, ...rest] = (extra?.name || '').split(' ');
+        const { data } = await api.post('/auth/register', {
+          email,
+          password,
+          firstName: firstName || email.split('@')[0],
+          lastName: rest.join(' ') || '',
+          phone: extra?.phone,
+          role: extra?.role,
+          inviteCode: extra?.inviteCode,
+        });
+        token.value = data.token;
+        user.value = data.user;
+        lastActivity.value = Date.now();
+        api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+      } catch (err: unknown) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        error.value = axErr?.response?.data?.message || 'Registration failed';
+        throw err;
+      } finally {
+        loading.value = false;
+      }
     }
 
     async function loginWithGoogle() {
@@ -117,6 +139,8 @@ export const useAuthStore = defineStore(
       token,
       user,
       lastActivity,
+      loading,
+      error,
       isAuthenticated,
       isSessionExpired,
       touchActivity,

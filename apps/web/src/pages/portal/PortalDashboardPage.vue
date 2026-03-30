@@ -1,5 +1,20 @@
 <template>
   <q-page class="portal-dashboard q-pa-md">
+    <!-- Loading -->
+    <div v-if="loading" class="flex flex-center q-pa-xl">
+      <q-spinner-dots size="40px" color="primary" />
+    </div>
+
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
+    <template v-else>
     <!-- Welcome -->
     <div class="q-mb-lg">
       <h5 class="welcome-title">Welcome, {{ customerName }}</h5>
@@ -12,11 +27,11 @@
         <div class="row items-center q-mb-md">
           <q-icon name="solar_power" size="28px" color="primary" class="q-mr-sm" />
           <div>
-            <div class="text-weight-bold" style="font-size: 16px">My Solar Project</div>
+            <div class="text-weight-bold text-16">My Solar Project</div>
             <div class="text-caption text-grey-6">Last updated {{ lastUpdated }}</div>
           </div>
           <q-space />
-          <q-badge :color="statusColor" :label="statusLabel" style="border-radius: 8px; padding: 4px 12px; font-weight: 600" />
+          <q-badge :color="statusColor" :label="statusLabel" class="badge-status" />
         </div>
 
         <!-- Progress bar -->
@@ -31,7 +46,7 @@
         <!-- Current stage -->
         <div class="stage-info q-mt-md">
           <div class="text-caption text-grey-5 q-mb-xs">Current Stage</div>
-          <div class="text-weight-bold text-primary" style="font-size: 18px">{{ currentStageName }}</div>
+          <div class="text-weight-bold text-primary text-18">{{ currentStageName }}</div>
         </div>
       </q-card-section>
     </q-card>
@@ -42,7 +57,7 @@
         <q-card flat class="info-card" clickable @click="$router.push('/portal/project')">
           <q-card-section class="text-center q-pa-md">
             <q-icon name="description" size="32px" color="blue" class="q-mb-sm" />
-            <div class="text-weight-medium" style="font-size: 13px">Documents</div>
+            <div class="text-weight-medium text-13">Documents</div>
             <div class="text-caption text-grey-5">{{ documentCount }} files</div>
           </q-card-section>
         </q-card>
@@ -51,7 +66,7 @@
         <q-card flat class="info-card" clickable @click="$router.push('/portal/notifications')">
           <q-card-section class="text-center q-pa-md">
             <q-icon name="notifications" size="32px" color="orange" class="q-mb-sm" />
-            <div class="text-weight-medium" style="font-size: 13px">Notifications</div>
+            <div class="text-weight-medium text-13">Notifications</div>
             <div class="text-caption text-grey-5">{{ notificationCount }} new</div>
           </q-card-section>
         </q-card>
@@ -60,7 +75,7 @@
         <q-card flat class="info-card" clickable @click="$router.push('/portal/faq')">
           <q-card-section class="text-center q-pa-md">
             <q-icon name="help_center" size="32px" color="purple" class="q-mb-sm" />
-            <div class="text-weight-medium" style="font-size: 13px">FAQ</div>
+            <div class="text-weight-medium text-13">FAQ</div>
             <div class="text-caption text-grey-5">Common questions</div>
           </q-card-section>
         </q-card>
@@ -69,7 +84,7 @@
         <q-card flat class="info-card" clickable @click="$router.push('/portal/about')">
           <q-card-section class="text-center q-pa-md">
             <q-icon name="info" size="32px" color="teal" class="q-mb-sm" />
-            <div class="text-weight-medium" style="font-size: 13px">About ecoLoop</div>
+            <div class="text-weight-medium text-13">About ecoLoop</div>
             <div class="text-caption text-grey-5">Company info</div>
           </q-card-section>
         </q-card>
@@ -88,14 +103,14 @@
               </q-avatar>
             </q-item-section>
             <q-item-section>
-              <q-item-label style="font-size: 13px">{{ item.message }}</q-item-label>
+              <q-item-label class="text-13">{{ item.message }}</q-item-label>
               <q-item-label caption>{{ item.date }}</q-item-label>
             </q-item-section>
           </q-item>
         </q-list>
         <q-card-section v-else class="text-center q-pa-lg">
           <q-icon name="inbox" size="40px" color="grey-4" />
-          <div class="text-grey-6 q-mt-sm" style="font-size: 13px">No activity yet</div>
+          <div class="text-grey-6 q-mt-sm text-13">No activity yet</div>
         </q-card-section>
       </q-card>
     </div>
@@ -105,12 +120,13 @@
       <q-card-section class="row items-center q-pa-md">
         <q-icon name="support_agent" size="36px" color="primary" class="q-mr-md" />
         <div class="col">
-          <div class="text-weight-bold" style="font-size: 14px">Need Help?</div>
+          <div class="text-weight-bold text-14">Need Help?</div>
           <div class="text-caption text-grey-5">Contact our support team</div>
         </div>
-        <q-btn unelevated no-caps color="primary" label="Contact Us" size="sm" style="border-radius: 8px" @click="$router.push('/portal/faq')" />
+        <q-btn unelevated no-caps color="primary" label="Contact Us" size="sm" class="radius-md" @click="$router.push('/portal/faq')" />
       </q-card-section>
     </q-card>
+    </template>
   </q-page>
 </template>
 
@@ -118,8 +134,12 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/boot/axios';
+import { usePortalAuthStore } from '@/stores/portal-auth.store';
 
 const router = useRouter();
+const portalAuth = usePortalAuthStore();
+const loading = ref(true);
+const error = ref<string | null>(null);
 const customerName = ref('');
 const currentStage = ref('NEW_LEAD');
 const documentCount = ref(0);
@@ -170,45 +190,44 @@ const statusLabel = computed(() => {
   return 'In Progress';
 });
 
-onMounted(async () => {
-  // Seed name from localStorage immediately for fast render
-  const stored = localStorage.getItem('portalCustomer');
-  if (stored) {
-    const data = JSON.parse(stored);
-    customerName.value = data.name || data.firstName || 'Customer';
-    if (data.currentStage) currentStage.value = data.currentStage;
+async function loadData() {
+  loading.value = true;
+  error.value = null;
+
+  // Seed name from store immediately for fast render
+  const c = portalAuth.customer;
+  if (c) {
+    customerName.value = c.name || c.firstName || 'Customer';
+    if ((c as Record<string, unknown>).currentStage) currentStage.value = (c as Record<string, unknown>).currentStage as string;
   }
 
-  // Fetch fresh data from API
-  const token = localStorage.getItem('portalToken');
-  if (!token) { router.replace('/portal/login'); return; }
+  // Check auth
+  if (!portalAuth.isAuthenticated) { router.replace('/portal/login'); return; }
 
   try {
-    const { data } = await api.get('/portal/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (data.statusCode === 401) { router.replace('/portal/login'); return; }
+    await portalAuth.loadProfile();
+    if (!portalAuth.isAuthenticated) { router.replace('/portal/login'); return; }
 
-    customerName.value = data.name || `${data.firstName} ${data.lastName}`;
-    if (data.currentStage) currentStage.value = data.currentStage;
-
-    // Persist fresh data back to localStorage
-    const fresh = { ...(stored ? JSON.parse(stored) : {}), ...data };
-    localStorage.setItem('portalCustomer', JSON.stringify(fresh));
+    const fresh = portalAuth.customer;
+    if (fresh) {
+      customerName.value = fresh.name || `${fresh.firstName} ${fresh.lastName}`;
+      if ((fresh as Record<string, unknown>).currentStage) currentStage.value = (fresh as Record<string, unknown>).currentStage as string;
+    }
 
     lastUpdated.value = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   } catch {
-    // Token likely expired
-    localStorage.removeItem('portalToken');
-    localStorage.removeItem('portalCustomer');
-    router.replace('/portal/login');
+    error.value = 'Failed to load your project data. Please try again.';
+  } finally {
+    loading.value = false;
   }
 
   timeline.value = [
     { id: '1', message: 'Welcome to ecoLoop! Your solar journey starts here.', date: 'Today', icon: 'celebration', color: 'primary' },
     { id: '2', message: 'Your project has been created.', date: 'Today', icon: 'add_circle', color: 'positive' },
   ];
-});
+}
+
+onMounted(() => { loadData(); });
 </script>
 
 <style lang="scss" scoped>

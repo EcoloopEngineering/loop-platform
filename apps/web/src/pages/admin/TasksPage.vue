@@ -1,9 +1,9 @@
 <template>
-  <q-page class="q-pa-md" style="background: #F8FAFB">
+  <q-page class="q-pa-md page-bg">
     <div class="row items-center q-mb-lg">
       <div class="text-h5 text-weight-bold">Tasks</div>
       <q-space />
-      <q-btn unelevated no-caps color="primary" icon="add" label="New Task" @click="showCreate = true" style="border-radius: 10px" aria-label="Create a new task" />
+      <q-btn unelevated no-caps color="primary" icon="add" label="New Task" @click="showCreate = true" class="radius-10" aria-label="Create a new task" />
     </div>
 
     <!-- Filters row -->
@@ -17,7 +17,7 @@
         clearable
         emit-value
         map-options
-        style="min-width: 150px"
+        class="min-w-150"
       />
       <q-select
         v-model="filterAssignee"
@@ -28,15 +28,24 @@
         clearable
         emit-value
         map-options
-        style="min-width: 180px"
+        class="min-w-180"
       />
-      <q-input v-model="search" outlined dense placeholder="Search tasks..." style="min-width: 200px" aria-label="Search tasks">
+      <q-input v-model="search" outlined dense placeholder="Search tasks..." class="min-w-200" aria-label="Search tasks">
         <template #prepend><q-icon name="search" aria-hidden="true" /></template>
       </q-input>
     </div>
 
+    <!-- Error -->
+    <q-banner v-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="fetchTasks" />
+      </template>
+    </q-banner>
+
     <!-- Tasks table -->
-    <q-card flat class="list-card">
+    <q-card v-else flat class="list-card">
       <q-table
         :rows="filteredTasks"
         :columns="columns"
@@ -50,7 +59,7 @@
         <template #body="props">
           <q-tr :props="props" class="cursor-pointer" @click="props.expand = !props.expand">
             <q-td key="title" :props="props">
-              <div class="row items-center no-wrap" style="gap: 6px">
+              <div class="row items-center no-wrap gap-xs">
                 <q-icon :name="props.expand ? 'expand_less' : 'expand_more'" size="18px" color="grey-5" />
                 <span class="text-weight-bold">{{ props.row.title }}</span>
               </div>
@@ -60,7 +69,7 @@
               <span v-else class="text-grey-4">--</span>
             </q-td>
             <q-td key="assignee" :props="props">
-              <div v-if="props.row.assignee" class="row items-center no-wrap" style="gap: 6px">
+              <div v-if="props.row.assignee" class="row items-center no-wrap gap-xs">
                 <UserAvatar :user-id="props.row.assignee.id" :name="titleCase(assigneeName(props.row.assignee))" size="28px" />
                 <span class="text-caption">{{ titleCase(assigneeName(props.row.assignee)) }}</span>
               </div>
@@ -94,7 +103,7 @@
               <span class="text-caption text-grey-6">{{ formatDate(props.row.createdAt) }}</span>
             </q-td>
             <q-td key="actions" :props="props" auto-width>
-              <div class="row no-wrap" style="gap: 4px">
+              <div class="row no-wrap gap-xxs">
                 <q-btn
                   v-if="props.row.status !== 'COMPLETED' && props.row.status !== 'CANCELLED'"
                   flat dense round icon="check_circle" size="sm" color="positive"
@@ -110,23 +119,23 @@
             </q-td>
           </q-tr>
           <q-tr v-show="props.expand" :props="props">
-            <q-td colspan="100%" class="bg-grey-1" style="padding: 16px 24px">
+            <q-td colspan="100%" class="bg-grey-1 expanded-detail">
               <div v-if="props.row.description" class="q-mb-md">
-                <div class="text-weight-bold text-grey-7 q-mb-xs" style="font-size: 12px">DESCRIPTION</div>
+                <div class="text-weight-bold text-grey-7 q-mb-xs text-12">DESCRIPTION</div>
                 <div style="font-size: 13px; white-space: pre-wrap">{{ props.row.description }}</div>
               </div>
               <div v-if="props.row.subtasks && props.row.subtasks.length > 0">
-                <div class="text-weight-bold text-grey-7 q-mb-xs" style="font-size: 12px">SUBTASKS</div>
-                <div v-for="sub in props.row.subtasks" :key="sub.id" class="row items-center q-mb-xs" style="gap: 8px">
+                <div class="text-weight-bold text-grey-7 q-mb-xs text-12">SUBTASKS</div>
+                <div v-for="sub in props.row.subtasks" :key="sub.id" class="row items-center q-mb-xs gap-sm">
                   <q-icon
                     :name="sub.completed ? 'check_box' : 'check_box_outline_blank'"
                     :color="sub.completed ? 'positive' : 'grey-5'"
                     size="20px"
                   />
-                  <span :class="sub.completed ? 'text-grey-5 text-strike' : ''" style="font-size: 13px">{{ sub.title }}</span>
+                  <span :class="sub.completed ? 'text-grey-5 text-strike' : ''" class="text-13">{{ sub.title }}</span>
                 </div>
               </div>
-              <div v-if="!props.row.description && (!props.row.subtasks || props.row.subtasks.length === 0)" class="text-grey-5" style="font-size: 13px">
+              <div v-if="!props.row.description && (!props.row.subtasks || props.row.subtasks.length === 0)" class="text-grey-5 text-13">
                 No additional details.
               </div>
             </q-td>
@@ -134,7 +143,7 @@
         </template>
 
         <template #no-data>
-          <div class="text-center q-pa-xl text-grey-5" style="font-size: 14px">
+          <div class="text-center q-pa-xl text-grey-5 text-14">
             No tasks found.
           </div>
         </template>
@@ -143,7 +152,7 @@
 
     <!-- Create Task Dialog -->
     <q-dialog v-model="showCreate" persistent @keyup.esc="showCreate = false" aria-label="Create new task dialog">
-      <q-card style="min-width: 480px; border-radius: 12px">
+      <q-card class="dialog-card-lg">
         <q-card-section>
           <div class="text-h6 text-weight-bold">New Task</div>
         </q-card-section>
@@ -178,7 +187,7 @@
 
         <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat no-caps label="Cancel" color="grey-7" @click="showCreate = false" aria-label="Cancel task creation" />
-          <q-btn unelevated no-caps label="Create" color="primary" :loading="creating" :disable="!form.title" @click="createTask" style="border-radius: 8px" aria-label="Confirm create task" />
+          <q-btn unelevated no-caps label="Create" color="primary" :loading="creating" :disable="!form.title" @click="createTask" class="radius-md" aria-label="Confirm create task" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -214,6 +223,7 @@ interface Task {
 const $q = useQuasar();
 
 const loading = ref(false);
+const error = ref<string | null>(null);
 const creating = ref(false);
 const tasks = ref<Task[]>([]);
 const showCreate = ref(false);
@@ -325,6 +335,7 @@ function isOverdue(task: Task): boolean {
 
 async function fetchTasks() {
   loading.value = true;
+  error.value = null;
   try {
     const params: Record<string, string> = {};
     if (filterStatus.value) params.status = filterStatus.value;
@@ -332,6 +343,7 @@ async function fetchTasks() {
     const { data } = await api.get<Task[] | { data: Task[] }>('/tasks', { params });
     tasks.value = Array.isArray(data) ? data : (data as { data: Task[] }).data ?? [];
   } catch {
+    error.value = 'Failed to load tasks. Please try again.';
     tasks.value = [];
   } finally {
     loading.value = false;

@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -36,7 +37,7 @@ export class PortalAuthService {
     this.jwtSecret = this.config.get<string>('JWT_SECRET', 'loop-platform-jwt-secret-change-in-prod');
     const env = this.config.get<string>('NODE_ENV', 'development');
     if (this.jwtSecret === 'loop-platform-jwt-secret-change-in-prod' && env === 'production') {
-      throw new Error('JWT_SECRET must be configured in production');
+      throw new InternalServerErrorException('JWT_SECRET must be configured in production');
     }
   }
 

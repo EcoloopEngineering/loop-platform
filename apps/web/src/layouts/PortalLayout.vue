@@ -60,14 +60,20 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { usePortalAuthStore } from '@/stores/portal-auth.store';
 
 const route = useRoute();
 const router = useRouter();
 const $q = useQuasar();
+const portalAuth = usePortalAuthStore();
 const activeTab = ref('home');
 const unreadCount = ref(0);
-const customerName = ref('Customer');
-const customerEmail = ref('');
+
+const customerName = computed(() => {
+  const c = portalAuth.customer;
+  return c?.name || c?.firstName || 'Customer';
+});
+const customerEmail = computed(() => portalAuth.customer?.email || '');
 
 // Portal always runs in light mode — isolated from admin dark mode setting
 let previousDarkMode = false;
@@ -84,17 +90,9 @@ onMounted(() => {
   previousDarkMode = $q.dark.isActive;
   $q.dark.set(false);
 
-  const token = localStorage.getItem('portalToken');
-  if (!token) {
+  if (!portalAuth.isAuthenticated) {
     router.replace('/portal/login');
     return;
-  }
-
-  const stored = localStorage.getItem('portalCustomer');
-  if (stored) {
-    const data = JSON.parse(stored);
-    customerName.value = data.name || 'Customer';
-    customerEmail.value = data.email || '';
   }
 });
 
@@ -104,8 +102,7 @@ onUnmounted(() => {
 });
 
 function logout() {
-  localStorage.removeItem('portalToken');
-  localStorage.removeItem('portalCustomer');
+  portalAuth.logout();
   router.push('/portal/login');
 }
 </script>

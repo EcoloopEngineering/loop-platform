@@ -18,7 +18,16 @@
       />
     </div>
 
-    <q-card flat class="rounded-card">
+    <!-- Error -->
+    <q-banner v-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="fetchFinanciers" />
+      </template>
+    </q-banner>
+
+    <q-card v-else flat class="rounded-card">
       <q-table
         :rows="financiers"
         :columns="columns"
@@ -130,6 +139,7 @@ interface Financier {
 
 const $q = useQuasar();
 const loading = ref(false);
+const error = ref<string | null>(null);
 const saving = ref(false);
 const financiers = ref<Financier[]>([]);
 const dialogOpen = ref(false);
@@ -167,10 +177,12 @@ onMounted(() => {
 
 async function fetchFinanciers() {
   loading.value = true;
+  error.value = null;
   try {
     const { data } = await api.get('/settings/financiers');
     financiers.value = Array.isArray(data) ? data : data.data ?? [];
   } catch {
+    error.value = 'Failed to load financiers. Please try again.';
     financiers.value = [];
   } finally {
     loading.value = false;

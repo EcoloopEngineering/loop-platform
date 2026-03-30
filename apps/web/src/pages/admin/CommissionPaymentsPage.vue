@@ -6,6 +6,15 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="fetchPayments" />
+      </template>
+    </q-banner>
+
     <template v-else>
       <!-- Summary cards -->
       <div class="row q-col-gutter-md q-mb-lg">
@@ -125,6 +134,7 @@ interface Payment {
 
 const $q = useQuasar();
 const loading = ref(false);
+const error = ref<string | null>(null);
 const payments = ref<Payment[]>([]);
 
 const totalPending = computed(() =>
@@ -168,10 +178,12 @@ function tierColor(type: string) {
 
 async function fetchPayments() {
   loading.value = true;
+  error.value = null;
   try {
     const { data } = await api.get<Payment[]>('/commissions/payments');
     payments.value = Array.isArray(data) ? data : (data as { data?: Payment[] }).data ?? [];
   } catch {
+    error.value = 'Failed to load commission payments. Please try again.';
     payments.value = [];
   } finally {
     loading.value = false;

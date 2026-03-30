@@ -4,7 +4,7 @@
       <div class="row items-center q-mb-md">
         <div class="section-title">Pipeline Configuration</div>
         <q-space />
-        <q-btn unelevated no-caps color="primary" icon="add" label="Add Stage" size="sm" style="border-radius: 8px" @click="openAddStage" />
+        <q-btn unelevated no-caps color="primary" icon="add" label="Add Stage" size="sm" class="radius-md" @click="openAddStage" />
       </div>
 
       <q-tabs v-model="activePipelineTab" dense no-caps active-color="primary" indicator-color="primary" class="q-mb-md" align="left">
@@ -22,7 +22,7 @@
       </div>
       <q-list v-else separator class="pipeline-list">
         <q-item v-for="(stage, i) in activePipelineStages" :key="stage.stage" class="pipeline-item">
-          <q-item-section avatar style="min-width: 30px">
+          <q-item-section avatar class="pipeline-order-col">
             <div class="text-caption text-grey-5 text-weight-bold">#{{ stage.order ?? (i + 1) }}</div>
           </q-item-section>
           <q-item-section avatar>
@@ -61,7 +61,7 @@
 
   <!-- Color Picker Dialog -->
   <q-dialog v-model="showColorPicker">
-    <q-card style="min-width: 280px; border-radius: 16px">
+    <q-card class="dialog-card-sm">
       <q-card-section>
         <div class="text-subtitle1 text-weight-bold">Pick a color</div>
       </q-card-section>
@@ -83,7 +83,7 @@
 
   <!-- Add/Edit Stage Dialog -->
   <q-dialog v-model="showStageDialog" persistent>
-    <q-card style="min-width: 360px; border-radius: 16px">
+    <q-card class="dialog-card">
       <q-card-section>
         <div class="text-subtitle1 text-weight-bold">{{ stageDialogMode === 'add' ? 'Add Pipeline Stage' : 'Edit Stage' }}</div>
       </q-card-section>
@@ -93,7 +93,7 @@
       </q-card-section>
       <q-card-actions align="right" class="q-pa-md">
         <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
-        <q-btn unelevated no-caps :label="stageDialogMode === 'add' ? 'Add Stage' : 'Save'" color="primary" @click="saveStageDialog" style="border-radius: 10px" />
+        <q-btn unelevated no-caps :label="stageDialogMode === 'add' ? 'Add Stage' : 'Save'" color="primary" @click="saveStageDialog" class="radius-10" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -293,6 +293,10 @@ defineExpose({ loadPipelineStages, confirmResetPipeline });
   border: 1px solid #E5E7EB;
   border-radius: 12px;
   overflow: hidden;
+}
+
+.pipeline-order-col {
+  min-width: 30px;
 }
 
 .pipeline-item {

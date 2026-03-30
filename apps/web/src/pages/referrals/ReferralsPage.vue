@@ -1,11 +1,11 @@
 <template>
-  <q-page class="q-pa-md" style="background: #F8FAFB; min-height: 100vh">
+  <q-page class="q-pa-md page-bg">
     <h5 class="q-my-none text-weight-bold q-mb-md">Referrals</h5>
 
     <!-- Invite link -->
     <q-card flat class="invite-card q-mb-lg">
       <q-card-section>
-        <div class="text-weight-bold q-mb-sm" style="font-size: 14px">Your Referral Link</div>
+        <div class="text-weight-bold q-mb-sm text-14">Your Referral Link</div>
         <div class="text-caption text-grey-5 q-mb-md">
           Share this link with people you want to invite. When they sign up and create leads, those leads will be linked to you.
         </div>
@@ -23,7 +23,7 @@
             no-caps
             :icon="copied ? 'check' : 'content_copy'"
             :label="copied ? 'Copied!' : 'Copy'"
-            style="border-radius: 10px"
+            class="radius-10"
             @click="copyLink"
           />
         </div>
@@ -53,7 +53,7 @@
     </div>
 
     <!-- People I invited -->
-    <div class="text-weight-bold q-mb-sm" style="font-size: 14px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.04em">
+    <div class="text-weight-bold q-mb-sm section-label">
       People You Invited
     </div>
 
@@ -61,10 +61,19 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
     <div v-else-if="referrals.length === 0" class="text-center q-pa-xl">
       <q-icon name="group_add" size="56px" color="grey-4" />
-      <div class="text-grey-6 q-mt-sm" style="font-size: 15px">No referrals yet</div>
-      <div class="text-grey-5" style="font-size: 13px">Share your link above to invite people</div>
+      <div class="text-grey-6 q-mt-sm text-15">No referrals yet</div>
+      <div class="text-grey-5 text-13">Share your link above to invite people</div>
     </div>
 
     <div v-else class="referral-list">
@@ -78,15 +87,15 @@
           <div class="row items-center no-wrap">
             <UserAvatar :name="titleCase(ref.name)" size="40px" color="orange-7" class="q-mr-md" />
             <div class="col">
-              <div class="text-weight-bold" style="font-size: 15px">{{ titleCase(ref.name) }}</div>
+              <div class="text-weight-bold text-15">{{ titleCase(ref.name) }}</div>
               <div class="text-caption text-grey-5">{{ ref.email }}</div>
             </div>
-            <div class="column items-end" style="gap: 4px">
+            <div class="column items-end gap-xxs">
               <q-badge
                 :color="ref.isActive ? 'positive' : 'grey-4'"
                 :text-color="ref.isActive ? 'white' : 'grey-7'"
                 :label="ref.isActive ? 'Active' : 'Inactive'"
-                style="border-radius: 6px; font-size: 10px"
+                class="badge-pill-sm"
               />
               <div class="text-caption text-grey-5">{{ ref.leadCount }} leads</div>
             </div>
@@ -103,13 +112,13 @@
                 class="q-px-none"
               >
                 <q-item-section>
-                  <q-item-label style="font-size: 13px">{{ titleCase(lead.customerName) }}</q-item-label>
+                  <q-item-label class="text-13">{{ titleCase(lead.customerName) }}</q-item-label>
                 </q-item-section>
                 <q-item-section side>
                   <q-badge
                     :style="{ background: stageColor(lead.stage) }"
                     text-color="white"
-                    style="border-radius: 5px; padding: 2px 6px; font-size: 10px"
+                    class="badge-pill-xs"
                   >
                     {{ formatStage(lead.stage) }}
                   </q-badge>
@@ -151,13 +160,16 @@ interface ReferralPerson {
 const userStore = useUserStore();
 const referrals = ref<ReferralPerson[]>([]);
 const loading = ref(true);
+const error = ref<string | null>(null);
 const copied = ref(false);
 const inviteLink = ref('');
 
 const totalLeads = computed(() => referrals.value.reduce((sum, r) => sum + r.leadCount, 0));
 const activeCount = computed(() => referrals.value.filter((r) => r.isActive).length);
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true;
+  error.value = null;
   const userId = userStore.user?.id ?? '';
   inviteLink.value = `${window.location.origin}/auth/invite/${userId}`;
 
@@ -198,11 +210,13 @@ onMounted(async () => {
       })),
     }));
   } catch {
-    // No referrals
+    error.value = 'Failed to load referrals. Please try again.';
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(() => { loadData(); });
 
 async function copyLink() {
   try {

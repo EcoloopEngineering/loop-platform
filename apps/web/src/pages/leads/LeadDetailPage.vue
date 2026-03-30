@@ -5,6 +5,15 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-ma-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
     <!-- Not found -->
     <div v-else-if="!lead" class="text-grey-6 text-center q-pa-xl">
       Lead not found.
@@ -94,6 +103,7 @@ const leadStore = useLeadStore();
 const leadApi = useLeadApi();
 
 const lead = computed(() => leadStore.currentLead as Record<string, unknown> | null);
+const error = ref<string | null>(null);
 const activeTab = ref('activity');
 const activities = ref<Activity[]>([]);
 const notes = ref<NoteItem[]>([]);
@@ -107,10 +117,17 @@ const appointments = computed(() => {
   return raw.sort((a, b) => new Date(b.scheduledAt as string).getTime() - new Date(a.scheduledAt as string).getTime());
 });
 
-onMounted(async () => {
-  await leadStore.fetchLead(props.id);
-  loadExtras();
-});
+async function loadData() {
+  error.value = null;
+  try {
+    await leadStore.fetchLead(props.id);
+    loadExtras();
+  } catch {
+    error.value = 'Failed to load lead details. Please try again.';
+  }
+}
+
+onMounted(() => { loadData(); });
 
 async function loadExtras() {
   const [timelineData, docsData, commData] = await Promise.all([

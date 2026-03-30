@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md" style="background: #F8FAFB">
+  <q-page class="q-pa-md page-bg">
     <div class="row items-center q-mb-md">
       <h5 class="q-my-none text-weight-bold">Pipeline</h5>
       <q-space />
@@ -16,7 +16,7 @@
         class="q-mr-sm"
         aria-label="Switch between list and board view"
       />
-      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" style="border-radius: 10px" aria-label="Create a new lead" />
+      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" class="radius-10" aria-label="Create a new lead" />
     </div>
 
     <!-- Pipeline type tabs -->
@@ -41,6 +41,15 @@
       :user-options="userOptions"
       @change="onFilterChange"
     />
+
+    <!-- Error -->
+    <q-banner v-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
 
     <!-- Board View -->
     <PipelineBoard
@@ -91,13 +100,13 @@
 
           <template #body-cell-score="props">
             <q-td :props="props">
-              <div class="row items-center no-wrap" style="gap: 6px">
+              <div class="row items-center no-wrap gap-xs">
                 <q-linear-progress
                   :value="props.row.leadScore / 100"
                   :color="scoreColor(props.row.leadScore)"
                   track-color="grey-3"
                   rounded
-                  style="width: 50px; height: 6px"
+                  class="score-bar-lg"
                 />
                 <span class="text-caption text-weight-medium">{{ props.row.leadScore }}</span>
               </div>
@@ -114,7 +123,7 @@
 
           <template #body-cell-owner="props">
             <q-td :props="props">
-              <div v-if="props.row.owner" class="row items-center no-wrap" style="gap: 6px">
+              <div v-if="props.row.owner" class="row items-center no-wrap gap-xs">
                 <UserAvatar :user-id="props.row.ownerId" :name="titleCase(props.row.owner)" size="28px" />
                 <span class="text-caption">{{ titleCase(props.row.owner) }}</span>
               </div>
@@ -124,7 +133,7 @@
 
           <template #body-cell-pm="props">
             <q-td :props="props">
-              <div v-if="props.row.projectManager" class="row items-center no-wrap" style="gap: 6px">
+              <div v-if="props.row.projectManager" class="row items-center no-wrap gap-xs">
                 <UserAvatar :user-id="props.row.pmId" :name="titleCase(props.row.projectManager)" size="28px" color="orange-8" />
                 <span class="text-caption">{{ titleCase(props.row.projectManager) }}</span>
               </div>
@@ -142,7 +151,7 @@
             <q-td :props="props" auto-width>
               <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="Lead actions menu">
                 <q-menu>
-                  <q-list dense style="min-width: 150px">
+                  <q-list dense class="menu-sm">
                     <q-item clickable v-close-popup @click="$router.push(`/crm/leads/${props.row.id}`)">
                       <q-item-section avatar><q-icon name="visibility" size="18px" /></q-item-section>
                       <q-item-section>View Details</q-item-section>
@@ -179,6 +188,7 @@ const router = useRouter();
 const pipelineStore = usePipelineStore();
 const viewMode = ref('list');
 const pipelineTab = ref('closer');
+const error = ref<string | null>(null);
 
 const PIPELINE_IDS: Record<string, string> = {
   closer: '00000000-0000-0000-0000-000000000001',
@@ -286,9 +296,16 @@ const sourceOptions = [
 
 const userOptions = [{ label: 'Me', value: 'me' }];
 
-onMounted(() => {
-  pipelineStore.fetchPipelineView({ pipelineId: PIPELINE_IDS[pipelineTab.value] });
-});
+async function loadData() {
+  error.value = null;
+  try {
+    await pipelineStore.fetchPipelineView({ pipelineId: PIPELINE_IDS[pipelineTab.value] });
+  } catch {
+    error.value = 'Failed to load pipeline data. Please try again.';
+  }
+}
+
+onMounted(() => { loadData(); });
 
 function onPipelineTabChange(tab: string) {
   pipelineStore.fetchPipelineView({ pipelineId: PIPELINE_IDS[tab] });

@@ -7,7 +7,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import * as jwt from 'jsonwebtoken';
@@ -40,7 +40,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET', 'loop-platform-jwt-secret-change-in-prod');
     const env = this.configService.get<string>('NODE_ENV', 'development');
     if (this.jwtSecret === 'loop-platform-jwt-secret-change-in-prod' && env === 'production') {
-      throw new Error('JWT_SECRET must be configured in production');
+      throw new InternalServerErrorException('JWT_SECRET must be configured in production');
     }
   }
 

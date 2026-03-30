@@ -1,0 +1,183 @@
+// =============================================
+// DESIGN TOKENS — Utility Classes
+// =============================================
+// Replaces common inline styles with reusable classes.
+// Imported globally via quasar.config.ts so all components can use them.
+
+// === Page Backgrounds ===
+.page-bg { background: #F8FAFB; min-height: 100vh; }
+.card-bg { background: #FFFFFF; }
+.section-bg { background: #F3F4F6; }
+
+// === Border Radius ===
+.radius-xs  { border-radius: 5px; }
+.radius-sm  { border-radius: 6px; }
+.radius-md  { border-radius: 8px; }
+.radius-10  { border-radius: 10px; }
+.radius-lg  { border-radius: 12px; }
+.radius-xl  { border-radius: 16px; }
+
+// === Gaps (flexbox) ===
+.gap-xxs { gap: 4px; }
+.gap-xs  { gap: 6px; }
+.gap-sm  { gap: 8px; }
+.gap-md  { gap: 10px; }
+.gap-lg  { gap: 12px; }
+.gap-xl  { gap: 16px; }
+.gap-2xl { gap: 24px; }
+
+// === Text Colors ===
+.text-muted   { color: #6B7280; }
+.text-dark    { color: #1A1A2E; }
+.text-label   { color: #374151; }
+
+// === Font Sizes ===
+.text-10 { font-size: 10px; }
+.text-11 { font-size: 11px; }
+.text-12 { font-size: 12px; }
+.text-13 { font-size: 13px; }
+.text-14 { font-size: 14px; }
+.text-15 { font-size: 15px; }
+.text-16 { font-size: 16px; }
+.text-18 { font-size: 18px; }
+
+// === Common Patterns ===
+.card-elevated {
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+}
+
+// Dialogs
+.dialog-card {
+  min-width: 420px;
+  border-radius: 16px;
+}
+
+.dialog-card-sm {
+  min-width: 280px;
+  border-radius: 16px;
+}
+
+.dialog-card-lg {
+  min-width: 480px;
+  border-radius: 12px;
+}
+
+// Min-width utilities for selects/inputs in filter rows
+.min-w-150 { min-width: 150px; }
+.min-w-180 { min-width: 180px; }
+.min-w-200 { min-width: 200px; }
+.min-w-320 { min-width: 320px; }
+
+// Max-width utilities
+.max-w-400 { max-width: 400px; }
+
+// Score progress bar
+.score-bar {
+  width: 40px;
+  height: 5px;
+}
+
+.score-bar-lg {
+  width: 50px;
+  height: 6px;
+}
+
+// Progress bar thin
+.progress-thin {
+  height: 8px;
+}
+
+// Separator heights
+.separator-20 { height: 20px; }
+
+// Section label (uppercase muted header)
+.section-label {
+  font-size: 14px;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+// Avatar text sizing
+.avatar-text-sm { font-size: 9px; }
+.avatar-text-md { font-size: 11px; }
+.avatar-text-lg { font-size: 13px; }
+
+// Inline badge
+.badge-pill {
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-pill-sm {
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 10px;
+}
+
+.badge-pill-xs {
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+.badge-status {
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-weight: 600;
+}
+
+// Detail text
+.detail-text {
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+// No-data message
+.no-data-text {
+  font-size: 14px;
+}
+
+// Expanded detail section padding
+.expanded-detail {
+  padding: 16px 24px;
+}
+
+// Nav label
+.nav-label {
+  font-size: 14px;
+}
+
+// Nav section header
+.nav-section-header {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+// Menu min-widths
+.menu-sm { min-width: 150px; }
+.menu-md { min-width: 180px; }
+
+// Margin-left helper for indented content
+.ml-avatar { margin-left: 26px; }
+
+// Dark mode compatibility
+.body--dark {
+  .page-bg { background: var(--bg-page); }
+  .card-bg { background: var(--bg-card); }
+  .section-bg { background: var(--bg-elevated); }
+  .text-muted { color: var(--text-secondary); }
+  .text-dark { color: var(--text-primary); }
+  .text-label { color: var(--text-secondary); }
+  .card-elevated {
+    background: var(--bg-card);
+    border-color: var(--border-light);
+  }
+  .dialog-card, .dialog-card-sm, .dialog-card-lg {
+    background: var(--bg-elevated);
+  }
+}

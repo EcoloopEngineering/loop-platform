@@ -29,6 +29,15 @@
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
     <!-- Rewards grid -->
     <template v-else>
       <div v-if="products.length === 0" class="text-grey-5 text-center q-pa-xl">
@@ -221,6 +230,7 @@ const userStore = useUserStore();
 const isAdmin = computed(() => userStore.user?.role === 'ADMIN');
 
 const balance = ref<Balance>({ coins: 0 });
+const error = ref<string | null>(null);
 const products = ref<Product[]>([]);
 const orders = ref<Order[]>([]);
 interface AdminOrder extends Order {
@@ -399,9 +409,16 @@ async function cancelOrder(orderId: string) {
   }
 }
 
-onMounted(() => {
-  Promise.all([fetchBalance(), fetchProducts(), fetchOrders(), fetchAllOrders()]);
-});
+async function loadData() {
+  error.value = null;
+  try {
+    await Promise.all([fetchBalance(), fetchProducts(), fetchOrders(), fetchAllOrders()]);
+  } catch {
+    error.value = 'Failed to load rewards data. Please try again.';
+  }
+}
+
+onMounted(() => { loadData(); });
 </script>
 
 <style lang="scss" scoped>

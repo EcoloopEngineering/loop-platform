@@ -1,10 +1,10 @@
 <template>
   <q-page class="portal-faq q-pa-md">
     <h5 class="page-title q-mb-sm">Help & FAQ</h5>
-    <p class="text-grey-6 q-mb-lg" style="font-size: 14px">Find answers to common questions about your solar project</p>
+    <p class="text-grey-6 q-mb-lg text-14">Find answers to common questions about your solar project</p>
 
     <!-- Search -->
-    <q-input v-model="search" outlined dense placeholder="Search questions..." class="q-mb-lg" style="max-width: 100%">
+    <q-input v-model="search" outlined dense placeholder="Search questions..." class="q-mb-lg">
       <template #prepend><q-icon name="search" /></template>
     </q-input>
 
@@ -20,7 +20,7 @@
         expand-icon-class="text-grey-5"
       >
         <q-card flat>
-          <q-card-section class="q-pa-md text-grey-7" style="font-size: 13px; line-height: 1.6">
+          <q-card-section class="q-pa-md text-grey-7 faq-answer">
             {{ item.a }}
           </q-card-section>
         </q-card>
@@ -31,11 +31,11 @@
     <q-card flat class="contact-card q-mt-lg">
       <q-card-section class="text-center q-pa-lg">
         <q-icon name="support_agent" size="48px" color="primary" class="q-mb-sm" />
-        <div class="text-weight-bold" style="font-size: 16px">Still have questions?</div>
-        <p class="text-grey-6 q-mb-md" style="font-size: 13px">Our team is ready to help you</p>
+        <div class="text-weight-bold text-16">Still have questions?</div>
+        <p class="text-grey-6 q-mb-md text-13">Our team is ready to help you</p>
         <div class="row q-gutter-sm justify-center">
-          <q-btn unelevated no-caps color="primary" icon="email" label="Email Us" href="mailto:support@ecoloop.us" style="border-radius: 10px" />
-          <q-btn outline no-caps color="primary" icon="phone" label="Call Us" href="tel:+18005551234" style="border-radius: 10px" />
+          <q-btn unelevated no-caps color="primary" icon="email" label="Email Us" href="mailto:support@ecoloop.us" class="radius-10" />
+          <q-btn outline no-caps color="primary" icon="phone" label="Call Us" href="tel:+18005551234" class="radius-10" />
         </div>
       </q-card-section>
     </q-card>
@@ -128,6 +128,11 @@ const filteredCategories = computed(() => {
     font-weight: 500;
     color: #111827;
   }
+}
+
+.faq-answer {
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .contact-card {

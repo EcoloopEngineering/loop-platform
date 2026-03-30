@@ -177,9 +177,11 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
+import { usePortalAuthStore } from '@/stores/portal-auth.store';
 
 const router = useRouter();
 const $q = useQuasar();
+const portalAuth = usePortalAuthStore();
 
 // Portal login always stays in light mode — isolated from admin dark mode
 let previousDarkMode = false;
@@ -271,20 +273,14 @@ async function handleLogin() {
   loading.value = true;
   error.value = '';
   try {
-    const { data } = await api.post('/portal/auth/login', {
-      email: loginEmail.value,
-      password: loginPassword.value,
-    });
-    if (data.statusCode === 401) {
-      error.value = data.message;
+    await portalAuth.login(loginEmail.value, loginPassword.value);
+    if (portalAuth.error) {
+      error.value = portalAuth.error;
       return;
     }
-    localStorage.setItem('portalToken', data.token);
-    localStorage.setItem('portalCustomer', JSON.stringify(data.customer));
     router.push('/portal');
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    error.value = axErr?.response?.data?.message || 'Invalid email or password.';
+  } catch {
+    error.value = portalAuth.error || 'Invalid email or password.';
   } finally {
     loading.value = false;
   }
@@ -307,23 +303,20 @@ async function handleRegister() {
   loading.value = true;
   error.value = '';
   try {
-    const { data } = await api.post('/portal/auth/register', {
+    await portalAuth.register({
       firstName: regFirstName.value,
       lastName: regLastName.value,
       email: regEmail.value,
       phone: regPhone.value,
       password: regPassword.value,
     });
-    if (data.statusCode === 409) {
-      error.value = data.message;
+    if (portalAuth.error) {
+      error.value = portalAuth.error;
       return;
     }
-    localStorage.setItem('portalToken', data.token);
-    localStorage.setItem('portalCustomer', JSON.stringify(data.customer));
     router.push('/portal');
-  } catch (err: unknown) {
-    const axErr = err as { response?: { data?: { message?: string } } };
-    error.value = axErr?.response?.data?.message || 'Registration failed.';
+  } catch {
+    error.value = portalAuth.error || 'Registration failed.';
   } finally {
     loading.value = false;
   }

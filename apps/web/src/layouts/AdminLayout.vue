@@ -3,12 +3,12 @@
     <q-header class="admin-header" bordered>
       <q-toolbar>
         <q-btn flat round dense icon="menu" color="grey-7" @click="drawerOpen = !drawerOpen" class="lt-md" aria-label="Toggle navigation sidebar" />
-        <img src="/logo_short_dark.svg" alt="ecoLoop" style="height: 24px" class="q-mr-sm" />
-        <span class="text-weight-bold text-grey-8" style="font-size: 15px">Admin</span>
+        <img src="/logo_short_dark.svg" alt="ecoLoop" class="admin-logo q-mr-sm" />
+        <span class="text-weight-bold text-grey-8 text-15">Admin</span>
         <q-space />
         <q-btn flat round dense icon="notifications_none" color="grey-7" aria-label="Notifications">
           <q-badge v-if="unreadCount > 0" color="negative" floating>{{ unreadCount }}</q-badge>
-          <q-menu anchor="bottom right" self="top right" style="min-width: 320px; border-radius: 12px">
+          <q-menu anchor="bottom right" self="top right" class="min-w-320 radius-lg">
             <q-list>
               <q-item-label header class="text-weight-bold">Notifications</q-item-label>
               <template v-if="notifications.length > 0">
@@ -26,19 +26,19 @@
                 </q-item>
               </template>
               <q-item v-else>
-                <q-item-section class="text-center text-grey-5" style="font-size: 13px">No notifications</q-item-section>
+                <q-item-section class="text-center text-grey-5 text-13">No notifications</q-item-section>
               </q-item>
               <q-separator />
               <q-item clickable v-ripple v-close-popup @click="$router.push('/admin/notifications')">
-                <q-item-section class="text-center text-primary text-weight-medium" style="font-size: 13px">View all</q-item-section>
+                <q-item-section class="text-center text-primary text-weight-medium text-13">View all</q-item-section>
               </q-item>
             </q-list>
           </q-menu>
         </q-btn>
         <q-avatar size="36px" color="primary" text-color="white" class="q-ml-sm cursor-pointer admin-avatar" role="button" aria-label="User menu" tabindex="0">
           <q-img v-if="userAvatar" :src="userAvatar" />
-          <span v-else style="font-size: 13px; font-weight: 600">{{ userInitials }}</span>
-          <q-menu anchor="bottom right" self="top right" style="min-width: 180px; border-radius: 12px">
+          <span v-else class="avatar-text-lg text-weight-bold">{{ userInitials }}</span>
+          <q-menu anchor="bottom right" self="top right" class="menu-md radius-lg">
             <q-list>
               <q-item clickable v-close-popup @click="$router.push('/profile')">
                 <q-item-section avatar><q-icon name="person" size="20px" /></q-item-section>
@@ -57,7 +57,7 @@
 
     <q-drawer v-model="drawerOpen" show-if-above bordered class="admin-drawer" :width="220" :mini-width="60" aria-label="Navigation sidebar">
       <q-list padding>
-        <q-item-label header class="text-grey-5 text-weight-bold text-uppercase" style="font-size: 11px; letter-spacing: 0.06em">
+        <q-item-label header class="text-grey-5 text-weight-bold text-uppercase nav-section-header">
           CRM
         </q-item-label>
 
@@ -74,12 +74,12 @@
           <q-item-section avatar>
             <q-icon :name="item.icon" size="20px" />
           </q-item-section>
-          <q-item-section class="text-weight-medium" style="font-size: 14px">{{ item.label }}</q-item-section>
+          <q-item-section class="text-weight-medium nav-label">{{ item.label }}</q-item-section>
         </q-item>
 
-        <q-separator class="q-my-md" style="background: #E5E7EB" />
+        <q-separator class="q-my-md" />
 
-        <q-item-label header class="text-grey-5 text-weight-bold text-uppercase" style="font-size: 11px; letter-spacing: 0.06em">
+        <q-item-label header class="text-grey-5 text-weight-bold text-uppercase nav-section-header">
           Admin
         </q-item-label>
 
@@ -95,7 +95,7 @@
           <q-item-section avatar>
             <q-icon :name="item.icon" size="20px" />
           </q-item-section>
-          <q-item-section class="text-weight-medium" style="font-size: 14px">{{ item.label }}</q-item-section>
+          <q-item-section class="text-weight-medium nav-label">{{ item.label }}</q-item-section>
         </q-item>
       </q-list>
     </q-drawer>
@@ -169,6 +169,10 @@ const adminItems = computed(() =>
 </script>
 
 <style lang="scss" scoped>
+.admin-logo {
+  height: 24px;
+}
+
 .admin-header {
   background: #FFFFFF;
   border-bottom: 1px solid #F3F4F6;

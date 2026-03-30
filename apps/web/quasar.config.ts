@@ -5,7 +5,7 @@ export default configure(() => {
   return {
     boot: ['axios', 'firebase', 'i18n', 'dark-mode'],
 
-    css: ['app.scss'],
+    css: ['app.scss', 'design-tokens.scss'],
 
     extras: ['roboto-font', 'material-icons'],
 

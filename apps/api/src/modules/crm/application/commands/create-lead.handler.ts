@@ -1,5 +1,5 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateLeadCommand } from './create-lead.command';
 import { LeadScoringDomainService } from '../../domain/services/lead-scoring.domain-service';
@@ -122,7 +122,7 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
   private async findDefaultPipeline(): Promise<{ id: string }> {
     const pipeline = await this.leadRepo.findDefaultPipeline();
     if (!pipeline) {
-      throw new Error('No default pipeline found. Please create a pipeline first.');
+      throw new NotFoundException('No default pipeline found. Please create a pipeline first.');
     }
     return pipeline;
   }

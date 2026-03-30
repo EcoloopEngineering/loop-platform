@@ -1,15 +1,24 @@
 <template>
-  <q-page class="q-pa-md" style="background: #F8FAFB">
+  <q-page class="q-pa-md page-bg">
     <div class="row items-center q-mb-md">
       <h5 class="q-my-none text-weight-bold">CRM Dashboard</h5>
       <q-space />
-      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" style="border-radius: 10px" />
+      <q-btn unelevated no-caps color="primary" icon="add" label="New Lead" @click="$router.push('/leads/new')" class="radius-10" />
     </div>
 
     <!-- Loading -->
     <div v-if="loading" class="text-center q-pa-xl">
       <q-spinner-dots color="primary" size="40px" />
     </div>
+
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-ma-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
 
     <template v-else>
       <!-- Metric cards -->
@@ -53,7 +62,7 @@
                     :color="item.qColor"
                     track-color="grey-2"
                     rounded
-                    style="height: 8px"
+                    class="progress-thin"
                   />
                 </div>
               </div>
@@ -130,7 +139,7 @@
                     <q-badge
                       :style="{ background: stageColor(lead.stage) }"
                       text-color="white"
-                      style="border-radius: 6px; padding: 3px 8px; font-size: 10px"
+                      class="badge-pill-sm"
                     >
                       {{ formatStage(lead.stage) }}
                     </q-badge>
@@ -160,8 +169,8 @@
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
-                    <q-item-label style="font-size: 12px">{{ item.description }}</q-item-label>
-                    <q-item-label caption style="font-size: 11px">{{ timeAgo(item.createdAt) }}</q-item-label>
+                    <q-item-label class="text-12">{{ item.description }}</q-item-label>
+                    <q-item-label caption class="text-11">{{ timeAgo(item.createdAt) }}</q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
@@ -205,6 +214,7 @@ interface Activity {
 }
 
 const loading = ref(true);
+const error = ref<string | null>(null);
 const leads = ref<LeadData[]>([]);
 const recentActivity = ref<Activity[]>([]);
 
@@ -328,7 +338,9 @@ const recentLeads = computed(() =>
     })),
 );
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true;
+  error.value = null;
   try {
     const [leadsRes, activityRes] = await Promise.all([
       api.get('/leads', { params: { limit: 100 } }),
@@ -348,11 +360,13 @@ onMounted(async () => {
       createdAt: n.createdAt,
     }));
   } catch {
-    // fallback
+    error.value = 'Failed to load dashboard data. Please try again.';
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(() => { loadData(); });
 
 const ACTIVITY_ICONS: Record<string, string> = {
   STAGE_CHANGE: 'swap_horiz',

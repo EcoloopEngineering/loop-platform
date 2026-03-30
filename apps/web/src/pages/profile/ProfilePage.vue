@@ -2,6 +2,21 @@
   <q-page class="q-pa-md">
     <EHeader title="Profile" />
 
+    <!-- Loading -->
+    <div v-if="loading" class="flex flex-center q-pa-xl">
+      <q-spinner-dots size="40px" color="primary" />
+    </div>
+
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-ma-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadData" />
+      </template>
+    </q-banner>
+
+    <template v-else>
     <div class="column items-center q-mt-lg q-mb-xl">
       <q-avatar size="80px" color="primary" text-color="white" class="cursor-pointer" @click="uploadAvatar">
         <q-img v-if="form.avatarUrl" :src="form.avatarUrl" />
@@ -60,6 +75,7 @@
         </EBtn>
       </div>
     </q-form>
+    </template>
   </q-page>
 </template>
 
@@ -75,6 +91,8 @@ import { useQuasar } from 'quasar';
 
 const userStore = useUserStore();
 const $q = useQuasar();
+const loading = ref(true);
+const error = ref<string | null>(null);
 const saving = ref(false);
 const darkMode = ref($q.dark.isActive);
 
@@ -106,7 +124,9 @@ const userInitials = computed(() => {
 
 const required = (val: string) => !!val || 'Required';
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true;
+  error.value = null;
   try {
     const { data } = await api.get('/users/me');
     form.value.name = `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim();
@@ -124,9 +144,15 @@ onMounted(async () => {
       form.value.name = userStore.user.name;
       form.value.email = userStore.user.email;
       form.value.phone = userStore.user.phone ?? '';
+    } else {
+      error.value = 'Failed to load profile. Please try again.';
     }
+  } finally {
+    loading.value = false;
   }
-});
+}
+
+onMounted(() => { loadData(); });
 
 async function save() {
   saving.value = true;

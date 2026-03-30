@@ -1,4 +1,4 @@
-import { Injectable, Inject, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, Inject, UnauthorizedException, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { EmailService } from '../../../../infrastructure/email/email.service';
@@ -37,7 +37,7 @@ export class AuthService {
 
     const env = this.config.get<string>('NODE_ENV', 'development');
     if (this.jwtSecret === 'loop-platform-jwt-secret-change-in-prod' && env === 'production') {
-      throw new Error('JWT_SECRET must be configured in production — refusing to start with insecure default');
+      throw new InternalServerErrorException('JWT_SECRET must be configured in production — refusing to start with insecure default');
     }
   }
 

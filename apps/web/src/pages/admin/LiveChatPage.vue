@@ -9,7 +9,21 @@
       <q-btn flat dense no-caps icon="refresh" color="grey-6" @click="loadConversations" />
     </div>
 
-    <div class="row q-col-gutter-md" style="height: calc(100vh - 140px)">
+    <!-- Loading -->
+    <div v-if="loading" class="flex flex-center q-pa-xl">
+      <q-spinner-dots size="40px" color="primary" />
+    </div>
+
+    <!-- Error -->
+    <q-banner v-else-if="error" class="bg-negative text-white q-mb-md" rounded>
+      <template #avatar><q-icon name="error" /></template>
+      {{ error }}
+      <template #action>
+        <q-btn flat label="Retry" @click="loadConversations" />
+      </template>
+    </q-banner>
+
+    <div v-else class="row q-col-gutter-md" style="height: calc(100vh - 140px)">
       <!-- Conversation list -->
       <div class="col-12 col-md-4">
         <q-card flat class="conv-list-card full-height">
@@ -166,6 +180,8 @@ const chatMessages = ref<ChatMessage[]>([]);
 const agentReply = ref('');
 const filterTab = ref('waiting');
 const agentMessages = ref<HTMLElement>();
+const loading = ref(true);
+const error = ref<string | null>(null);
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 const waitingConvs = computed(() => conversations.value.filter((c) => c.status === 'WAITING_AGENT'));
@@ -179,8 +195,9 @@ const filteredConvs = computed(() => {
   return closedConvs.value;
 });
 
-onMounted(() => {
-  loadConversations();
+onMounted(async () => {
+  await loadConversations();
+  loading.value = false;
   pollInterval = setInterval(loadConversations, 10000);
 
   socket.value = io(`${API_URL}/chat`, { transports: ['websocket', 'polling'] });
@@ -208,7 +225,12 @@ async function loadConversations() {
   try {
     const { data } = await api.get('/chat/conversations');
     conversations.value = Array.isArray(data) ? data : [];
-  } catch { /* ignore */ }
+    error.value = null;
+  } catch {
+    if (conversations.value.length === 0) {
+      error.value = 'Failed to load conversations. Please try again.';
+    }
+  }
 }
 
 async function selectConversation(conv: Conversation) {
