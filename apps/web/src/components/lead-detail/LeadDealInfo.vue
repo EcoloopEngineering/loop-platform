@@ -73,12 +73,26 @@
               input-debounce="200"
               class="field-select"
               :loading="loadingUsers"
+              placeholder="Type to search..."
               aria-label="Change lead owner"
               @filter="(val: string, update: (fn: () => void) => void) => filterUsers(val, update, 'owner')"
               @update:model-value="onOwnerChange"
             >
               <template #no-option>
                 <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
+              </template>
+              <template #option="scope">
+                <q-item v-bind="scope.itemProps">
+                  <q-item-section avatar>
+                    <q-avatar size="28px" color="primary" text-color="white" class="avatar-text-sm">
+                      {{ scope.opt.label.charAt(0) }}
+                    </q-avatar>
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ scope.opt.label }}</q-item-label>
+                    <q-item-label caption>{{ scope.opt.email }}</q-item-label>
+                  </q-item-section>
+                </q-item>
               </template>
               <template #selected-item="scope">
                 <div class="row items-center no-wrap gap-xs">
@@ -108,12 +122,26 @@
               input-debounce="200"
               class="field-select"
               :loading="loadingUsers"
+              placeholder="Type to search..."
               aria-label="Change project manager"
               @filter="(val: string, update: (fn: () => void) => void) => filterUsers(val, update, 'pm')"
               @update:model-value="onPMChange"
             >
               <template #no-option>
                 <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
+              </template>
+              <template #option="scope">
+                <q-item v-bind="scope.itemProps">
+                  <q-item-section avatar>
+                    <q-avatar size="28px" color="orange-8" text-color="white" class="avatar-text-sm">
+                      {{ scope.opt.label.charAt(0) }}
+                    </q-avatar>
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ scope.opt.label }}</q-item-label>
+                    <q-item-label caption>{{ scope.opt.email }}</q-item-label>
+                  </q-item-section>
+                </q-item>
               </template>
               <template #selected-item="scope">
                 <div v-if="scope.opt" class="row items-center no-wrap gap-xs">
@@ -277,9 +305,20 @@ function filterUsers(val: string, update: (fn: () => void) => void, which: strin
   loadUsers().then(() => {
     update(() => {
       const needle = (val || '').toLowerCase();
-      const filtered = allUsers.value.filter(
-        (u) => u.label.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle),
-      );
+      let pool = allUsers.value;
+
+      if (which === 'owner') {
+        // Owner: only @ecoloop.us employees
+        pool = pool.filter((u) => u.email.endsWith('@ecoloop.us'));
+      } else {
+        // PM: only ADMIN or MANAGER
+        pool = pool.filter((u) => u.role === 'ADMIN' || u.role === 'MANAGER');
+      }
+
+      const filtered = needle
+        ? pool.filter((u) => u.label.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle))
+        : pool;
+
       if (which === 'owner') ownerFilteredUsers.value = filtered;
       else pmFilteredUsers.value = filtered;
     });
