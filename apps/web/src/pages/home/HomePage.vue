@@ -205,15 +205,11 @@ const paginatedLeads = computed(() => {
   return myLeads.value.slice(start, start + LEADS_PER_PAGE);
 });
 
-// ADMIN/MANAGER see all leads. SALES_REP/REFERRAL see only their own.
+// Sales page always shows MY leads only (regardless of role)
+// CRM Dashboard/Pipeline is where admins see all leads
 const filteredLeads = computed(() => {
   const userId = currentUser.value?.id;
-  const role = currentUser.value?.role;
-
   if (!userId) return [];
-
-  // Admin and Manager see everything
-  if (role === 'ADMIN' || role === 'MANAGER') return leads.value;
 
   return leads.value.filter((l) => {
     if (l.createdById === userId) return true;
