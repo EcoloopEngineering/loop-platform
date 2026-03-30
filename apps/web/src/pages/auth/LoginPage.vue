@@ -80,13 +80,26 @@ async function handleLogin() {
   try {
     await authStore.login(email.value, password.value);
     await userStore.loadUser();
-    const redirect = (route.query.redirect as string) || '/home';
-    router.push(redirect);
+    const explicitRedirect = route.query.redirect as string;
+    if (explicitRedirect) {
+      router.push(explicitRedirect);
+    } else {
+      const role = userStore.user?.role;
+      const roleRedirects: Record<string, string> = {
+        ADMIN: '/crm',
+        MANAGER: '/crm',
+        SALES_REP: '/home',
+        REFERRAL_PARTNER: '/home',
+      };
+      router.push(roleRedirects[role ?? ''] ?? '/home');
+    }
   } catch (err: unknown) {
     const axErr = err as { response?: { status?: number; data?: { message?: string } } };
     const status = axErr?.response?.status;
     const apiMsg = axErr?.response?.data?.message;
-    if (status === 401 || status === 403) {
+    if (apiMsg?.includes('locked')) {
+      error.value = 'Account temporarily locked. Please try again in 15 minutes.';
+    } else if (status === 401 || status === 403) {
       error.value = 'Invalid email or password. Please try again.';
     } else if (status === 429) {
       error.value = 'Too many login attempts. Please wait a moment.';
