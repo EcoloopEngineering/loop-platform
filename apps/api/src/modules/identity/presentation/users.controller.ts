@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -12,6 +13,8 @@ import {
   UploadedFile,
   Res,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -34,6 +37,12 @@ import { AuthenticatedUser } from '../../../common/types/authenticated-user.type
 
 class ChangeRoleDto {
   @ApiProperty({ enum: UserRole })
+  @IsEnum(UserRole)
+  role!: UserRole;
+}
+
+class ApproveUserDto {
+  @ApiProperty({ enum: UserRole, description: 'Role to assign upon approval' })
   @IsEnum(UserRole)
   role!: UserRole;
 }
@@ -141,5 +150,23 @@ export class UsersController {
     @Body() dto: ChangeRoleDto,
   ): Promise<UserEntity> {
     return this.userProfileService.updateUserRole(id, dto.role);
+  }
+
+  @Patch(':id/approve')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Approve a pending user and assign role (admin only)' })
+  async approveUser(
+    @Param('id') id: string,
+    @Body() dto: ApproveUserDto,
+  ): Promise<UserEntity> {
+    return this.userProfileService.approveUser(id, dto.role);
+  }
+
+  @Delete(':id/reject')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Reject and delete a pending user (admin only)' })
+  async rejectUser(@Param('id') id: string): Promise<void> {
+    return this.userProfileService.rejectUser(id);
   }
 }

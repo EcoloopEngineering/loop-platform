@@ -5,6 +5,9 @@
         <img src="/logo_short_dark.svg" alt="ecoLoop" class="main-logo q-mr-sm" />
         <span class="text-weight-bold text-grey-8 text-15">Sales</span>
         <q-space />
+        <q-btn v-if="userRole === 'ADMIN'" flat dense round icon="admin_panel_settings" color="grey-7" @click="$router.push('/crm')" aria-label="Admin Panel">
+          <q-tooltip>Admin Panel</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="notifications_none" color="grey-7" class="q-mr-xs" aria-label="Notifications">
           <q-badge v-if="unreadCount > 0" floating color="negative" :label="unreadCount" />
           <q-menu anchor="bottom right" self="top right" class="min-w-320 radius-lg">
@@ -81,11 +84,15 @@
 import { ref, computed, watch, provide } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
+import { useUserStore } from '@/stores/user.store';
 import { useNotificationPoller } from '@/composables/useNotificationPoller';
 import { useThemeSync } from '@/composables/useThemeSync';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const userStore = useUserStore();
+
+const userRole = computed(() => userStore.user?.role ?? 'SALES_REP');
 
 const route = useRoute();
 const activeTab = ref('home');

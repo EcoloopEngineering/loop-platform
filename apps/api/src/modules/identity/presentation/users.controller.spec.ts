@@ -31,6 +31,8 @@ describe('UsersController', () => {
       getUserById: jest.fn(),
       updateUserById: jest.fn(),
       updateUserRole: jest.fn(),
+      approveUser: jest.fn(),
+      rejectUser: jest.fn(),
       toggleActive: jest.fn(),
     };
 
@@ -158,6 +160,28 @@ describe('UsersController', () => {
 
       expect(userProfileService.updateUserRole).toHaveBeenCalledWith('user-1', UserRole.MANAGER);
       expect(result).toEqual(updatedUser);
+    });
+  });
+
+  describe('approveUser', () => {
+    it('should delegate to userProfileService.approveUser', async () => {
+      const approvedUser = { id: 'user-1', role: UserRole.SALES_REP, isActive: true };
+      userProfileService.approveUser.mockResolvedValue(approvedUser);
+
+      const result = await controller.approveUser('user-1', { role: UserRole.SALES_REP });
+
+      expect(userProfileService.approveUser).toHaveBeenCalledWith('user-1', UserRole.SALES_REP);
+      expect(result).toEqual(approvedUser);
+    });
+  });
+
+  describe('rejectUser', () => {
+    it('should delegate to userProfileService.rejectUser', async () => {
+      userProfileService.rejectUser.mockResolvedValue(undefined);
+
+      await controller.rejectUser('user-1');
+
+      expect(userProfileService.rejectUser).toHaveBeenCalledWith('user-1');
     });
   });
 });

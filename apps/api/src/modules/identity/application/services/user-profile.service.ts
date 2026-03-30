@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { UserRole } from '@loop/shared';
 import { S3Service } from '../../../../infrastructure/storage/s3.service';
@@ -168,6 +168,35 @@ export class UserProfileService {
   async updateUserRole(id: string, role: UserRole): Promise<UserEntity> {
     await this.userRepo.updateRaw(id, { role });
     return this.queryBus.execute(new GetUserByIdQuery(id));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  PATCH /users/:id/approve  (admin)                                  */
+  /* ------------------------------------------------------------------ */
+  async approveUser(id: string, role: UserRole): Promise<UserEntity> {
+    const user = await this.userRepo.findRawById(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    if (user.isActive) {
+      throw new BadRequestException('User is already active');
+    }
+    await this.userRepo.updateRaw(id, { isActive: true, role });
+    return this.queryBus.execute(new GetUserByIdQuery(id));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  DELETE /users/:id/reject  (admin)                                  */
+  /* ------------------------------------------------------------------ */
+  async rejectUser(id: string): Promise<void> {
+    const user = await this.userRepo.findRawById(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    if (user.isActive) {
+      throw new BadRequestException('Cannot reject an active user');
+    }
+    await this.userRepo.deleteById(id);
   }
 
   /* ------------------------------------------------------------------ */

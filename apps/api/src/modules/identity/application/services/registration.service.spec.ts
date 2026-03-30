@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { ConflictException, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RegistrationService } from './registration.service';
 import { AuthService } from './auth.service';
 import { USER_REPOSITORY } from '../ports/user.repository.port';
@@ -12,6 +13,7 @@ const JWT_SECRET = 'test-secret';
 
 describe('RegistrationService', () => {
   let service: RegistrationService;
+  let emitter: { emit: jest.Mock };
   let userRepo: {
     findRawByEmail: jest.Mock;
     createRaw: jest.Mock;
@@ -37,6 +39,7 @@ describe('RegistrationService', () => {
   };
 
   beforeEach(async () => {
+    emitter = { emit: jest.fn() };
     userRepo = {
       findRawByEmail: jest.fn(),
       createRaw: jest.fn(),
@@ -67,6 +70,7 @@ describe('RegistrationService', () => {
         AuthService,
         { provide: USER_REPOSITORY, useValue: userRepo },
         { provide: REFERRAL_REPOSITORY, useValue: referralRepo },
+        { provide: EventEmitter2, useValue: emitter },
         {
           provide: ConfigService,
           useValue: {
@@ -88,51 +92,6 @@ describe('RegistrationService', () => {
   });
 
   describe('register', () => {
-    it('should register a new user and return token', async () => {
-      const mockUser = {
-        id: 'user-1',
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        phone: null,
-        role: 'SALES_REP',
-        isActive: true,
-      };
-
-      userRepo.findRawByEmail.mockResolvedValue(null);
-      userRepo.createRaw.mockResolvedValue(mockUser);
-
-      const result = await service.register({
-        email: 'test@example.com',
-        password: 'Password1',
-        firstName: 'Test',
-        lastName: 'User',
-      });
-
-      expect(result.user).toEqual(expect.objectContaining({
-        id: 'user-1',
-        email: 'test@example.com',
-      }));
-      expect(result.token).toBeDefined();
-
-      const decoded = jwt.verify(result.token, JWT_SECRET) as any;
-      expect(decoded.sub).toBe('user-1');
-      expect(decoded.email).toBe('test@example.com');
-    });
-
-    it('should throw BadRequestException for weak password', async () => {
-      userRepo.findRawByEmail.mockResolvedValue(null);
-
-      await expect(
-        service.register({
-          email: 'test@example.com',
-          password: 'weak',
-          firstName: 'Test',
-          lastName: 'User',
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
     it('should throw ConflictException if email already exists', async () => {
       userRepo.findRawByEmail.mockResolvedValue({ id: 'existing' });
 
@@ -146,54 +105,36 @@ describe('RegistrationService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should create referral when inviteCode is provided for non-employee', async () => {
-      const inviter = { id: 'inviter-1', invitationCode: 'invite-code-1' };
-      const mockUser = {
-        id: 'user-1',
-        email: 'partner@gmail.com',
-        firstName: 'Partner',
-        lastName: 'User',
-        phone: null,
-        role: 'SALES_REP',
-        isActive: true,
-      };
-
+    it('should throw BadRequestException for weak password', async () => {
       userRepo.findRawByEmail.mockResolvedValue(null);
-      userRepo.createRaw.mockResolvedValue(mockUser);
-      userRepo.findByInvitationCode.mockResolvedValue(inviter);
-      referralRepo.create.mockResolvedValue({});
 
-      await service.register({
-        email: 'partner@gmail.com',
-        password: 'Password1',
-        firstName: 'Partner',
-        lastName: 'User',
-        inviteCode: 'invite-code-1',
-      });
-
-      expect(referralRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          inviterId: 'inviter-1',
-          inviteeId: 'user-1',
-          status: 'ACCEPTED',
+      await expect(
+        service.register({
+          email: 'john@ecoloop.us',
+          password: 'weak',
+          firstName: 'Test',
+          lastName: 'User',
         }),
-      );
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('should assign SALES_REP role for ecoloop.us employees', async () => {
+    /* -------------------------------------------------------------- */
+    /*  ecoloop.us employee registration                               */
+    /* -------------------------------------------------------------- */
+    it('should create ecoloop employee as pending SALES_REP (isActive: false)', async () => {
       const mockUser = {
         id: 'user-1',
         email: 'john@ecoloop.us',
         firstName: 'John',
         lastName: 'Doe',
         role: 'SALES_REP',
-        isActive: true,
+        isActive: false,
       };
 
       userRepo.findRawByEmail.mockResolvedValue(null);
       userRepo.createRaw.mockResolvedValue(mockUser);
 
-      await service.register({
+      const result = await service.register({
         email: 'john@ecoloop.us',
         password: 'Password1',
         firstName: 'John',
@@ -204,8 +145,39 @@ describe('RegistrationService', () => {
         expect.objectContaining({
           email: 'john@ecoloop.us',
           role: 'SALES_REP',
+          isActive: false,
         }),
       );
+      expect(result.user).toEqual(expect.objectContaining({ id: 'user-1' }));
+      expect(result.token).toBeDefined();
+    });
+
+    it('should emit user.registered event for ecoloop employee', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'john@ecoloop.us',
+        firstName: 'John',
+        lastName: 'Doe',
+        role: 'SALES_REP',
+        isActive: false,
+      };
+
+      userRepo.findRawByEmail.mockResolvedValue(null);
+      userRepo.createRaw.mockResolvedValue(mockUser);
+
+      await service.register({
+        email: 'john@ecoloop.us',
+        password: 'Password1',
+        firstName: 'John',
+        lastName: 'Doe',
+      });
+
+      expect(emitter.emit).toHaveBeenCalledWith('user.registered', {
+        userId: 'user-1',
+        email: 'john@ecoloop.us',
+        role: 'SALES_REP',
+        isEmployee: true,
+      });
     });
 
     it('should not create referral for ecoloop.us employee even with inviteCode', async () => {
@@ -215,7 +187,7 @@ describe('RegistrationService', () => {
         firstName: 'John',
         lastName: 'Doe',
         role: 'SALES_REP',
-        isActive: true,
+        isActive: false,
       };
 
       userRepo.findRawByEmail.mockResolvedValue(null);
@@ -233,57 +205,183 @@ describe('RegistrationService', () => {
       expect(referralRepo.create).not.toHaveBeenCalled();
     });
 
-    it('should not fail registration if referral creation fails', async () => {
+    /* -------------------------------------------------------------- */
+    /*  Non-ecoloop email — no invitation code                         */
+    /* -------------------------------------------------------------- */
+    it('should reject non-ecoloop email without invitation code', async () => {
+      userRepo.findRawByEmail.mockResolvedValue(null);
+
+      await expect(
+        service.register({
+          email: 'partner@gmail.com',
+          password: 'Password1',
+          firstName: 'Partner',
+          lastName: 'User',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.register({
+          email: 'partner@gmail.com',
+          password: 'Password1',
+          firstName: 'Partner',
+          lastName: 'User',
+        }),
+      ).rejects.toThrow('Registration requires an invitation');
+    });
+
+    /* -------------------------------------------------------------- */
+    /*  Non-ecoloop email — valid invitation code                      */
+    /* -------------------------------------------------------------- */
+    it('should create non-ecoloop user as pending REFERRAL with valid invite', async () => {
+      const inviter = { id: 'inviter-1', invitationCode: 'invite-code-1' };
       const mockUser = {
         id: 'user-1',
         email: 'partner@gmail.com',
         firstName: 'Partner',
         lastName: 'User',
         phone: null,
-        role: 'SALES_REP',
-        isActive: true,
+        role: 'REFERRAL',
+        isActive: false,
       };
 
       userRepo.findRawByEmail.mockResolvedValue(null);
+      userRepo.findByInvitationCode.mockResolvedValue(inviter);
       userRepo.createRaw.mockResolvedValue(mockUser);
-      userRepo.findByInvitationCode.mockRejectedValue(new Error('DB error'));
+      referralRepo.create.mockResolvedValue({});
 
       const result = await service.register({
         email: 'partner@gmail.com',
         password: 'Password1',
         firstName: 'Partner',
         lastName: 'User',
-        inviteCode: 'bad-code',
+        inviteCode: 'invite-code-1',
       });
 
-      expect(result.user.id).toBe('user-1');
+      expect(userRepo.createRaw).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'partner@gmail.com',
+          role: 'REFERRAL',
+          isActive: false,
+        }),
+      );
+      expect(referralRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inviterId: 'inviter-1',
+          inviteeId: 'user-1',
+          status: 'ACCEPTED',
+        }),
+      );
+      expect(result.user).toEqual(expect.objectContaining({ id: 'user-1' }));
       expect(result.token).toBeDefined();
     });
 
-    it('should skip referral when inviter is not found', async () => {
+    it('should emit user.registered event for non-ecoloop user', async () => {
+      const inviter = { id: 'inviter-1' };
       const mockUser = {
         id: 'user-1',
         email: 'partner@gmail.com',
         firstName: 'Partner',
         lastName: 'User',
-        phone: null,
-        role: 'SALES_REP',
-        isActive: true,
+        role: 'REFERRAL',
+        isActive: false,
       };
 
       userRepo.findRawByEmail.mockResolvedValue(null);
+      userRepo.findByInvitationCode.mockResolvedValue(inviter);
       userRepo.createRaw.mockResolvedValue(mockUser);
-      userRepo.findByInvitationCode.mockResolvedValue(null);
+      referralRepo.create.mockResolvedValue({});
 
       await service.register({
         email: 'partner@gmail.com',
         password: 'Password1',
         firstName: 'Partner',
         lastName: 'User',
-        inviteCode: 'nonexistent-code',
+        inviteCode: 'valid-code',
       });
 
-      expect(referralRepo.create).not.toHaveBeenCalled();
+      expect(emitter.emit).toHaveBeenCalledWith('user.registered', {
+        userId: 'user-1',
+        email: 'partner@gmail.com',
+        role: 'REFERRAL',
+        isEmployee: false,
+      });
+    });
+
+    /* -------------------------------------------------------------- */
+    /*  Non-ecoloop email — invalid invitation code                    */
+    /* -------------------------------------------------------------- */
+    it('should reject non-ecoloop email with invalid invitation code', async () => {
+      userRepo.findRawByEmail.mockResolvedValue(null);
+      userRepo.findByInvitationCode.mockResolvedValue(null);
+
+      await expect(
+        service.register({
+          email: 'partner@gmail.com',
+          password: 'Password1',
+          firstName: 'Partner',
+          lastName: 'User',
+          inviteCode: 'bad-code',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      userRepo.findRawByEmail.mockResolvedValue(null);
+      userRepo.findByInvitationCode.mockResolvedValue(null);
+
+      await expect(
+        service.register({
+          email: 'partner@gmail.com',
+          password: 'Password1',
+          firstName: 'Partner',
+          lastName: 'User',
+          inviteCode: 'bad-code',
+        }),
+      ).rejects.toThrow('Invalid invitation code');
+    });
+
+    it('should not create user when invitation code is invalid', async () => {
+      userRepo.findRawByEmail.mockResolvedValue(null);
+      userRepo.findByInvitationCode.mockResolvedValue(null);
+
+      await expect(
+        service.register({
+          email: 'partner@gmail.com',
+          password: 'Password1',
+          firstName: 'Partner',
+          lastName: 'User',
+          inviteCode: 'bad-code',
+        }),
+      ).rejects.toThrow();
+
+      expect(userRepo.createRaw).not.toHaveBeenCalled();
+    });
+
+    /* -------------------------------------------------------------- */
+    /*  Token verification                                             */
+    /* -------------------------------------------------------------- */
+    it('should return a valid JWT token', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'john@ecoloop.us',
+        firstName: 'John',
+        lastName: 'Doe',
+        role: 'SALES_REP',
+        isActive: false,
+      };
+
+      userRepo.findRawByEmail.mockResolvedValue(null);
+      userRepo.createRaw.mockResolvedValue(mockUser);
+
+      const result = await service.register({
+        email: 'john@ecoloop.us',
+        password: 'Password1',
+        firstName: 'John',
+        lastName: 'Doe',
+      });
+
+      const decoded = jwt.verify(result.token, JWT_SECRET) as any;
+      expect(decoded.sub).toBe('user-1');
+      expect(decoded.email).toBe('john@ecoloop.us');
     });
   });
 });

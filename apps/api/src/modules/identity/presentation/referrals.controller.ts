@@ -65,8 +65,8 @@ export class ReferralsController {
   }
 
   @Post('invite')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
-  @ApiOperation({ summary: 'Create a referral invitation' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Create a referral invitation (admin/manager only)' })
   async invite(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateReferralInviteDto,

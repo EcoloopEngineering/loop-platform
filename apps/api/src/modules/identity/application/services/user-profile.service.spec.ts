@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { QueryBus } from '@nestjs/cqrs';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { UserProfileService } from './user-profile.service';
 import { USER_REPOSITORY } from '../ports/user.repository.port';
 import { S3Service } from '../../../../infrastructure/storage/s3.service';
@@ -24,6 +24,7 @@ describe('UserProfileService', () => {
     findByInvitationCode: jest.Mock;
     createRaw: jest.Mock;
     findFirstByMetadataPath: jest.Mock;
+    deleteById: jest.Mock;
   };
   let s3Service: {
     isConfigured: jest.Mock;
@@ -58,6 +59,7 @@ describe('UserProfileService', () => {
       findByInvitationCode: jest.fn(),
       createRaw: jest.fn(),
       findFirstByMetadataPath: jest.fn(),
+      deleteById: jest.fn(),
     };
     s3Service = {
       isConfigured: jest.fn().mockReturnValue(false),
@@ -284,6 +286,60 @@ describe('UserProfileService', () => {
       userRepo.findRawById.mockResolvedValue(null);
 
       await expect(service.toggleActive('nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  approveUser                                                        */
+  /* ------------------------------------------------------------------ */
+  describe('approveUser', () => {
+    it('should activate user and set role', async () => {
+      userRepo.findRawById.mockResolvedValue({ id: 'user-1', isActive: false });
+      userRepo.updateRaw.mockResolvedValue({ id: 'user-1', isActive: true, role: UserRole.SALES_REP });
+      queryBus.execute.mockResolvedValue({ id: 'user-1', isActive: true, role: UserRole.SALES_REP });
+
+      const result = await service.approveUser('user-1', UserRole.SALES_REP);
+
+      expect(userRepo.updateRaw).toHaveBeenCalledWith('user-1', { isActive: true, role: UserRole.SALES_REP });
+      expect(result).toEqual({ id: 'user-1', isActive: true, role: UserRole.SALES_REP });
+    });
+
+    it('should throw NotFoundException when user not found', async () => {
+      userRepo.findRawById.mockResolvedValue(null);
+
+      await expect(service.approveUser('nonexistent', UserRole.SALES_REP)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when user is already active', async () => {
+      userRepo.findRawById.mockResolvedValue({ id: 'user-1', isActive: true });
+
+      await expect(service.approveUser('user-1', UserRole.SALES_REP)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  rejectUser                                                         */
+  /* ------------------------------------------------------------------ */
+  describe('rejectUser', () => {
+    it('should delete an inactive user', async () => {
+      userRepo.findRawById.mockResolvedValue({ id: 'user-1', isActive: false });
+      userRepo.deleteById.mockResolvedValue(undefined);
+
+      await service.rejectUser('user-1');
+
+      expect(userRepo.deleteById).toHaveBeenCalledWith('user-1');
+    });
+
+    it('should throw NotFoundException when user not found', async () => {
+      userRepo.findRawById.mockResolvedValue(null);
+
+      await expect(service.rejectUser('nonexistent')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when user is active', async () => {
+      userRepo.findRawById.mockResolvedValue({ id: 'user-1', isActive: true });
+
+      await expect(service.rejectUser('user-1')).rejects.toThrow(BadRequestException);
     });
   });
 });

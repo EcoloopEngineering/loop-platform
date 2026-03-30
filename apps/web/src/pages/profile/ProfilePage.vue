@@ -52,18 +52,6 @@
 
       <q-separator class="q-my-md" />
 
-      <div class="text-subtitle2 text-weight-bold q-mb-sm">Display</div>
-      <q-item tag="label" class="q-px-none">
-        <q-item-section>
-          <q-item-label>Dark mode</q-item-label>
-        </q-item-section>
-        <q-item-section side>
-          <q-toggle v-model="darkMode" color="primary" @update:model-value="toggleDarkMode" />
-        </q-item-section>
-      </q-item>
-
-      <q-separator class="q-my-md" />
-
       <div class="text-subtitle2 text-weight-bold q-mb-sm">Bank Information</div>
       <EInput v-model="form.bankName" label="Bank Name" />
       <EInput v-model="form.accountNumber" label="Account Number" />
@@ -75,6 +63,40 @@
         </EBtn>
       </div>
     </q-form>
+
+    <!-- Appearance -->
+    <q-card flat class="q-mb-md q-mt-lg">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">Appearance</div>
+        <q-toggle v-model="darkMode" label="Dark mode" @update:model-value="toggleDarkMode" />
+      </q-card-section>
+    </q-card>
+
+    <!-- Notification Preferences -->
+    <q-card flat class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">Delivery Channels</div>
+        <div class="q-gutter-md">
+          <q-toggle v-model="emailNotifications" label="Email notifications" @update:model-value="saveNotificationPrefs" />
+          <q-toggle v-model="pushNotifications" label="Push notifications" @update:model-value="saveNotificationPrefs" />
+        </div>
+      </q-card-section>
+    </q-card>
+
+    <!-- Coins Balance -->
+    <q-card flat class="q-mb-md">
+      <q-card-section>
+        <div class="text-h6 q-mb-md">Rewards</div>
+        <div class="row items-center q-gutter-md">
+          <q-icon name="monetization_on" size="36px" color="amber" />
+          <div>
+            <div class="text-h4 text-weight-bold">{{ coinBalance }}</div>
+            <div class="text-caption text-grey">Available coins</div>
+          </div>
+          <q-btn flat color="primary" label="Visit Store" to="/admin/rewards" no-caps />
+        </div>
+      </q-card-section>
+    </q-card>
     </template>
   </q-page>
 </template>
@@ -95,6 +117,9 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const saving = ref(false);
 const darkMode = ref($q.dark.isActive);
+const emailNotifications = ref(true);
+const pushNotifications = ref(false);
+const coinBalance = ref(0);
 
 const form = ref({
   name: '',
@@ -138,6 +163,12 @@ async function loadData() {
       ? `${API_URL}${img}`
       : img;
     form.value.language = data.language ?? 'en';
+    emailNotifications.value = data.emailNotifications ?? true;
+    pushNotifications.value = data.pushNotifications ?? false;
+    if (data.darkMode !== undefined) {
+      darkMode.value = data.darkMode;
+      $q.dark.set(data.darkMode);
+    }
   } catch {
     // Use store defaults
     if (userStore.user) {
@@ -152,7 +183,10 @@ async function loadData() {
   }
 }
 
-onMounted(() => { loadData(); });
+onMounted(() => {
+  loadData();
+  loadCoinBalance();
+});
 
 async function save() {
   saving.value = true;
@@ -177,6 +211,27 @@ function toggleDarkMode(val: boolean) {
   $q.dark.set(val);
   localStorage.setItem('darkMode', val ? '1' : '0');
   api.put('/users/me', { darkMode: val }).catch(() => {});
+}
+
+async function saveNotificationPrefs() {
+  try {
+    await api.put('/users/me', {
+      emailNotifications: emailNotifications.value,
+      pushNotifications: pushNotifications.value,
+    });
+    $q.notify({ type: 'positive', message: 'Notification preferences updated!' });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to update notification preferences.' });
+  }
+}
+
+async function loadCoinBalance() {
+  try {
+    const { data } = await api.get('/gamification/balance');
+    coinBalance.value = data.balance ?? data.coins ?? 0;
+  } catch {
+    coinBalance.value = 0;
+  }
 }
 
 function uploadAvatar() {

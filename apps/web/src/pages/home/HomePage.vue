@@ -32,10 +32,10 @@
     <div class="q-mb-lg">
       <div class="section-title q-mb-sm">Quick Actions</div>
       <div class="row q-col-gutter-sm">
-        <div :class="isEmployee ? 'col-6' : 'col-12'">
+        <div :class="showInvite ? 'col-6' : 'col-12'">
           <q-btn unelevated no-caps color="primary" text-color="white" icon="add" label="New Lead" class="full-width action-btn" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
         </div>
-        <div v-if="isEmployee" class="col-6">
+        <div v-if="showInvite" class="col-6">
           <q-btn outline no-caps color="primary" icon="share" label="Invite" class="full-width action-btn" aria-label="Invite a referral partner" @click="$router.push('/referrals')" />
         </div>
       </div>
@@ -146,6 +146,7 @@ interface CurrentUserInfo {
   email?: string;
   firstName?: string;
   lastName?: string;
+  role?: string;
 }
 
 interface ActivityItem {
@@ -168,6 +169,10 @@ const displayName = computed(() => injectedName?.value || '');
 
 const isEmployee = computed(() => {
   return currentUser.value?.email?.endsWith('@ecoloop.us') ?? false;
+});
+
+const showInvite = computed(() => {
+  return isEmployee.value && currentUser.value?.role !== 'REFERRAL_PARTNER';
 });
 
 const greeting = computed(() => {

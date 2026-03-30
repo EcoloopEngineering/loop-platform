@@ -246,4 +246,14 @@ describe('PrismaUserRepository', () => {
       });
     });
   });
+
+  describe('deleteById', () => {
+    it('should delete user by ID', async () => {
+      prisma.user.delete.mockResolvedValue({ id: 'user-1' });
+
+      await repository.deleteById('user-1');
+
+      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+    });
+  });
 });

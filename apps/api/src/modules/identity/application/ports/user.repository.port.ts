@@ -66,4 +66,7 @@ export interface UserRepositoryPort {
 
   /** Select specific fields from a user */
   findSelectById(id: string, select: Record<string, boolean>): Promise<Record<string, unknown> | null>;
+
+  /** Delete a user by ID */
+  deleteById(id: string): Promise<void>;
 }

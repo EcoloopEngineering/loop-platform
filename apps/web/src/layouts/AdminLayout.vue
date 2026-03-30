@@ -6,6 +6,9 @@
         <img src="/logo_short_dark.svg" alt="ecoLoop" class="admin-logo q-mr-sm" />
         <span class="text-weight-bold text-grey-8 text-15">Admin</span>
         <q-space />
+        <q-btn flat dense round icon="storefront" color="grey-7" @click="$router.push('/home')" aria-label="View as Sales">
+          <q-tooltip>View Sales Dashboard</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="notifications_none" color="grey-7" aria-label="Notifications">
           <q-badge v-if="unreadCount > 0" color="negative" floating>{{ unreadCount }}</q-badge>
           <q-menu anchor="bottom right" self="top right" class="min-w-320 radius-lg">

@@ -18,6 +18,75 @@
       <template #append><q-icon v-if="search" name="close" class="cursor-pointer" role="button" aria-label="Clear search" @click="search = ''" /></template>
     </q-input>
 
+    <!-- Pending Approval Banner -->
+    <q-banner v-if="!loading && pendingUsers.length" class="bg-amber-1 q-mb-md" rounded>
+      <template #avatar><q-icon name="pending_actions" color="amber-8" /></template>
+      <strong>{{ pendingUsers.length }} user{{ pendingUsers.length > 1 ? 's' : '' }} pending approval</strong>
+    </q-banner>
+
+    <!-- Pending Users Table -->
+    <q-card v-if="!loading && pendingUsers.length" flat class="table-card q-mb-lg">
+      <q-card-section class="q-pb-none">
+        <div class="text-subtitle1 text-weight-bold">Pending Approval</div>
+      </q-card-section>
+      <q-table
+        :rows="pendingUsers"
+        :columns="pendingColumns"
+        row-key="id"
+        flat
+        :pagination="{ rowsPerPage: 10 }"
+        class="users-table"
+      >
+        <template #body-cell-name="props">
+          <q-td :props="props">
+            <div class="row items-center no-wrap gap-md">
+              <UserAvatar :user-id="props.row.id" :name="titleCase(props.row.name)" size="36px" color="amber-7" />
+              <div>
+                <div class="text-weight-medium">{{ titleCase(props.row.name) }}</div>
+                <div class="text-caption text-grey-5">{{ props.row.email }}</div>
+              </div>
+            </div>
+          </q-td>
+        </template>
+
+        <template #body-cell-registeredAt="props">
+          <q-td :props="props">
+            {{ formatDate(props.row.createdAt) }}
+          </q-td>
+        </template>
+
+        <template #body-cell-actions="props">
+          <q-td :props="props" auto-width>
+            <div class="row no-wrap gap-xs">
+              <q-btn
+                unelevated
+                no-caps
+                dense
+                color="primary"
+                icon="check"
+                label="Approve"
+                size="sm"
+                class="radius-10"
+                aria-label="Approve user"
+                @click="openApproveDialog(props.row)"
+              />
+              <q-btn
+                flat
+                no-caps
+                dense
+                color="negative"
+                icon="close"
+                label="Reject"
+                size="sm"
+                aria-label="Reject user"
+                @click="confirmReject(props.row)"
+              />
+            </div>
+          </q-td>
+        </template>
+      </q-table>
+    </q-card>
+
     <div v-if="loading" class="text-center q-pa-xl">
       <q-spinner-dots color="primary" size="40px" />
     </div>
@@ -220,6 +289,46 @@
       </q-card>
     </q-dialog>
 
+    <!-- Approve User Dialog -->
+    <q-dialog v-model="showApproveDialog" @keyup.esc="showApproveDialog = false" aria-label="Approve user dialog">
+      <q-card style="min-width: 380px" class="dialog-card">
+        <q-card-section>
+          <div class="text-h6 text-weight-bold">Approve User</div>
+        </q-card-section>
+
+        <q-card-section>
+          <p class="q-mb-md">
+            Approve <strong>{{ approveTarget?.firstName }} {{ approveTarget?.lastName }}</strong>
+            ({{ approveTarget?.email }})?
+          </p>
+          <q-select
+            v-model="approveRole"
+            :options="allRoleOptions"
+            label="Assign Role"
+            emit-value
+            map-options
+            outlined
+            dense
+            aria-label="Select role for user approval"
+          />
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-md">
+          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup aria-label="Cancel approval" />
+          <q-btn
+            unelevated
+            no-caps
+            label="Approve"
+            color="primary"
+            :loading="approving"
+            class="radius-10"
+            aria-label="Confirm user approval"
+            @click="approveUser"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
     <!-- Edit User Dialog -->
     <q-dialog v-model="showEditDialog" persistent @keyup.esc="showEditDialog = false" aria-label="Edit user dialog">
       <q-card class="dialog-card">
@@ -305,8 +414,10 @@ const roleOptions = computed(() => {
   return employeeRoleOptions;
 });
 
-const employees = computed(() => allUsers.value.filter((u) => u.email.endsWith('@ecoloop.us')));
-const partners = computed(() => allUsers.value.filter((u) => !u.email.endsWith('@ecoloop.us')));
+const pendingUsers = computed(() => allUsers.value.filter((u) => !u.isActive));
+const activeUsers = computed(() => allUsers.value.filter((u) => u.isActive));
+const employees = computed(() => activeUsers.value.filter((u) => u.email.endsWith('@ecoloop.us')));
+const partners = computed(() => activeUsers.value.filter((u) => !u.email.endsWith('@ecoloop.us')));
 
 const filteredEmployees = computed(() => filterBySearch(employees.value));
 const filteredPartners = computed(() => filterBySearch(partners.value));
@@ -335,6 +446,74 @@ const partnerColumns = [
   { name: 'status', label: 'Active', field: 'isActive', align: 'center' as const },
   { name: 'actions', label: '', field: 'id', align: 'right' as const },
 ];
+
+const pendingColumns = [
+  { name: 'name', label: 'Name', field: 'name', align: 'left' as const, sortable: true },
+  { name: 'email', label: 'Email', field: 'email', align: 'left' as const },
+  { name: 'registeredAt', label: 'Registered', field: 'createdAt', align: 'left' as const, sortable: true },
+  { name: 'actions', label: '', field: 'id', align: 'right' as const },
+];
+
+const allRoleOptions = [
+  { label: 'Admin', value: 'ADMIN' },
+  { label: 'Manager (PM)', value: 'MANAGER' },
+  { label: 'Sales Rep', value: 'SALES_REP' },
+  { label: 'Referral', value: 'REFERRAL' },
+];
+
+// ---- Approve User ----
+const showApproveDialog = ref(false);
+const approving = ref(false);
+const approveTarget = ref<UserRow | null>(null);
+const approveRole = ref('SALES_REP');
+
+function openApproveDialog(user: UserRow) {
+  approveTarget.value = user;
+  approveRole.value = user.email.endsWith('@ecoloop.us') ? 'SALES_REP' : 'REFERRAL';
+  showApproveDialog.value = true;
+}
+
+async function approveUser() {
+  if (!approveTarget.value) return;
+  approving.value = true;
+  try {
+    await api.patch(`/users/${approveTarget.value.id}/approve`, { role: approveRole.value });
+    $q.notify({ type: 'positive', message: `${approveTarget.value.firstName} ${approveTarget.value.lastName} approved` });
+    showApproveDialog.value = false;
+    approveTarget.value = null;
+    await loadData();
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+    $q.notify({ type: 'negative', message: axErr?.response?.data?.message || 'Failed to approve user' });
+  } finally {
+    approving.value = false;
+  }
+}
+
+// ---- Reject User ----
+function confirmReject(user: UserRow) {
+  $q.dialog({
+    title: 'Reject User',
+    message: `Are you sure you want to reject ${user.firstName} ${user.lastName} (${user.email})? This will permanently delete their account.`,
+    cancel: true,
+    ok: { label: 'Reject', color: 'negative', flat: true },
+  }).onOk(async () => {
+    try {
+      await api.delete(`/users/${user.id}/reject`);
+      $q.notify({ type: 'positive', message: 'User rejected and removed' });
+      await loadData();
+    } catch (err: unknown) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      $q.notify({ type: 'negative', message: axErr?.response?.data?.message || 'Failed to reject user' });
+    }
+  });
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '--';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 async function loadData() {
   loading.value = true;
