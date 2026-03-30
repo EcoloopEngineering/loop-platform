@@ -17,6 +17,14 @@ export default boot(({ app, router }) => {
   app.config.globalProperties.$axios = axios;
   app.config.globalProperties.$api = api;
 
+  // Restore dark mode from localStorage immediately (prevents flash)
+  try {
+    const darkStored = localStorage.getItem('darkMode');
+    if (darkStored === '1') {
+      import('quasar').then(({ Dark }) => Dark.set(true));
+    }
+  } catch { /* ignore */ }
+
   // Restore session on boot
   try {
     const stored = localStorage.getItem('auth');

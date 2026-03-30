@@ -9,6 +9,11 @@
         <q-btn flat dense round icon="storefront" color="grey-7" @click="$router.push('/home')" aria-label="View as Sales">
           <q-tooltip>View Sales Dashboard</q-tooltip>
         </q-btn>
+        <q-btn flat dense no-caps color="amber-8" class="q-mr-xs coin-btn" @click="$router.push('/admin/rewards')" aria-label="Your coins">
+          <q-icon name="monetization_on" size="20px" class="q-mr-xs" />
+          <span class="text-weight-bold">{{ coinBalance }}</span>
+          <q-tooltip>Your coins — Visit Store</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="notifications_none" color="grey-7" aria-label="Notifications">
           <q-badge v-if="unreadCount > 0" color="negative" floating>{{ unreadCount }}</q-badge>
           <q-menu anchor="bottom right" self="top right" class="min-w-320 radius-lg">
@@ -110,12 +115,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 import { useNotificationPoller } from '@/composables/useNotificationPoller';
 import { useThemeSync } from '@/composables/useThemeSync';
+import { api } from '@/boot/axios';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -128,6 +134,15 @@ const { notifications, unreadCount, openNotification, iconFor, timeAgo } = useNo
 
 // User identity + dark mode / compact view sync
 const { userName, userAvatar, userInitials } = useThemeSync();
+
+// Coin balance
+const coinBalance = ref(0);
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/gamification/balance');
+    coinBalance.value = data?.balance ?? data?.coins ?? 0;
+  } catch { /* ignore */ }
+});
 
 // Patch userStore when useThemeSync finishes fetching (keeps role-based nav reactive)
 watch(userName, () => {

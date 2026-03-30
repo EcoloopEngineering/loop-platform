@@ -8,6 +8,11 @@
         <q-btn v-if="userRole === 'ADMIN'" flat dense round icon="admin_panel_settings" color="grey-7" @click="$router.push('/crm')" aria-label="Admin Panel">
           <q-tooltip>Admin Panel</q-tooltip>
         </q-btn>
+        <q-btn flat dense no-caps color="amber-8" class="q-mr-xs coin-btn" @click="$router.push('/admin/rewards')" aria-label="Your coins">
+          <q-icon name="monetization_on" size="20px" class="q-mr-xs" />
+          <span class="text-weight-bold">{{ coinBalance }}</span>
+          <q-tooltip>Your coins — Visit Store</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="notifications_none" color="grey-7" class="q-mr-xs" aria-label="Notifications">
           <q-badge v-if="unreadCount > 0" floating color="negative" :label="unreadCount" />
           <q-menu anchor="bottom right" self="top right" class="min-w-320 radius-lg">
@@ -81,12 +86,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, provide } from 'vue';
+import { ref, computed, watch, provide, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 import { useNotificationPoller } from '@/composables/useNotificationPoller';
 import { useThemeSync } from '@/composables/useThemeSync';
+import { api } from '@/boot/axios';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -105,6 +111,15 @@ const { userName, userEmail, userAvatar, userInitials } = useThemeSync();
 
 const isEmployee = computed(() => userEmail.value.endsWith('@ecoloop.us'));
 provide('userName', userName);
+
+// Coin balance
+const coinBalance = ref(0);
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/gamification/balance');
+    coinBalance.value = data?.balance ?? data?.coins ?? 0;
+  } catch { /* ignore */ }
+});
 
 function handleLogout() {
   authStore.logout();
