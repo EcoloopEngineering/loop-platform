@@ -79,17 +79,15 @@ onMounted(async () => {
 .settings-page {
   min-height: 100vh;
   max-width: 100%;
-}
 
-.settings-tabs {
-  border: 1px solid #E5E7EB;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.body--dark & {
   .settings-tabs {
-    border-color: #333;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    overflow: hidden;
   }
+}
+
+:global(.body--dark) .settings-tabs {
+  border-color: #333;
 }
 </style>
