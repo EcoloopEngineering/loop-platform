@@ -190,12 +190,8 @@ const viewMode = ref('list');
 const pipelineTab = ref('closer');
 const error = ref<string | null>(null);
 
-const PIPELINE_IDS: Record<string, string> = {
-  closer: '00000000-0000-0000-0000-000000000001',
-  pm: '00000000-0000-0000-0000-000000000002',
-  finance: '00000000-0000-0000-0000-000000000003',
-  maintenance: '00000000-0000-0000-0000-000000000004',
-};
+// Pipeline IDs loaded from API (Settings → Pipeline config)
+const pipelineIds = ref<Record<string, string>>({});
 
 const activeFilters = ref<PipelineFilterValues>({
   search: '',
@@ -299,7 +295,7 @@ const userOptions = [{ label: 'Me', value: 'me' }];
 async function loadData() {
   error.value = null;
   try {
-    await pipelineStore.fetchPipelineView({ pipelineId: PIPELINE_IDS[pipelineTab.value] });
+    await pipelineStore.fetchPipelineView({ pipelineId: pipelineIds.value[pipelineTab.value] || undefined });
   } catch {
     error.value = 'Failed to load pipeline data. Please try again.';
   }
@@ -308,7 +304,7 @@ async function loadData() {
 onMounted(() => { loadData(); });
 
 function onPipelineTabChange(tab: string) {
-  pipelineStore.fetchPipelineView({ pipelineId: PIPELINE_IDS[tab] });
+  pipelineStore.fetchPipelineView({ pipelineId: pipelineIds.value[tab] || undefined });
 }
 
 let debounceTimer: ReturnType<typeof setTimeout>;
@@ -320,7 +316,7 @@ function onFilterChange(filters: PipelineFilterValues) {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     pipelineStore.fetchPipelineView({
-      pipelineId: PIPELINE_IDS[pipelineTab.value],
+      pipelineId: pipelineIds.value[pipelineTab.value] || undefined,
       search: filters.search || undefined,
       source: filters.source ?? undefined,
       dateFrom: filters.dateFrom ?? undefined,
