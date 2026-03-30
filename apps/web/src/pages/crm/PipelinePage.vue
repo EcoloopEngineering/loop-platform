@@ -181,6 +181,12 @@ import UserAvatar from '@/components/common/UserAvatar.vue';
 import { titleCase } from '@/composables/useLeadFormatting';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
 import type { PipelineFilterValues } from '@/components/pipeline/PipelineFilters.vue';
+import {
+  CLOSER_PIPELINE_STAGES,
+  PM_PIPELINE_STAGES,
+  FINANCE_PIPELINE_STAGES,
+  MAINTENANCE_PIPELINE_STAGES,
+} from '@loop/shared';
 
 const { stageColor, formatStage, formatSource } = useLeadFormatting();
 
@@ -190,8 +196,13 @@ const viewMode = ref('list');
 const pipelineTab = ref('closer');
 const error = ref<string | null>(null);
 
-// Pipeline IDs loaded from API (Settings → Pipeline config)
-const pipelineIds = ref<Record<string, string>>({});
+// Stages that belong to each pipeline tab
+const PIPELINE_STAGE_SETS: Record<string, Set<string>> = {
+  closer: new Set(CLOSER_PIPELINE_STAGES.map((s) => s.stage)),
+  pm: new Set(PM_PIPELINE_STAGES.map((s) => s.stage)),
+  finance: new Set(FINANCE_PIPELINE_STAGES.map((s) => s.stage)),
+  maintenance: new Set(MAINTENANCE_PIPELINE_STAGES.map((s) => s.stage)),
+};
 
 const activeFilters = ref<PipelineFilterValues>({
   search: '',
@@ -201,9 +212,16 @@ const activeFilters = ref<PipelineFilterValues>({
   dateTo: null,
 });
 
-const stages = computed(() => pipelineStore.pipelineData?.stages ?? []);
+const allStages = computed(() => pipelineStore.pipelineData?.stages ?? []);
 
-// All leads flat from all stages
+// Filter stages to only show those belonging to the active pipeline tab
+const stages = computed(() => {
+  const allowedStages = PIPELINE_STAGE_SETS[pipelineTab.value];
+  if (!allowedStages) return allStages.value;
+  return allStages.value.filter((s) => allowedStages.has(s.id));
+});
+
+// All leads flat from filtered stages
 const rawLeads = computed(() =>
   stages.value.flatMap((s) =>
     s.leads.map((l) => ({ ...l, stageName: s.name, stageColor: s.color })),
