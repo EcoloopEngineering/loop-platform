@@ -239,6 +239,14 @@ export class PrismaLeadRepository implements LeadRepositoryPort {
     return new LeadEntity(lead as Partial<LeadEntity>);
   }
 
+  async delete(id: string): Promise<void> {
+    await this.prisma.task.deleteMany({ where: { leadId: id } });
+    await this.prisma.leadActivity.deleteMany({ where: { leadId: id } });
+    await this.prisma.leadAssignment.deleteMany({ where: { leadId: id } });
+    await this.prisma.leadScore.deleteMany({ where: { leadId: id } });
+    await this.prisma.lead.delete({ where: { id } });
+  }
+
   async updateStage(id: string, stage: string): Promise<LeadEntity> {
     const lead = await this.prisma.lead.update({
       where: { id },

@@ -4,7 +4,9 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Param,
+  HttpCode,
   Body,
   Query,
   UseGuards,
@@ -143,5 +145,15 @@ export class LeadsController {
   @ApiOperation({ summary: 'Get lead activity timeline' })
   async getTimeline(@Param('id', ParseUUIDPipe) id: string): Promise<unknown> {
     return this.leadScoringAppService.getTimeline(id);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Delete a lead (admin only)' })
+  @ApiResponse({ status: 204, description: 'Lead deleted' })
+  async deleteLead(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    const lead = await this.leadRepo.findById(id);
+    if (!lead) throw new NotFoundException('Lead not found');
+    await this.leadRepo.delete(id);
   }
 }
