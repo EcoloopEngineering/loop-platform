@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(NODE_OPTIONS=--max-old-space-size=4096 node dist/main.js)",
+      "Bash(echo \"EXIT_CODE: $?\")"
+    ]
+  }
+}
