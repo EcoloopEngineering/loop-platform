@@ -70,7 +70,7 @@
               dense
               borderless
               use-input
-              input-debounce="200"
+              input-debounce="0"
               class="field-select"
               :loading="loadingUsers"
               placeholder="Type to search..."
@@ -119,7 +119,7 @@
               borderless
               use-input
               clearable
-              input-debounce="200"
+              input-debounce="0"
               class="field-select"
               :loading="loadingUsers"
               placeholder="Type to search..."
@@ -307,13 +307,8 @@ function filterUsers(val: string, update: (fn: () => void) => void, which: strin
       const needle = (val || '').toLowerCase();
       let pool = allUsers.value;
 
-      if (which === 'owner') {
-        // Owner: only @ecoloop.us employees
-        pool = pool.filter((u) => u.email.endsWith('@ecoloop.us'));
-      } else {
-        // PM: only ADMIN or MANAGER
-        pool = pool.filter((u) => u.role === 'ADMIN' || u.role === 'MANAGER');
-      }
+      // Both owner and PM: only @ecoloop.us employees
+      pool = pool.filter((u) => u.email.endsWith('@ecoloop.us'));
 
       const filtered = needle
         ? pool.filter((u) => u.label.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle))

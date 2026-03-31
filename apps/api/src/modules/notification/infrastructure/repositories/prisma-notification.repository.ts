@@ -116,6 +116,14 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
     });
   }
 
+  async findAdminEmails(): Promise<string[]> {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN', isActive: true },
+      select: { email: true },
+    });
+    return admins.map((a) => a.email);
+  }
+
   // ── Settings ────────────────────────────────────────────────────────────
 
   async findNotificationSetting(): Promise<Record<string, boolean> | null> {

@@ -7,6 +7,7 @@ import {
   NoteAddedPayload,
   PMAssignedPayload,
   ScoreboardPayload,
+  PmPipelineEntryPayload,
 } from '../services/google-chat-notification.service';
 
 @Injectable()
@@ -31,6 +32,10 @@ export class GoogleChatListener {
   async handleStageChanged(payload: StageChangedPayload): Promise<void> {
     try {
       await this.googleChatNotificationService.handleStageChanged(payload);
+
+      if (payload.newStage === 'SITE_AUDIT') {
+        await this.googleChatNotificationService.handlePmPipelineEntry(payload);
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Failed to send stage change to Google Chat: ${message}`);

@@ -212,6 +212,34 @@ describe('PrismaTaskRepository', () => {
     });
   });
 
+  describe('findLeadWithMetadataAndState', () => {
+    it('should return lead with metadata, financier, and property state', async () => {
+      const lead = { id: 'lead-1', metadata: { upgrades: 'Structural' }, financier: 'Cash Deal', property: { state: 'CT' } };
+      prisma.lead.findUnique.mockResolvedValue(lead);
+
+      const result = await repository.findLeadWithMetadataAndState('lead-1');
+
+      expect(result).toEqual(lead);
+      expect(prisma.lead.findUnique).toHaveBeenCalledWith({
+        where: { id: 'lead-1' },
+        select: {
+          id: true,
+          metadata: true,
+          financier: true,
+          property: { select: { state: true } },
+        },
+      });
+    });
+
+    it('should return null when lead not found', async () => {
+      prisma.lead.findUnique.mockResolvedValue(null);
+
+      const result = await repository.findLeadWithMetadataAndState('nonexistent');
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('findTemplates', () => {
     it('should return all templates ordered', async () => {
       const templates = [{ id: 't1', stage: 'NEW_LEAD' }];

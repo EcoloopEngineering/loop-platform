@@ -262,4 +262,89 @@
   .coin-btn {
     color: #FFC107 !important;
   }
+
+  // Fix Quasar table rows in dark mode
+  .q-table tbody tr,
+  .q-table thead tr {
+    background: #1e1e1e;
+  }
+  .q-table tbody tr:hover {
+    background: #2a2a2a !important;
+  }
+  .q-table thead th {
+    color: #9CA3AF;
+    border-color: #333;
+  }
+  .q-table td {
+    border-color: #333;
+  }
+  .q-table--flat {
+    background: #1e1e1e;
+  }
+
+  // Fix expanded rows
+  .expanded-detail,
+  .q-table .bg-grey-1 {
+    background: #2a2a2a !important;
+  }
+
+  // Fix list items
+  .q-list--separator .q-item + .q-item {
+    border-color: #333;
+  }
+
+  // Fix list cards with border
+  .list-card {
+    background: #1e1e1e;
+    border-color: #333;
+  }
+
+  // Fix settings card
+  .settings-card {
+    background: #1e1e1e;
+    border-color: #333;
+  }
+
+  // Fix header text
+  .q-toolbar {
+    .text-grey-8 {
+      color: #E5E7EB !important;
+    }
+  }
+
+  // ── Jira-style Task Board (Dracula theme) ──
+  // Dracula palette: bg=#282A36, current=#44475A, fg=#F8F8F2, comment=#6272A4
+  // cyan=#8BE9FD, green=#50FA7B, orange=#FFB86C, pink=#FF79C6, purple=#BD93F9
+  .jira-col-inner {
+    background: #282A36 !important;
+
+    &.jira-drag-over {
+      outline-color: #50FA7B !important;
+      background: #2E3440 !important;
+    }
+  }
+  .jira-col-header {
+    border-bottom: 1px solid #44475A;
+  }
+  .jira-col-title { color: #6272A4 !important; }
+  .jira-col-count { background: #44475A !important; color: #F8F8F2 !important; }
+  .jira-card {
+    background: #21222C !important;
+    border: 1px solid #44475A !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+
+    &:hover {
+      background: #2C2D3A !important;
+      border-color: #BD93F9 !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    &:active {
+      border-color: #50FA7B !important;
+    }
+  }
+  .jira-card-lead { color: #50FA7B !important; }
+  .jira-card-title { color: #F8F8F2 !important; }
+  .jira-card-subtasks { color: #6272A4 !important; }
+  .jira-col-empty { color: #44475A !important; }
 }

@@ -37,6 +37,13 @@ export interface ScoreboardPayload {
   newStage: string;
 }
 
+export interface PmPipelineEntryPayload {
+  leadId: string;
+  customerName: string;
+  previousStage: string;
+  newStage: string;
+}
+
 @Injectable()
 export class GoogleChatNotificationService {
   private readonly logger = new Logger(GoogleChatNotificationService.name);
@@ -156,6 +163,60 @@ export class GoogleChatNotificationService {
     }
 
     this.logger.log(`Scoreboard: ${message}`);
+  }
+
+  async handlePmPipelineEntry(payload: PmPipelineEntryPayload): Promise<void> {
+    if (!this.chatService.isConfigured()) return;
+
+    // Check if lead already has a Google Chat space (avoid duplicates)
+    const existingSpace = await this.getSpaceName(payload.leadId);
+    if (existingSpace) {
+      this.logger.debug(
+        `Lead ${payload.leadId} already has Google Chat space — skipping creation`,
+      );
+      return;
+    }
+
+    const lead = await this.notificationRepo.findLeadWithStakeholders(payload.leadId);
+    if (!lead) return;
+
+    const address = lead.property
+      ? `${lead.property.streetAddress}, ${lead.property.city}, ${lead.property.state}`
+      : '';
+
+    const displayName = address
+      ? `${payload.customerName} | ${address}`
+      : payload.customerName;
+
+    // Collect members: PM + admin users
+    const members = new Set<string>();
+    if (lead.projectManager?.email) members.add(lead.projectManager.email);
+
+    const adminEmails = await this.notificationRepo.findAdminEmails();
+    for (const email of adminEmails) {
+      members.add(email);
+    }
+
+    // Also add assigned sales reps
+    for (const a of lead.assignments ?? []) {
+      if (a.user?.email) members.add(a.user.email);
+    }
+
+    const space = await this.chatService.createSpace({
+      displayName,
+      members: Array.from(members),
+    });
+
+    // Save space name to lead metadata
+    const existingMetadata = (lead.metadata as Record<string, unknown>) ?? {};
+    await this.notificationRepo.updateLeadMetadata(payload.leadId, {
+      ...existingMetadata,
+      googleChatSpaceName: space.spaceName,
+    });
+
+    this.logger.log(
+      `Google Chat space created for PM pipeline entry — lead ${payload.leadId}`,
+    );
   }
 
   private async getSpaceName(leadId: string): Promise<string | undefined> {

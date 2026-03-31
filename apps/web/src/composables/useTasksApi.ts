@@ -44,13 +44,20 @@ export function useTasksApi() {
       const queryParams: Record<string, string> = {};
       if (params?.status) queryParams.status = params.status;
       if (params?.assigneeId) queryParams.assigneeId = params.assigneeId;
-      const { data } = await api.get<TaskRow[] | { data: TaskRow[] }>(
-        '/tasks',
-        { params: queryParams },
-      );
-      return Array.isArray(data)
-        ? data
-        : (data as { data: TaskRow[] }).data ?? [];
+      const { data } = await api.get('/tasks', { params: queryParams });
+      const raw = Array.isArray(data) ? data : (data as Record<string, unknown>).data ?? [];
+      return (raw as Array<Record<string, unknown>>).map((t) => {
+        const lead = t.lead as Record<string, unknown> | undefined;
+        const customer = lead?.customer as Record<string, string> | undefined;
+        return {
+          ...t,
+          lead: lead ? {
+            id: lead.id as string,
+            customerName: customer ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim() : 'Unknown',
+            currentStage: lead.currentStage as string,
+          } : undefined,
+        } as TaskRow;
+      });
     } catch {
       error.value = 'Failed to load tasks. Please try again.';
       return [];
@@ -135,6 +142,20 @@ export function useTasksApi() {
     }
   }
 
+  async function updateTaskStatus(taskId: string, status: string): Promise<boolean> {
+    loading.value = true;
+    error.value = null;
+    try {
+      await api.patch(`/tasks/${taskId}`, { status });
+      return true;
+    } catch (err) {
+      error.value = extractMessage(err, 'Failed to update task');
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     loading,
     error,
@@ -143,6 +164,7 @@ export function useTasksApi() {
     createTask,
     completeTask,
     deleteTask,
+    updateTaskStatus,
     fetchAssigneeOptions,
   };
 }

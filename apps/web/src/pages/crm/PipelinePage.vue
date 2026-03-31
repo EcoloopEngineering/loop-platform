@@ -349,6 +349,8 @@ async function onStageChange(payload: { leadId: string; toStage: string }) {
   const fromStage = lead?.stage;
   if (fromStage) {
     await pipelineStore.moveLeadStage(payload.leadId, fromStage, payload.toStage);
+    // Refresh after backend event handlers process (auto-transition, task creation)
+    setTimeout(() => loadData(), 2000);
   }
 }
 

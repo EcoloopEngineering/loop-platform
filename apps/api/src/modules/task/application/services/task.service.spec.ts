@@ -31,6 +31,7 @@ describe('TaskService', () => {
       findLeadWithMetadataAndState: jest.fn(),
       createLeadActivity: jest.fn(),
       findLeadMetadataOnly: jest.fn(),
+      updateLeadMetadata: jest.fn(),
       findSiblingTasks: jest.fn(),
     };
     emitter = { emit: jest.fn() };
@@ -133,6 +134,54 @@ describe('TaskService', () => {
       await service.update('t1', { title: 'New', priority: 5 });
 
       expect(repo.update).toHaveBeenCalledWith('t1', { title: 'New', priority: 5 });
+    });
+
+    it('should emit task.statusChanged when status changes', async () => {
+      repo.findByIdSimple.mockResolvedValue({
+        id: 't1',
+        title: 'Permit Submission',
+        status: 'OPEN',
+        leadId: 'lead-1',
+        templateKey: 'tmpl-1',
+      } as any);
+      repo.update.mockResolvedValue({ id: 't1', status: 'IN_PROGRESS' } as any);
+
+      await service.update('t1', { status: 'IN_PROGRESS' as any });
+
+      expect(emitter.emit).toHaveBeenCalledWith('task.statusChanged', {
+        taskId: 't1',
+        leadId: 'lead-1',
+        templateKey: 'tmpl-1',
+        title: 'Permit Submission',
+        previousStatus: 'OPEN',
+        newStatus: 'IN_PROGRESS',
+      });
+    });
+
+    it('should not emit task.statusChanged when status is unchanged', async () => {
+      repo.findByIdSimple.mockResolvedValue({
+        id: 't1',
+        title: 'Task',
+        status: 'OPEN',
+      } as any);
+      repo.update.mockResolvedValue({ id: 't1' } as any);
+
+      await service.update('t1', { status: 'OPEN' as any });
+
+      expect(emitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('should not emit task.statusChanged when only title changes', async () => {
+      repo.findByIdSimple.mockResolvedValue({
+        id: 't1',
+        title: 'Old Title',
+        status: 'OPEN',
+      } as any);
+      repo.update.mockResolvedValue({ id: 't1' } as any);
+
+      await service.update('t1', { title: 'New Title' });
+
+      expect(emitter.emit).not.toHaveBeenCalled();
     });
   });
 

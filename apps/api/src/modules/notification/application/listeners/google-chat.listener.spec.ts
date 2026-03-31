@@ -10,6 +10,7 @@ describe('GoogleChatListener', () => {
     handleNoteAdded: jest.Mock;
     handlePMAssigned: jest.Mock;
     handleScoreboard: jest.Mock;
+    handlePmPipelineEntry: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -19,6 +20,7 @@ describe('GoogleChatListener', () => {
       handleNoteAdded: jest.fn().mockResolvedValue(undefined),
       handlePMAssigned: jest.fn().mockResolvedValue(undefined),
       handleScoreboard: jest.fn().mockResolvedValue(undefined),
+      handlePmPipelineEntry: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -53,6 +55,30 @@ describe('GoogleChatListener', () => {
     const payload = { leadId: '1', pmName: 'Bob', customerName: 'Test' };
     await listener.handlePMAssigned(payload);
     expect(service.handlePMAssigned).toHaveBeenCalledWith(payload);
+  });
+
+  it('delegates handlePmPipelineEntry on SITE_AUDIT stage', async () => {
+    const payload = {
+      leadId: '1',
+      customerName: 'Test',
+      previousStage: 'DESIGN_READY',
+      newStage: 'SITE_AUDIT',
+    };
+    await listener.handleStageChanged(payload);
+    expect(service.handleStageChanged).toHaveBeenCalledWith(payload);
+    expect(service.handlePmPipelineEntry).toHaveBeenCalledWith(payload);
+  });
+
+  it('does not call handlePmPipelineEntry for non-SITE_AUDIT stages', async () => {
+    const payload = {
+      leadId: '1',
+      customerName: 'Test',
+      previousStage: 'NEW_LEAD',
+      newStage: 'DESIGN_READY',
+    };
+    await listener.handleStageChanged(payload);
+    expect(service.handleStageChanged).toHaveBeenCalledWith(payload);
+    expect(service.handlePmPipelineEntry).not.toHaveBeenCalled();
   });
 
   it('catches errors without rethrowing', async () => {

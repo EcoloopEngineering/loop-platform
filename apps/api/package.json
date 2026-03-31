@@ -15,7 +15,8 @@
     "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"*.spec.ts\" --fix",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "ts-node prisma/seed.ts"
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:seed:tasks": "ts-node prisma/seed-task-templates.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch-logs": "^3.1015.0",

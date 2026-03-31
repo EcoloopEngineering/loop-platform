@@ -33,6 +33,7 @@ describe('StageTaskListener', () => {
       updateTemplate: jest.fn(),
       deleteTemplate: jest.fn(),
       findSiblingTasks: jest.fn(),
+      updateLeadMetadata: jest.fn(),
     };
     googleChat = {
       isConfigured: jest.fn().mockReturnValue(false),
@@ -137,6 +138,32 @@ describe('StageTaskListener', () => {
     });
 
     expect(repo.createLeadActivity).not.toHaveBeenCalled();
+  });
+
+  it('should send chat notification using googleChatSpaceName key', async () => {
+    repo.findActiveTemplatesByStage.mockResolvedValue([{ id: 'tmpl-1' }]);
+    repo.findLeadWithMetadataAndState.mockResolvedValue({
+      id: 'lead-1',
+      metadata: {},
+      property: { state: 'CT' },
+    });
+    taskCreationService.createTasksFromTemplates.mockResolvedValue(['task-1']);
+    googleChat.isConfigured.mockReturnValue(true);
+    repo.findLeadMetadataOnly.mockResolvedValue({
+      metadata: { googleChatSpaceName: 'spaces/test' },
+    });
+
+    await listener.handleStageChanged({
+      leadId: 'lead-1',
+      customerName: 'Test',
+      previousStage: 'NEW_LEAD',
+      newStage: 'DESIGN_READY',
+    });
+
+    expect(googleChat.sendMessage).toHaveBeenCalledWith(
+      'spaces/test',
+      expect.stringContaining('1 new task(s)'),
+    );
   });
 
   describe('evaluateConditions', () => {

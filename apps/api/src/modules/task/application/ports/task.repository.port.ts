@@ -82,6 +82,7 @@ export interface TaskRepositoryPort {
   findLeadWithMetadataAndState(leadId: string): Promise<{
     id: string;
     metadata: unknown;
+    financier: string | null;
     property: { state: string } | null;
   } | null>;
 
@@ -93,6 +94,8 @@ export interface TaskRepositoryPort {
   }): Promise<any>;
 
   findLeadMetadataOnly(leadId: string): Promise<{ metadata: unknown } | null>;
+
+  updateLeadMetadata(leadId: string, metadata: Record<string, unknown>): Promise<void>;
 
   /* ── Used by TaskCompletedListener ── */
   findSiblingTasks(leadId: string, templateKey: string): Promise<Array<{ id: string; status: string }>>;

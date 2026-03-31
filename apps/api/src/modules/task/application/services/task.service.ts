@@ -42,6 +42,17 @@ export class TaskService {
     if (dto.dueDate !== undefined) data.dueDate = new Date(dto.dueDate);
     if (dto.metadata !== undefined) data.metadata = dto.metadata;
 
+    if (dto.status && dto.status !== existing.status) {
+      this.emitter.emit('task.statusChanged', {
+        taskId: id,
+        leadId: existing.leadId,
+        templateKey: existing.templateKey,
+        title: existing.title,
+        previousStatus: existing.status,
+        newStatus: dto.status,
+      });
+    }
+
     return this.taskRepo.update(id, data);
   }
 

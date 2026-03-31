@@ -10,6 +10,7 @@ describe('GoogleChatNotificationService', () => {
     findLeadMetadata: jest.Mock;
     findLeadWithPrimaryAssignment: jest.Mock;
     updateLeadMetadata: jest.Mock;
+    findAdminEmails: jest.Mock;
   };
   let chatService: {
     isConfigured: jest.Mock;
@@ -24,6 +25,7 @@ describe('GoogleChatNotificationService', () => {
       findLeadMetadata: jest.fn(),
       findLeadWithPrimaryAssignment: jest.fn(),
       updateLeadMetadata: jest.fn().mockResolvedValue(undefined),
+      findAdminEmails: jest.fn().mockResolvedValue([]),
     };
     chatService = {
       isConfigured: jest.fn().mockReturnValue(true),
@@ -187,6 +189,77 @@ describe('GoogleChatNotificationService', () => {
       });
 
       expect(notificationRepo.findLeadWithPrimaryAssignment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handlePmPipelineEntry', () => {
+    it('creates space with PM and admin members', async () => {
+      notificationRepo.findLeadMetadata.mockResolvedValue({ metadata: {} });
+      notificationRepo.findLeadWithStakeholders.mockResolvedValue({
+        id: '1',
+        metadata: {},
+        property: { streetAddress: '456 Oak', city: 'Tampa', state: 'FL' },
+        assignments: [{ user: { email: 'rep@ecoloop.us' } }],
+        projectManager: { email: 'pm@ecoloop.us' },
+      });
+      notificationRepo.findAdminEmails.mockResolvedValue(['admin@ecoloop.us']);
+
+      await service.handlePmPipelineEntry({
+        leadId: '1',
+        customerName: 'Jane Smith',
+        previousStage: 'DESIGN_READY',
+        newStage: 'SITE_AUDIT',
+      });
+
+      expect(chatService.createSpace).toHaveBeenCalledWith({
+        displayName: 'Jane Smith | 456 Oak, Tampa, FL',
+        members: expect.arrayContaining(['pm@ecoloop.us', 'admin@ecoloop.us', 'rep@ecoloop.us']),
+      });
+      expect(notificationRepo.updateLeadMetadata).toHaveBeenCalledWith('1', {
+        googleChatSpaceName: 'spaces/abc',
+      });
+    });
+
+    it('skips when lead already has a Google Chat space', async () => {
+      notificationRepo.findLeadMetadata.mockResolvedValue({
+        metadata: { googleChatSpaceName: 'spaces/existing' },
+      });
+
+      await service.handlePmPipelineEntry({
+        leadId: '1',
+        customerName: 'Jane Smith',
+        previousStage: 'DESIGN_READY',
+        newStage: 'SITE_AUDIT',
+      });
+
+      expect(chatService.createSpace).not.toHaveBeenCalled();
+    });
+
+    it('skips when not configured', async () => {
+      chatService.isConfigured.mockReturnValue(false);
+
+      await service.handlePmPipelineEntry({
+        leadId: '1',
+        customerName: 'Test',
+        previousStage: 'DESIGN_READY',
+        newStage: 'SITE_AUDIT',
+      });
+
+      expect(notificationRepo.findLeadMetadata).not.toHaveBeenCalled();
+    });
+
+    it('skips when lead not found', async () => {
+      notificationRepo.findLeadMetadata.mockResolvedValue({ metadata: {} });
+      notificationRepo.findLeadWithStakeholders.mockResolvedValue(null);
+
+      await service.handlePmPipelineEntry({
+        leadId: '1',
+        customerName: 'Test',
+        previousStage: 'DESIGN_READY',
+        newStage: 'SITE_AUDIT',
+      });
+
+      expect(chatService.createSpace).not.toHaveBeenCalled();
     });
   });
 });

@@ -31,6 +31,7 @@ describe('TaskCompletedListener', () => {
       findActiveTemplatesByStage: jest.fn(),
       findLeadWithMetadataAndState: jest.fn(),
       findLeadMetadataOnly: jest.fn(),
+      updateLeadMetadata: jest.fn(),
     };
     emitter = { emit: jest.fn() };
 

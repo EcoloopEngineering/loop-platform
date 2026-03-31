@@ -29,7 +29,7 @@ describe('TaskCreationService', () => {
   });
 
   describe('createTasksFromTemplates', () => {
-    const mockLead = { id: 'lead-1', metadata: {}, property: { state: 'CT' } };
+    const mockLead = { id: 'lead-1', metadata: {}, financier: null, property: { state: 'CT' } };
     const mockPayload = { leadId: 'lead-1', customerName: 'John Doe', newStage: 'DESIGN_READY' };
 
     it('should create tasks from templates', async () => {
@@ -109,6 +109,117 @@ describe('TaskCreationService', () => {
       const result = await service.createTasksFromTemplates([], mockLead, mockPayload);
       expect(result).toEqual([]);
     });
+
+    it('should add state-based subtasks when stateSubtasks matches lead state', async () => {
+      const templates = [
+        {
+          id: 'tmpl-1',
+          title: 'Design',
+          description: null,
+          defaultAssigneeRole: null,
+          defaultAssigneeEmail: null,
+          subtasks: [{ title: 'Standard Sub' }],
+          conditions: {
+            stateSubtasks: {
+              CT: ['HES Audit', 'Check offset'],
+              RI: ['Test on RI spreadsheet'],
+            },
+          },
+          sortOrder: 1,
+        },
+      ];
+      taskRepo.createTask.mockResolvedValue({ id: 'task-1' });
+
+      const lead = { id: 'lead-1', metadata: {}, financier: null, property: { state: 'CT' } };
+      const result = await service.createTasksFromTemplates(templates, lead, mockPayload);
+
+      expect(result).toEqual(['task-1']);
+      // 1 parent + 1 standard sub + 2 state subs = 4
+      expect(taskRepo.createTask).toHaveBeenCalledTimes(4);
+      expect(taskRepo.createTask).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'HES Audit', parentTaskId: 'task-1' }),
+      );
+      expect(taskRepo.createTask).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Check offset', parentTaskId: 'task-1' }),
+      );
+    });
+
+    it('should NOT add state subtasks when lead state does not match', async () => {
+      const templates = [
+        {
+          id: 'tmpl-1',
+          title: 'Design',
+          description: null,
+          defaultAssigneeRole: null,
+          defaultAssigneeEmail: null,
+          subtasks: null,
+          conditions: { stateSubtasks: { CT: ['HES Audit'] } },
+          sortOrder: 1,
+        },
+      ];
+      taskRepo.createTask.mockResolvedValue({ id: 'task-1' });
+
+      const lead = { id: 'lead-1', metadata: {}, financier: null, property: { state: 'MA' } };
+      const result = await service.createTasksFromTemplates(templates, lead, mockPayload);
+
+      expect(result).toEqual(['task-1']);
+      // Only the parent task, no state subtasks
+      expect(taskRepo.createTask).toHaveBeenCalledTimes(1);
+    });
+
+    it('should override assignee role when stateOverride matches lead state', async () => {
+      const templates = [
+        {
+          id: 'tmpl-1',
+          title: 'Permit',
+          description: null,
+          defaultAssigneeRole: 'PERMIT_SPECIALIST',
+          defaultAssigneeEmail: null,
+          subtasks: null,
+          conditions: { stateOverride: { CT: 'PM', RI: 'PM' } },
+          sortOrder: 1,
+        },
+      ];
+      taskRepo.createTask.mockResolvedValue({ id: 'task-1' });
+      taskRepo.findLeadProjectManagerId.mockResolvedValue('pm-user-1');
+      taskRepo.findActiveUserByRole.mockResolvedValue({ id: 'permit-user' });
+
+      const lead = { id: 'lead-1', metadata: {}, financier: null, property: { state: 'CT' } };
+      const result = await service.createTasksFromTemplates(templates, lead, mockPayload);
+
+      expect(result).toEqual(['task-1']);
+      // PM role was resolved, so findLeadProjectManagerId should have been called
+      expect(taskRepo.findLeadProjectManagerId).toHaveBeenCalledWith('lead-1');
+      // The task should be assigned to PM, not PERMIT_SPECIALIST
+      expect(taskRepo.createTask).toHaveBeenCalledWith(
+        expect.objectContaining({ assigneeId: 'pm-user-1' }),
+      );
+    });
+
+    it('should NOT override assignee when stateOverride does not match lead state', async () => {
+      const templates = [
+        {
+          id: 'tmpl-1',
+          title: 'Permit',
+          description: null,
+          defaultAssigneeRole: 'PERMIT_SPECIALIST',
+          defaultAssigneeEmail: null,
+          subtasks: null,
+          conditions: { stateOverride: { CT: 'PM', RI: 'PM' } },
+          sortOrder: 1,
+        },
+      ];
+      taskRepo.createTask.mockResolvedValue({ id: 'task-1' });
+      taskRepo.findActiveUserByRole.mockResolvedValue({ id: 'permit-user' });
+
+      const lead = { id: 'lead-1', metadata: {}, financier: null, property: { state: 'MA' } };
+      const result = await service.createTasksFromTemplates(templates, lead, mockPayload);
+
+      expect(result).toEqual(['task-1']);
+      // Should NOT have tried to resolve PM — used the default PERMIT_SPECIALIST role
+      expect(taskRepo.findLeadProjectManagerId).not.toHaveBeenCalled();
+      expect(taskRepo.findActiveUserByRole).toHaveBeenCalledWith('PERMIT_SPECIALIST');
+    });
   });
 
   describe('resolveAssignee', () => {
@@ -186,20 +297,99 @@ describe('TaskCreationService', () => {
 
   describe('evaluateConditions', () => {
     it('should return true when no conditions', () => {
-      expect(service.evaluateConditions(null, { id: '1', metadata: {}, property: null })).toBe(true);
-      expect(service.evaluateConditions({}, { id: '1', metadata: {}, property: null })).toBe(true);
+      expect(service.evaluateConditions(null, { id: '1', metadata: {}, financier: null, property: null })).toBe(true);
+      expect(service.evaluateConditions({}, { id: '1', metadata: {}, financier: null, property: null })).toBe(true);
     });
 
     it('should check state condition', () => {
-      const lead = { id: '1', metadata: {}, property: { state: 'CT' } };
+      const lead = { id: '1', metadata: {}, financier: null, property: { state: 'CT' } };
       expect(service.evaluateConditions({ state: 'CT' }, lead)).toBe(true);
       expect(service.evaluateConditions({ state: 'NY' }, lead)).toBe(false);
     });
 
     it('should check metadata conditions', () => {
-      const lead = { id: '1', metadata: { hasStructural: true }, property: { state: 'CT' } };
+      const lead = { id: '1', metadata: { hasStructural: true }, financier: null, property: { state: 'CT' } };
       expect(service.evaluateConditions({ hasStructural: true }, lead)).toBe(true);
       expect(service.evaluateConditions({ hasStructural: false }, lead)).toBe(false);
+    });
+
+    it('should skip directive keys (nextStage, stateOverride, stateSubtasks)', () => {
+      const lead = { id: '1', metadata: {}, financier: null, property: { state: 'CT' } };
+      // These are directives, not filter conditions — should return true
+      expect(service.evaluateConditions({ nextStage: 'NTP' }, lead)).toBe(true);
+      expect(service.evaluateConditions({ stateOverride: { CT: 'PM' } }, lead)).toBe(true);
+      expect(service.evaluateConditions({ stateSubtasks: { CT: ['HES Audit'] } }, lead)).toBe(true);
+    });
+
+    it('should skip directive keys but still check other conditions', () => {
+      const lead = { id: '1', metadata: {}, financier: 'Cash Deal - Sunrun', property: { state: 'CT' } };
+      // nextStage is skipped, financierIncludes is checked
+      expect(service.evaluateConditions({ nextStage: 'NTP', financierIncludes: 'Cash Deal' }, lead)).toBe(true);
+      expect(service.evaluateConditions({ nextStage: 'NTP', financierIncludes: 'Mosaic' }, lead)).toBe(false);
+    });
+
+    describe('upgradesIncludes', () => {
+      it('should match when upgrades is a string containing the value', () => {
+        const lead = { id: '1', metadata: { upgrades: 'Structural' }, financier: null, property: null };
+        expect(service.evaluateConditions({ upgradesIncludes: 'Structural' }, lead)).toBe(true);
+      });
+
+      it('should match when upgrades is an array containing the value', () => {
+        const lead = { id: '1', metadata: { upgrades: ['Structural', 'Roofing'] }, financier: null, property: null };
+        expect(service.evaluateConditions({ upgradesIncludes: 'Structural' }, lead)).toBe(true);
+      });
+
+      it('should match when upgrades is a comma-separated string', () => {
+        const lead = { id: '1', metadata: { upgrades: 'Structural, Roofing' }, financier: null, property: null };
+        expect(service.evaluateConditions({ upgradesIncludes: 'Structural' }, lead)).toBe(true);
+      });
+
+      it('should be case-insensitive', () => {
+        const lead = { id: '1', metadata: { upgrades: ['structural'] }, financier: null, property: null };
+        expect(service.evaluateConditions({ upgradesIncludes: 'Structural' }, lead)).toBe(true);
+      });
+
+      it('should return false when upgrades does not contain the value', () => {
+        const lead = { id: '1', metadata: { upgrades: ['Roofing'] }, financier: null, property: null };
+        expect(service.evaluateConditions({ upgradesIncludes: 'Structural' }, lead)).toBe(false);
+      });
+
+      it('should return false when upgrades is missing', () => {
+        const lead = { id: '1', metadata: {}, financier: null, property: null };
+        expect(service.evaluateConditions({ upgradesIncludes: 'Structural' }, lead)).toBe(false);
+      });
+
+      it('should match any value when conditionValue is an array', () => {
+        const lead = { id: '1', metadata: { upgrades: ['ROOFING'] }, financier: null, property: null };
+        expect(service.evaluateConditions({ upgradesIncludes: ['ROOFING', 'REROOF'] }, lead)).toBe(true);
+      });
+
+      it('should return false when none of the array values match', () => {
+        const lead = { id: '1', metadata: { upgrades: ['Structural'] }, financier: null, property: null };
+        expect(service.evaluateConditions({ upgradesIncludes: ['ROOFING', 'REROOF'] }, lead)).toBe(false);
+      });
+    });
+
+    describe('financierIncludes', () => {
+      it('should match when financier contains the substring', () => {
+        const lead = { id: '1', metadata: {}, financier: 'Cash Deal - Direct', property: null };
+        expect(service.evaluateConditions({ financierIncludes: 'Cash Deal' }, lead)).toBe(true);
+      });
+
+      it('should be case-insensitive', () => {
+        const lead = { id: '1', metadata: {}, financier: 'cash deal', property: null };
+        expect(service.evaluateConditions({ financierIncludes: 'Cash Deal' }, lead)).toBe(true);
+      });
+
+      it('should return false when financier does not contain the substring', () => {
+        const lead = { id: '1', metadata: {}, financier: 'Sunrun Lease', property: null };
+        expect(service.evaluateConditions({ financierIncludes: 'Cash Deal' }, lead)).toBe(false);
+      });
+
+      it('should return false when financier is null', () => {
+        const lead = { id: '1', metadata: {}, financier: null, property: null };
+        expect(service.evaluateConditions({ financierIncludes: 'Cash Deal' }, lead)).toBe(false);
+      });
     });
   });
 });

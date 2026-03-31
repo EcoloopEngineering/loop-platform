@@ -188,6 +188,7 @@ export class PrismaTaskRepository implements TaskRepositoryPort {
   async findLeadWithMetadataAndState(leadId: string): Promise<{
     id: string;
     metadata: unknown;
+    financier: string | null;
     property: { state: string } | null;
   } | null> {
     return this.prisma.lead.findUnique({
@@ -195,6 +196,7 @@ export class PrismaTaskRepository implements TaskRepositoryPort {
       select: {
         id: true,
         metadata: true,
+        financier: true,
         property: { select: { state: true } },
       },
     }) as any;
@@ -213,6 +215,13 @@ export class PrismaTaskRepository implements TaskRepositoryPort {
     return this.prisma.lead.findUnique({
       where: { id: leadId },
       select: { metadata: true },
+    });
+  }
+
+  async updateLeadMetadata(leadId: string, metadata: Record<string, unknown>): Promise<void> {
+    await this.prisma.lead.update({
+      where: { id: leadId },
+      data: { metadata: metadata as any },
     });
   }
 

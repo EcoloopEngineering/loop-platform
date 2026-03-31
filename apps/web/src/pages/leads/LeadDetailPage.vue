@@ -48,7 +48,7 @@
           <q-tab-panels v-model="activeTab" animated class="center-panels">
             <LeadTimelineSection :activities="activities" />
             <LeadNotesSection :lead-id="id" :notes="notes" @note-added="onNoteAdded" @note-updated="onNoteUpdated" @note-deleted="onNoteDeleted" />
-            <LeadTasksSection :tasks="leadTasks" @complete-task="completeTask" />
+            <LeadTasksSection :tasks="leadTasks" @complete-task="completeTask" @task-updated="fetchLeadTasks" />
             <LeadDocumentsSection :lead-id="id" :documents="files" @file-added="onFileAdded" @file-deleted="onFileDeleted" />
             <LeadCommissionSection :lines="commissionLines" :total="commissionTotal" />
           </q-tab-panels>
@@ -181,8 +181,31 @@ function onQuickAction(type: string) {
 
 async function onStageChange(newStage: string) {
   try {
+    const oldTaskCount = leadTasks.value.length;
     await leadStore.changeStage(props.id, newStage);
-    $q.notify({ type: 'positive', message: 'Stage updated' });
+
+    // Reload lead (stage may have auto-advanced, e.g. WON → SITE_AUDIT)
+    await leadStore.fetchLead(props.id);
+
+    // Wait for backend event handlers to create tasks, then refresh
+    await new Promise((r) => setTimeout(r, 1500));
+    await fetchLeadTasks();
+    await loadExtras();
+
+    const newTaskCount = leadTasks.value.filter((t) => t.status !== 'COMPLETED').length;
+    const created = newTaskCount - oldTaskCount;
+
+    if (created > 0) {
+      $q.notify({
+        type: 'positive',
+        message: `Stage updated — ${created} new task${created > 1 ? 's' : ''} auto-created`,
+        icon: 'task_alt',
+        timeout: 4000,
+      });
+      activeTab.value = 'tasks';
+    } else {
+      $q.notify({ type: 'positive', message: 'Stage updated' });
+    }
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to update stage' });
   }

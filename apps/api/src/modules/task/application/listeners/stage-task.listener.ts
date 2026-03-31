@@ -90,7 +90,7 @@ export class StageTaskListener {
       const lead = await this.repo.findLeadMetadataOnly(payload.leadId);
 
       const metadata = (lead?.metadata as Record<string, unknown>) ?? {};
-      const spaceName = metadata.googleChatSpace as string | undefined;
+      const spaceName = metadata.googleChatSpaceName as string | undefined;
 
       if (spaceName) {
         await this.googleChat.sendMessage(

@@ -49,6 +49,8 @@ export interface NotificationRepositoryPort {
 
   updateLeadMetadata(leadId: string, metadata: Record<string, unknown>): Promise<void>;
 
+  findAdminEmails(): Promise<string[]>;
+
   // ── Settings ──────────────────────────────────────────────────────────
   findNotificationSetting(): Promise<Record<string, boolean> | null>;
 
