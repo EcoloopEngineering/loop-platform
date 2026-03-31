@@ -141,15 +141,20 @@ describe('PrismaLeadRepository', () => {
   });
 
   describe('delete', () => {
-    it('should soft-delete by setting isActive to false', async () => {
-      prisma.lead.update.mockResolvedValue({ id: 'lead-1', isActive: false });
+    it('should hard-delete lead and related records', async () => {
+      prisma.task.deleteMany.mockResolvedValue({ count: 2 });
+      prisma.leadActivity.deleteMany.mockResolvedValue({ count: 3 });
+      prisma.leadAssignment.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.leadScore.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.lead.delete.mockResolvedValue({ id: 'lead-1' });
 
       await repository.delete('lead-1');
 
-      expect(prisma.lead.update).toHaveBeenCalledWith({
-        where: { id: 'lead-1' },
-        data: { isActive: false },
-      });
+      expect(prisma.task.deleteMany).toHaveBeenCalledWith({ where: { leadId: 'lead-1' } });
+      expect(prisma.leadActivity.deleteMany).toHaveBeenCalledWith({ where: { leadId: 'lead-1' } });
+      expect(prisma.leadAssignment.deleteMany).toHaveBeenCalledWith({ where: { leadId: 'lead-1' } });
+      expect(prisma.leadScore.deleteMany).toHaveBeenCalledWith({ where: { leadId: 'lead-1' } });
+      expect(prisma.lead.delete).toHaveBeenCalledWith({ where: { id: 'lead-1' } });
     });
   });
 
