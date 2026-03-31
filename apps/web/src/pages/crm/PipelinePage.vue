@@ -149,7 +149,7 @@
 
           <template #body-cell-actions="props">
             <q-td :props="props" auto-width>
-              <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="Lead actions menu">
+              <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="Lead actions menu" @click.stop>
                 <q-menu>
                   <q-list dense class="menu-sm">
                     <q-item clickable v-close-popup @click="router.push(`/crm/leads/${props.row.id}`)">
