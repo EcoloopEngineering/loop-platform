@@ -102,6 +102,7 @@ cd apps/web && pnpm dev
 - **Styling**: Scoped SCSS, border-radius 12px, border #E5E7EB, shadow-sm
 
 ### Shared Package
+- **Always use `@loop/shared` for enums and constants** — never define local string literals or type aliases for values that exist in shared (e.g., `CustomerType`, `UserRole`, `LeadStage`). Import from `@loop/shared` in both API and frontend.
 - Build with `pnpm --filter @loop/shared build` before API build
 - Dual CJS/ESM output: `dist/cjs/` and `dist/esm/`
 - Jest maps to `dist/cjs/index.js`
