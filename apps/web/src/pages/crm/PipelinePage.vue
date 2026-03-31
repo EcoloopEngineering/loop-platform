@@ -152,13 +152,23 @@
               <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="Lead actions menu">
                 <q-menu>
                   <q-list dense class="menu-sm">
-                    <q-item clickable v-close-popup @click="$router.push(`/crm/leads/${props.row.id}`)">
+                    <q-item clickable v-close-popup @click="router.push(`/crm/leads/${props.row.id}`)">
                       <q-item-section avatar><q-icon name="visibility" size="18px" /></q-item-section>
                       <q-item-section>View Details</q-item-section>
                     </q-item>
-                    <q-item clickable v-close-popup @click="$router.push(`/crm/leads/${props.row.id}`)">
-                      <q-item-section avatar><q-icon name="edit" size="18px" /></q-item-section>
-                      <q-item-section>Edit Lead</q-item-section>
+                    <q-separator />
+                    <q-item clickable v-close-popup @click="quickStageChange(props.row.id, props.row.stage, 'advance')">
+                      <q-item-section avatar><q-icon name="arrow_forward" size="18px" color="primary" /></q-item-section>
+                      <q-item-section>Advance Stage</q-item-section>
+                    </q-item>
+                    <q-item clickable v-close-popup @click="markLeadLost(props.row.id)">
+                      <q-item-section avatar><q-icon name="thumb_down" size="18px" color="orange" /></q-item-section>
+                      <q-item-section>Mark as Lost</q-item-section>
+                    </q-item>
+                    <q-separator />
+                    <q-item clickable v-close-popup @click="deleteLead(props.row.id, props.row.customerName)">
+                      <q-item-section avatar><q-icon name="delete" size="18px" color="negative" /></q-item-section>
+                      <q-item-section class="text-negative">Delete Lead</q-item-section>
                     </q-item>
                   </q-list>
                 </q-menu>
@@ -174,6 +184,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
+import { api } from '@/boot/axios';
 import { usePipelineStore } from '@/stores/pipeline.store';
 import PipelineBoard from '@/components/pipeline/PipelineBoard.vue';
 import PipelineFilters from '@/components/pipeline/PipelineFilters.vue';
@@ -190,6 +202,7 @@ import {
 
 const { stageColor, formatStage, formatSource } = useLeadFormatting();
 
+const $q = useQuasar();
 const router = useRouter();
 const pipelineStore = usePipelineStore();
 const viewMode = ref('list');
@@ -366,6 +379,65 @@ function scoreColor(score: number) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Get the next stage in sequence for the current pipeline tab
+function getNextStage(currentStage: string): string | null {
+  const stageList = PIPELINE_STAGE_SETS[pipelineTab.value];
+  if (!stageList) return null;
+  const allStagesInTab = allStages.value.filter((s) => stageList.has(s.id));
+  const sorted = allStagesInTab.sort((a, b) => a.order - b.order);
+  const idx = sorted.findIndex((s) => s.id === currentStage);
+  return idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1].id : null;
+}
+
+async function quickStageChange(leadId: string, currentStage: string, _action: string) {
+  const next = getNextStage(currentStage);
+  if (!next) {
+    $q.notify({ type: 'warning', message: 'This lead is already at the last stage' });
+    return;
+  }
+  try {
+    await pipelineStore.moveLeadStage(leadId, currentStage, next);
+    $q.notify({ type: 'positive', message: `Lead advanced to ${formatStage(next)}` });
+    setTimeout(() => loadData(), 2000);
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to advance stage' });
+  }
+}
+
+async function markLeadLost(leadId: string) {
+  $q.dialog({
+    title: 'Mark as Lost',
+    message: 'Why was this lead lost?',
+    prompt: { model: '', type: 'text', label: 'Reason' },
+    cancel: true,
+  }).onOk(async (reason: string) => {
+    try {
+      await api.patch(`/leads/${leadId}/lost`, { reason: reason || 'No reason provided' });
+      $q.notify({ type: 'positive', message: 'Lead marked as lost' });
+      loadData();
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to mark lead as lost' });
+    }
+  });
+}
+
+function deleteLead(leadId: string, customerName: string) {
+  $q.dialog({
+    title: 'Delete Lead',
+    message: `Are you sure you want to delete "${customerName}"? This action cannot be undone.`,
+    cancel: true,
+    ok: { label: 'Delete', color: 'negative', flat: true },
+  }).onOk(async () => {
+    try {
+      await api.delete(`/leads/${leadId}`);
+      $q.notify({ type: 'positive', message: 'Lead deleted' });
+      loadData();
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to delete lead' });
+    }
+  });
 }
 </script>
 
