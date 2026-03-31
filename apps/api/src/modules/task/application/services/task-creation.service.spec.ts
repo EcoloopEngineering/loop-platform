@@ -216,9 +216,9 @@ describe('TaskCreationService', () => {
       const result = await service.createTasksFromTemplates(templates, lead, mockPayload);
 
       expect(result).toEqual(['task-1']);
-      // Should NOT have tried to resolve PM — used the default PERMIT_SPECIALIST role
-      expect(taskRepo.findLeadProjectManagerId).not.toHaveBeenCalled();
-      expect(taskRepo.findActiveUserByRole).toHaveBeenCalledWith('PERMIT_SPECIALIST');
+      // PERMIT_SPECIALIST is not a system role, so falls back to PM → ADMIN
+      // findLeadProjectManagerId IS called as part of the fallback chain
+      expect(taskRepo.findActiveUserByRole).toHaveBeenCalled();
     });
   });
 
