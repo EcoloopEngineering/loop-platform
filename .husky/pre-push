@@ -1,0 +1,24 @@
+#!/bin/bash
+# Claude Code quick review before push
+# Only runs if claude CLI is available
+
+if command -v claude &> /dev/null; then
+  echo "🔍 Running Claude Code quick review on pushed changes..."
+
+  # Get the diff of what's being pushed
+  DIFF=$(git diff @{push}..HEAD --stat 2>/dev/null)
+
+  if [ -z "$DIFF" ]; then
+    echo "No changes to review."
+    exit 0
+  fi
+
+  echo "$DIFF"
+  echo ""
+
+  # Quick review — non-blocking (warns but doesn't prevent push)
+  claude -p "Quick review these changes for the Loop Platform. Only flag critical issues (security, bugs, broken tests). Be brief — max 5 lines. If no issues, say 'LGTM'." --max-turns 1 2>/dev/null || true
+
+  echo ""
+  echo "✅ Push continuing..."
+fi
