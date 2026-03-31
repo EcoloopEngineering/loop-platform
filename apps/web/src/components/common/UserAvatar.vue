@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { computed } from 'vue';
 import { API_URL } from '@/config/api';
 
 const props = withDefaults(
@@ -15,18 +15,26 @@ const props = withDefaults(
     name?: string;
     size?: string;
     color?: string;
+    /** Pass the profileImage URL if known — avoids HEAD request */
+    avatarSrc?: string | null;
   }>(),
   {
     userId: null,
     name: '',
     size: '36px',
     color: 'primary',
+    avatarSrc: null,
   },
 );
 
-const apiBase = API_URL;
-const avatarUrl = ref<string | null>(null);
-const hasAvatar = ref(false);
+const avatarUrl = computed(() => {
+  if (props.avatarSrc) {
+    return props.avatarSrc.startsWith('/api/')
+      ? `${API_URL}${props.avatarSrc}`
+      : props.avatarSrc;
+  }
+  return null;
+});
 
 const bgColor = computed(() => props.color);
 
@@ -46,22 +54,6 @@ const initials = computed(() => {
     .join('')
     .toUpperCase()
     .slice(0, 2);
-});
-
-onMounted(async () => {
-  if (!props.userId) return;
-
-  // Try to load avatar from API
-  try {
-    const url = `${apiBase}/api/v1/users/avatar/${props.userId}`;
-    const res = await fetch(url, { method: 'HEAD' });
-    if (res.ok) {
-      avatarUrl.value = url;
-      hasAvatar.value = true;
-    }
-  } catch {
-    // No avatar available
-  }
 });
 </script>
 
