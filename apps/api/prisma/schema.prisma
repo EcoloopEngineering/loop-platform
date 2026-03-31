@@ -147,15 +147,22 @@ model Referral {
 
 // ==================== CRM CONTEXT ====================
 
+enum CustomerType {
+  PROSPECT
+  LEAD
+}
+
 model Customer {
-  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  firstName        String   @map("first_name")
-  lastName         String   @map("last_name")
+  id               String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  firstName        String       @map("first_name")
+  lastName         String       @map("last_name")
   email            String?
   phone            String?
   source           String?
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  type             CustomerType @default(PROSPECT)
+  socialLink       String?      @map("social_link")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
 
   properties Property[]
   leads      Lead[]

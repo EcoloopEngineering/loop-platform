@@ -5,6 +5,11 @@ export enum UserRole {
   REFERRAL = 'REFERRAL',
 }
 
+export enum CustomerType {
+  LEAD = 'LEAD',
+  PROSPECT = 'PROSPECT',
+}
+
 export enum LeadStatus {
   ACTIVE = 'ACTIVE',
   LOST = 'LOST',

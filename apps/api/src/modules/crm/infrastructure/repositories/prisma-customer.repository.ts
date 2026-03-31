@@ -14,8 +14,10 @@ export class PrismaCustomerRepository implements CustomerRepositoryPort {
     email?: string | null;
     phone?: string | null;
     source?: string | null;
+    type?: string;
+    socialLink?: string | null;
   }): Promise<CustomerEntity> {
-    const customer = await this.prisma.customer.create({ data });
+    const customer = await this.prisma.customer.create({ data: data as any });
     return new CustomerEntity(customer);
   }
 
@@ -35,8 +37,13 @@ export class PrismaCustomerRepository implements CustomerRepositoryPort {
     page: number;
     limit: number;
     search?: string;
+    type?: string;
   }): Promise<{ data: CustomerEntity[]; total: number }> {
     const where: Prisma.CustomerWhereInput = {};
+
+    if (params.type) {
+      where.type = params.type as any;
+    }
 
     if (params.search) {
       where.OR = [

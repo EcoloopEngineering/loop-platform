@@ -1,3 +1,5 @@
+import { CustomerType } from '@loop/shared';
+
 export class CustomerEntity {
   id: string;
   firstName: string;
@@ -5,6 +7,8 @@ export class CustomerEntity {
   email: string | null;
   phone: string | null;
   source: string | null;
+  type: CustomerType;
+  socialLink: string | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -16,16 +20,27 @@ export class CustomerEntity {
     return `${this.firstName} ${this.lastName}`;
   }
 
+  get isProspect(): boolean {
+    return this.type === CustomerType.PROSPECT;
+  }
+
+  convertToLead(): void {
+    this.type = CustomerType.LEAD;
+    this.updatedAt = new Date();
+  }
+
   updateContact(data: {
     firstName?: string;
     lastName?: string;
     email?: string | null;
     phone?: string | null;
+    socialLink?: string | null;
   }): void {
     if (data.firstName !== undefined) this.firstName = data.firstName;
     if (data.lastName !== undefined) this.lastName = data.lastName;
     if (data.email !== undefined) this.email = data.email;
     if (data.phone !== undefined) this.phone = data.phone;
+    if (data.socialLink !== undefined) this.socialLink = data.socialLink;
     this.updatedAt = new Date();
   }
 }

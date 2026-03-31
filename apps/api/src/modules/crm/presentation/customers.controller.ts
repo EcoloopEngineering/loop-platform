@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Param,
   Body,
   Query,
@@ -11,11 +12,11 @@ import {
   ParseUUIDPipe,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
-import { UserRole } from '@loop/shared';
+import { UserRole, CustomerType } from '@loop/shared';
 import { PaginationDto, PaginatedResponse } from '../../../common/dto/pagination.dto';
 import {
   CUSTOMER_REPOSITORY,
@@ -36,11 +37,16 @@ export class CustomersController {
   @Get()
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   @ApiOperation({ summary: 'List customers with pagination' })
-  async list(@Query() query: PaginationDto): Promise<PaginatedResponse<CustomerEntity>> {
+  @ApiQuery({ name: 'type', required: false, enum: CustomerType })
+  async list(
+    @Query() query: PaginationDto,
+    @Query('type') type?: CustomerType,
+  ): Promise<PaginatedResponse<CustomerEntity>> {
     const { data, total } = await this.customerRepo.findAll({
       page: query.page,
       limit: query.limit,
       search: query.search,
+      type,
     });
     return new PaginatedResponse(data, total, query.page, query.limit);
   }
@@ -65,6 +71,8 @@ export class CustomersController {
       email?: string;
       phone?: string;
       source?: string;
+      type?: CustomerType;
+      socialLink?: string;
     },
   ): Promise<CustomerEntity> {
     return this.customerRepo.create(body);
@@ -81,10 +89,24 @@ export class CustomersController {
       lastName?: string;
       email?: string;
       phone?: string;
+      socialLink?: string;
+      source?: string;
     },
   ): Promise<CustomerEntity> {
     const existing = await this.customerRepo.findById(id);
     if (!existing) throw new NotFoundException('Customer not found');
     return this.customerRepo.update(id, body);
+  }
+
+  @Patch(':id/convert')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @ApiOperation({ summary: 'Convert a prospect to lead type' })
+  async convertToLead(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<CustomerEntity> {
+    const customer = await this.customerRepo.findById(id);
+    if (!customer) throw new NotFoundException('Customer not found');
+    if (customer.type === CustomerType.LEAD) return customer;
+    return this.customerRepo.update(id, { type: CustomerType.LEAD });
   }
 }

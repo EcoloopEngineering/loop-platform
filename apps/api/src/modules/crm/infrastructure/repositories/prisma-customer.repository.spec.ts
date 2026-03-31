@@ -10,6 +10,8 @@ const mockCustomer = {
   email: 'john@example.com',
   phone: '555-0100',
   source: 'DIRECT',
+  type: 'PROSPECT',
+  socialLink: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -95,6 +97,17 @@ describe('PrismaCustomerRepository', () => {
 
       expect(prisma.customer.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ OR: expect.any(Array) }) }),
+      );
+    });
+
+    it('should filter by type', async () => {
+      prisma.customer.findMany.mockResolvedValue([mockCustomer]);
+      prisma.customer.count.mockResolvedValue(1);
+
+      await repo.findAll({ page: 1, limit: 10, type: 'PROSPECT' });
+
+      expect(prisma.customer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ type: 'PROSPECT' }) }),
       );
     });
   });

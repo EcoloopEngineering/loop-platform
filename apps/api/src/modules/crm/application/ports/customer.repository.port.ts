@@ -1,3 +1,4 @@
+import { CustomerType } from '@loop/shared';
 import { CustomerEntity } from '../../domain/entities/customer.entity';
 
 export interface CustomerRaw {
@@ -16,6 +17,8 @@ export interface CustomerRepositoryPort {
     email?: string | null;
     phone?: string | null;
     source?: string | null;
+    type?: CustomerType;
+    socialLink?: string | null;
   }): Promise<CustomerEntity>;
   findById(id: string): Promise<CustomerEntity | null>;
   findByEmail(email: string): Promise<CustomerEntity | null>;
@@ -23,6 +26,7 @@ export interface CustomerRepositoryPort {
     page: number;
     limit: number;
     search?: string;
+    type?: CustomerType;
   }): Promise<{ data: CustomerEntity[]; total: number }>;
   update(id: string, data: Partial<CustomerEntity>): Promise<CustomerEntity>;
 
