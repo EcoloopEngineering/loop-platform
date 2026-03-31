@@ -54,19 +54,17 @@ export const useAuthStore = defineStore(
       error.value = null;
       try {
         const [firstName, ...rest] = (extra?.name || '').split(' ');
-        const { data } = await api.post('/auth/register', {
+        const [firstName2, ...restParts] = (extra?.name || '').split(' ');
+        await api.post('/auth/register', {
           email,
           password,
-          firstName: firstName || email.split('@')[0],
-          lastName: rest.join(' ') || '',
+          firstName: firstName2 || email.split('@')[0],
+          lastName: restParts.join(' ') || '',
           phone: extra?.phone,
           role: extra?.role,
           inviteCode: extra?.inviteCode,
         });
-        token.value = data.token;
-        user.value = data.user;
-        lastActivity.value = Date.now();
-        api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+        // Do NOT auto-login — user is PENDING until admin approves
       } catch (err: unknown) {
         const axErr = err as { response?: { data?: { message?: string } } };
         error.value = axErr?.response?.data?.message || 'Registration failed';

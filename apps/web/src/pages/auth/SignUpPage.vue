@@ -1,5 +1,15 @@
 <template>
   <div>
+    <!-- Success state -->
+    <div v-if="success" class="text-center q-pa-lg">
+      <q-icon name="check_circle" size="64px" color="positive" class="q-mb-md" />
+      <h5 class="form-title">Account Created!</h5>
+      <p class="form-subtitle q-mb-lg">Your account is pending approval. An administrator will review and activate it shortly.</p>
+      <q-btn unelevated no-caps color="primary" label="Back to Login" class="full-width submit-btn" @click="router.push('/auth/login')" />
+    </div>
+
+    <!-- Registration form -->
+    <template v-else>
     <h5 class="form-title">Create Account</h5>
     <p class="form-subtitle">Join the ecoLoop platform</p>
 
@@ -78,6 +88,7 @@
     <q-banner v-if="error" class="bg-negative text-white q-mt-md" rounded dense style="font-size: 13px">
       {{ error }}
     </q-banner>
+    </template>
   </div>
 </template>
 
@@ -97,6 +108,7 @@ const email = ref('');
 const phone = ref('');
 const password = ref('');
 const confirmPassword = ref('');
+const success = ref(false);
 const loading = ref(false);
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
@@ -124,7 +136,8 @@ async function handleSignUp() {
       role: 'SALES_REP',
       inviteCode,
     });
-    router.push('/home');
+    // Show success message — user is PENDING until admin approves
+    success.value = true;
   } catch (err: unknown) {
     error.value = (err as Error).message || 'Sign up failed. Please try again.';
   } finally {
