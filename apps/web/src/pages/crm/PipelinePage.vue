@@ -34,6 +34,7 @@
       <q-tab name="pm" label="PM" aria-label="Project Manager pipeline" />
       <q-tab name="finance" label="Finance" aria-label="Finance pipeline" />
       <q-tab name="maintenance" label="Maintenance" aria-label="Maintenance pipeline" />
+      <q-tab name="lost" label="Lost" aria-label="Lost leads" icon="thumb_down" />
     </q-tabs>
 
     <PipelineFilters
@@ -51,9 +52,36 @@
       </template>
     </q-banner>
 
+    <!-- Lost Leads Tab -->
+    <div v-if="pipelineTab === 'lost'">
+      <q-card flat class="list-card">
+        <q-table
+          :rows="lostLeads"
+          :columns="lostColumns"
+          row-key="id"
+          :loading="loadingLost"
+          flat
+          :pagination="{ rowsPerPage: 25 }"
+          class="pipeline-table"
+          @row-click="(_e: Event, row: Record<string, string>) => router.push(`/crm/leads/${row.id}`)"
+        >
+          <template #body-cell-name="props">
+            <q-td :props="props">
+              <span class="text-weight-bold text-primary cursor-pointer">{{ props.row.customerName }}</span>
+            </q-td>
+          </template>
+          <template #body-cell-reason="props">
+            <q-td :props="props">
+              <span class="text-grey-6">{{ props.row.lostReason || 'No reason' }}</span>
+            </q-td>
+          </template>
+        </q-table>
+      </q-card>
+    </div>
+
     <!-- Board View -->
     <PipelineBoard
-      v-if="viewMode === 'board'"
+      v-else-if="viewMode === 'board'"
       :stages="filteredStages"
       :loading="pipelineStore.loading"
       @stage-change="onStageChange"
@@ -166,7 +194,7 @@
                       <q-item-section>Mark as Lost</q-item-section>
                     </q-item>
                     <q-separator />
-                    <q-item clickable v-close-popup @click="deleteLead(props.row.id, props.row.customerName)">
+                    <q-item v-if="isAdmin" clickable v-close-popup @click="deleteLead(props.row.id, props.row.customerName)">
                       <q-item-section avatar><q-icon name="delete" size="18px" color="negative" /></q-item-section>
                       <q-item-section class="text-negative">Delete Lead</q-item-section>
                     </q-item>
@@ -187,6 +215,7 @@ import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
 import { usePipelineStore } from '@/stores/pipeline.store';
+import { useUserStore } from '@/stores/user.store';
 import PipelineBoard from '@/components/pipeline/PipelineBoard.vue';
 import PipelineFilters from '@/components/pipeline/PipelineFilters.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
@@ -204,11 +233,50 @@ const { stageColor, formatStage, formatSource } = useLeadFormatting();
 
 const $q = useQuasar();
 const router = useRouter();
+const userStore = useUserStore();
+const isAdmin = computed(() => userStore.user?.role === 'ADMIN');
 const pipelineStore = usePipelineStore();
 const viewMode = ref('list');
 const pipelineTab = ref('closer');
 const error = ref<string | null>(null);
 const pipelineIds = ref<Record<string, string>>({});
+
+// Lost leads
+const lostLeads = ref<Array<Record<string, unknown>>>([]);
+const loadingLost = ref(false);
+const lostColumns = [
+  { name: 'name', label: 'Lead Name', field: 'customerName', align: 'left' as const, sortable: true },
+  { name: 'stage', label: 'Last Stage', field: 'lastStage', align: 'left' as const },
+  { name: 'reason', label: 'Reason', field: 'lostReason', align: 'left' as const },
+  { name: 'owner', label: 'Owner', field: 'owner', align: 'left' as const },
+  { name: 'lostAt', label: 'Lost Date', field: 'lostAt', align: 'left' as const, sortable: true },
+];
+
+async function loadLostLeads() {
+  loadingLost.value = true;
+  try {
+    const { data } = await api.get('/leads', { params: { status: 'LOST', limit: 100 } });
+    const list = Array.isArray(data) ? data : (data as Record<string, unknown>).data ?? [];
+    lostLeads.value = (list as Array<Record<string, unknown>>).map((l) => {
+      const customer = l.customer as Record<string, string> | undefined;
+      const assignments = (l.assignments ?? []) as Array<Record<string, unknown>>;
+      const primary = assignments.find((a) => a.isPrimary);
+      const ownerUser = primary?.user as Record<string, string> | undefined;
+      return {
+        id: l.id,
+        customerName: customer ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim() : 'Unknown',
+        lastStage: formatStage(l.currentStage as string),
+        lostReason: l.lostReason ?? '',
+        owner: ownerUser ? `${ownerUser.firstName} ${ownerUser.lastName}` : '--',
+        lostAt: l.lostAt ? formatDate(l.lostAt as string) : '--',
+      };
+    });
+  } catch {
+    lostLeads.value = [];
+  } finally {
+    loadingLost.value = false;
+  }
+}
 
 // Stages that belong to each pipeline tab
 const PIPELINE_STAGE_SETS: Record<string, Set<string>> = {
@@ -322,7 +390,20 @@ const sourceOptions = [
   { label: 'Public Form', value: 'PUBLIC_FORM' },
 ];
 
-const userOptions = [{ label: 'Me', value: 'me' }];
+const userOptions = ref([{ label: 'Me', value: 'me' }]);
+
+async function loadUsers() {
+  try {
+    const { data } = await api.get('/users');
+    const list = Array.isArray(data) ? data : (data as Record<string, unknown>).data ?? [];
+    userOptions.value = [
+      { label: 'Me', value: 'me' },
+      ...(list as Array<Record<string, string>>)
+        .filter((u) => u.isActive !== false)
+        .map((u) => ({ label: `${u.firstName} ${u.lastName}`.trim(), value: u.id })),
+    ];
+  } catch { /* keep default */ }
+}
 
 async function loadData() {
   error.value = null;
@@ -333,9 +414,13 @@ async function loadData() {
   }
 }
 
-onMounted(() => { loadData(); });
+onMounted(() => { loadData(); loadUsers(); });
 
 function onPipelineTabChange(tab: string) {
+  if (tab === 'lost') {
+    loadLostLeads();
+    return;
+  }
   pipelineStore.fetchPipelineView({ pipelineId: pipelineIds.value[tab] || undefined });
 }
 
