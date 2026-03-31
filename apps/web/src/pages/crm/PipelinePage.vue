@@ -195,6 +195,7 @@ const pipelineStore = usePipelineStore();
 const viewMode = ref('list');
 const pipelineTab = ref('closer');
 const error = ref<string | null>(null);
+const pipelineIds = ref<Record<string, string>>({});
 
 // Stages that belong to each pipeline tab
 const PIPELINE_STAGE_SETS: Record<string, Set<string>> = {
