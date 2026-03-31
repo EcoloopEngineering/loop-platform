@@ -27,6 +27,12 @@
       "protobufjs",
       "@nestjs/core",
       "vue-demi"
+    ],
+    "ignoredBuiltDependencies": [
+      "@firebase/util",
+      "@scarf/scarf",
+      "@swc/core",
+      "msgpackr-extract"
     ]
   },
   "devDependencies": {
