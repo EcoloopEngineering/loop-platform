@@ -33,6 +33,19 @@ describe('PrismaReferralRepository', () => {
         skip: 0,
         take: 20,
         orderBy: { createdAt: 'desc' },
+        include: {
+          invitee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              isActive: true,
+              _count: { select: { leadAssignments: true } },
+            },
+          },
+        },
       });
     });
   });

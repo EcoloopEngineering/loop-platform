@@ -49,13 +49,13 @@ export const useAuthStore = defineStore(
       phone?: string;
       role?: string;
       inviteCode?: string;
+      autoLogin?: boolean;
     }) {
       loading.value = true;
       error.value = null;
       try {
-        const [firstName, ...rest] = (extra?.name || '').split(' ');
         const [firstName2, ...restParts] = (extra?.name || '').split(' ');
-        await api.post('/auth/register', {
+        const { data } = await api.post('/auth/register', {
           email,
           password,
           firstName: firstName2 || email.split('@')[0],
@@ -64,7 +64,13 @@ export const useAuthStore = defineStore(
           role: extra?.role,
           inviteCode: extra?.inviteCode,
         });
-        // Do NOT auto-login — user is PENDING until admin approves
+        // Auto-login for invited partners (pre-approved by the system)
+        if (extra?.autoLogin && data.token) {
+          token.value = data.token;
+          user.value = data.user;
+          lastActivity.value = Date.now();
+          api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+        }
       } catch (err: unknown) {
         const axErr = err as { response?: { data?: { message?: string } } };
         error.value = axErr?.response?.data?.message || 'Registration failed';

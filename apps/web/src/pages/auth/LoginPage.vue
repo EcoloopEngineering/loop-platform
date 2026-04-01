@@ -45,6 +45,11 @@
       </div>
 
       <div class="text-center q-mt-sm">
+        <span class="text-hint">Are you a partner? </span>
+        <router-link to="/partner" class="client-link">Partner Login</router-link>
+      </div>
+
+      <div class="text-center q-mt-sm">
         <span class="text-hint">Are you a client? </span>
         <router-link to="/portal/login" class="client-link">Click here</router-link>
       </div>

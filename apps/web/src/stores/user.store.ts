@@ -12,6 +12,8 @@ export interface UserProfile {
   profileImage?: string;
   companyId?: string;
   managerId?: string;
+  invitationCode?: string;
+  termsAcceptedAt?: string | null;
   createdAt: string;
 }
 

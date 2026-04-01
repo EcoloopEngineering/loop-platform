@@ -3,7 +3,7 @@
     <!-- Greeting -->
     <div class="q-mb-md">
       <div class="greeting-text">{{ greeting }}<span v-if="displayName" class="greeting-name">, {{ displayName }}</span></div>
-      <div class="greeting-sub">Here's your sales overview</div>
+      <div class="greeting-sub">{{ isPartner ? 'Here\'s your partner overview' : 'Here\'s your sales overview' }}</div>
     </div>
 
     <!-- Error -->
@@ -17,7 +17,7 @@
 
     <!-- Stats -->
     <div class="row q-col-gutter-sm q-mb-lg">
-      <div class="col-6" v-for="stat in stats" :key="stat.label">
+      <div :class="isPartner ? 'col-4' : 'col-6'" v-for="stat in stats" :key="stat.label">
         <div class="stat-card">
           <div class="row items-center q-mb-xs gap-xs">
             <q-icon :name="stat.icon" :color="stat.color" size="16px" />
@@ -33,7 +33,7 @@
       <div class="section-title q-mb-sm">Quick Actions</div>
       <div class="row q-col-gutter-sm">
         <div :class="showInvite ? 'col-6' : 'col-12'">
-          <q-btn unelevated no-caps color="primary" text-color="white" icon="add" label="New Lead" class="full-width action-btn" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
+          <q-btn unelevated no-caps color="primary" text-color="white" icon="add" :label="isPartner ? 'Submit a Referral' : 'New Lead'" class="full-width action-btn" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
         </div>
         <div v-if="showInvite" class="col-6">
           <q-btn outline no-caps color="primary" icon="share" label="Invite" class="full-width action-btn" aria-label="Invite a referral partner" @click="$router.push('/referrals')" />
@@ -44,7 +44,7 @@
     <!-- My Leads -->
     <div class="q-mb-lg">
       <div class="row items-center q-mb-sm">
-        <div class="section-title">My Leads</div>
+        <div class="section-title">{{ isPartner ? 'My Referrals' : 'My Leads' }}</div>
         <q-badge v-if="myLeads.length" color="grey-3" text-color="grey-7" class="q-ml-sm text-11">
           {{ myLeads.length }}
         </q-badge>
@@ -60,7 +60,7 @@
         <q-card flat>
           <q-card-section class="text-center q-pa-lg">
             <q-icon name="person_search" size="40px" color="grey-4" />
-            <div class="text-grey-6 q-mt-sm text-13">No leads assigned to you yet</div>
+            <div class="text-grey-6 q-mt-sm text-13">{{ isPartner ? 'No referrals submitted yet. Tap "Submit a Referral" to get started!' : 'No leads assigned to you yet' }}</div>
           </q-card-section>
         </q-card>
       </div>
@@ -171,8 +171,10 @@ const isEmployee = computed(() => {
   return currentUser.value?.email?.endsWith('@ecoloop.us') ?? false;
 });
 
+const isPartner = computed(() => currentUser.value?.role === 'REFERRAL');
+
 const showInvite = computed(() => {
-  return isEmployee.value && currentUser.value?.role !== 'REFERRAL_PARTNER';
+  return isEmployee.value && !isPartner.value;
 });
 
 const greeting = computed(() => {
@@ -190,12 +192,21 @@ const conversionRate = computed(() => {
   return Math.round((wonLeads.value / totalLeads.value) * 100);
 });
 
-const stats = computed(() => [
-  { label: 'Total Leads', value: String(totalLeads.value), icon: 'people', color: 'primary' },
-  { label: 'Referrals', value: String(referralLeads.value), icon: 'group_add', color: 'purple' },
-  { label: 'Closed Won', value: String(wonLeads.value), icon: 'emoji_events', color: 'positive' },
-  { label: 'Conversion', value: `${conversionRate.value}%`, icon: 'trending_up', color: 'orange-8' },
-]);
+const stats = computed(() => {
+  if (isPartner.value) {
+    return [
+      { label: 'Referrals Sent', value: String(totalLeads.value), icon: 'send', color: 'primary' },
+      { label: 'Deals Closed', value: String(wonLeads.value), icon: 'emoji_events', color: 'positive' },
+      { label: 'Conversion', value: `${conversionRate.value}%`, icon: 'trending_up', color: 'orange-8' },
+    ];
+  }
+  return [
+    { label: 'Total Leads', value: String(totalLeads.value), icon: 'people', color: 'primary' },
+    { label: 'Referrals', value: String(referralLeads.value), icon: 'group_add', color: 'purple' },
+    { label: 'Closed Won', value: String(wonLeads.value), icon: 'emoji_events', color: 'positive' },
+    { label: 'Conversion', value: `${conversionRate.value}%`, icon: 'trending_up', color: 'orange-8' },
+  ];
+});
 
 const LEADS_PER_PAGE = 5;
 const leadsPage = ref(1);

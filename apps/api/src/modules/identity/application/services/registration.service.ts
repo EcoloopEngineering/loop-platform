@@ -63,6 +63,9 @@ export class RegistrationService {
 
     const role: UserRole = isEmployee ? UserRole.SALES_REP : UserRole.REFERRAL;
 
+    // Partners with valid invite code are pre-approved (auto-activated)
+    const isPreApproved = !isEmployee && !!inviter;
+
     const user = await this.userRepo.createRaw({
       email: params.email.toLowerCase(),
       passwordHash,
@@ -70,7 +73,7 @@ export class RegistrationService {
       lastName: normalizeName(params.lastName),
       phone: params.phone,
       role,
-      isActive: false,
+      isActive: isPreApproved,
       firebaseUid: `jwt_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
     });
 
