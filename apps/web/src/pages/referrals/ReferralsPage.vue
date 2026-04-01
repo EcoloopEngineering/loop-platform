@@ -170,8 +170,8 @@ const activeCount = computed(() => referrals.value.filter((r) => r.isActive).len
 async function loadData() {
   loading.value = true;
   error.value = null;
-  const userId = userStore.user?.id ?? '';
-  inviteLink.value = `${window.location.origin}/auth/invite/${userId}`;
+  const code = userStore.user?.invitationCode ?? '';
+  inviteLink.value = `${window.location.origin}/partner/${code}`;
 
   try {
     const { data } = await api.get('/referrals');

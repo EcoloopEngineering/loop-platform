@@ -13,7 +13,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 const SAFE_USER_SELECT = {
   id: true, firebaseUid: true, email: true, firstName: true, lastName: true,
   phone: true, role: true, isActive: true, profileImage: true, nickname: true,
-  invitationCode: true, language: true, lastLoginAt: true,
+  invitationCode: true, language: true, termsAcceptedAt: true, lastLoginAt: true,
   createdAt: true, updatedAt: true,
 };
 import { Request } from 'express';

@@ -78,8 +78,8 @@
       </q-card-section>
     </q-card>
 
-    <!-- Coins Balance -->
-    <q-card flat class="q-mb-md">
+    <!-- Coins Balance (hidden for partners) -->
+    <q-card v-if="userStore.user?.role !== 'REFERRAL'" flat class="q-mb-md">
       <q-card-section>
         <div class="text-h6 q-mb-md">Rewards</div>
         <div class="row items-center q-gutter-md">

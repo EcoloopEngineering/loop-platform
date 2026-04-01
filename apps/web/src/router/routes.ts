@@ -29,8 +29,10 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'invite/:code?',
         name: 'invite',
-        component: () => import('@/pages/auth/SignUpPage.vue'),
-        props: true,
+        redirect: (to) => ({
+          path: to.params.code ? `/partner/${to.params.code}` : '/partner',
+          query: { tab: 'register' },
+        }),
       },
     ],
   },
@@ -269,6 +271,14 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/portal/PortalProfilePage.vue'),
       },
     ],
+  },
+
+  // ── Partner Auth ────────────────────────────
+  {
+    path: '/partner/:code?',
+    name: 'partner-auth',
+    component: () => import('@/pages/partner/PartnerAuthPage.vue'),
+    props: true,
   },
 
   // Catch-all

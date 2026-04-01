@@ -69,6 +69,13 @@ export class UsersController {
     return this.userProfileService.updateProfile(user, dto);
   }
 
+  @Post('me/accept-terms')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Accept platform terms of service' })
+  async acceptTerms(@CurrentUser('id') userId: string) {
+    return this.userProfileService.acceptTerms(userId);
+  }
+
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload avatar image' })
   @ApiConsumes('multipart/form-data')

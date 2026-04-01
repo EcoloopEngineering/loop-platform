@@ -58,17 +58,17 @@
         <div class="pulse-ring pr1" />
         <div class="pulse-ring pr2" />
 
-        <div class="particle p1">☀</div>
-        <div class="particle p2">⚡</div>
-        <div class="particle p3">☀</div>
-        <div class="particle p4">⚡</div>
-        <div class="particle p5">☀</div>
-        <div class="particle p6">⚡</div>
+        <div class="particle p1">&#9670;</div>
+        <div class="particle p2">&#10022;</div>
+        <div class="particle p3">&#9670;</div>
+        <div class="particle p4">&#10022;</div>
+        <div class="particle p5">&#9670;</div>
+        <div class="particle p6">&#10022;</div>
 
         <svg class="energy-lines" viewBox="0 0 600 800" xmlns="http://www.w3.org/2000/svg">
-          <path class="eline e1" d="M0,400 Q150,200 300,350 T600,300" fill="none" stroke="rgba(0,212,170,0.15)" stroke-width="1.5"/>
-          <path class="eline e2" d="M0,600 Q200,400 400,500 T600,450" fill="none" stroke="rgba(126,255,74,0.1)" stroke-width="1"/>
-          <path class="eline e3" d="M100,0 Q250,300 150,500 T200,800" fill="none" stroke="rgba(0,212,170,0.08)" stroke-width="1"/>
+          <path class="eline e1" d="M0,400 Q150,200 300,350 T600,300" fill="none" stroke="rgba(167,139,250,0.15)" stroke-width="1.5"/>
+          <path class="eline e2" d="M0,600 Q200,400 400,500 T600,450" fill="none" stroke="rgba(129,140,248,0.1)" stroke-width="1"/>
+          <path class="eline e3" d="M100,0 Q250,300 150,500 T200,800" fill="none" stroke="rgba(196,181,253,0.08)" stroke-width="1"/>
         </svg>
       </div>
     </div>
@@ -78,6 +78,12 @@
       <div class="form-container">
         <div class="form-header">
           <img src="/logo_short_dark.svg" alt="ecoLoop" class="form-logo" />
+          <div class="role-badge-wrapper">
+            <div class="role-badge">
+              <q-icon name="wb_sunny" size="16px" class="role-badge-icon" />
+              <span>Customer Portal</span>
+            </div>
+          </div>
           <h2 class="form-title">Welcome</h2>
           <p class="form-subtitle">Sign in or create your account</p>
         </div>
@@ -251,7 +257,7 @@ async function handleForgot() {
 // -- Left branding --
 .brand-side {
   flex: 1;
-  background: linear-gradient(145deg, #042F1E 0%, #064E32 35%, #00897B 100%);
+  background: linear-gradient(145deg, #0A1929 0%, #0D2137 35%, #14344A 70%, #1B6B6E 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -301,7 +307,7 @@ async function handleForgot() {
   font-weight: 800;
   margin-bottom: 8px;
   letter-spacing: -0.03em;
-  background: linear-gradient(90deg, #00D4AA, #7EFF4A);
+  background: linear-gradient(90deg, #4FD1C5, #81E6D9);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -325,7 +331,7 @@ async function handleForgot() {
   align-items: center;
   gap: 8px;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(0, 212, 170, 0.25);
+  border: 1px solid rgba(56, 178, 172, 0.25);
   border-radius: 20px;
   padding: 6px 16px;
   font-size: 13px;
@@ -335,7 +341,7 @@ async function handleForgot() {
 }
 
 .badge-text {
-  background: linear-gradient(90deg, #00E5C8, #34D399);
+  background: linear-gradient(90deg, #4FD1C5, #38B2AC);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -343,7 +349,7 @@ async function handleForgot() {
 }
 
 .badge-suffix {
-  background: linear-gradient(90deg, #00D4AA, #7EFF4A);
+  background: linear-gradient(90deg, #38B2AC, #81E6D9);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -359,7 +365,7 @@ async function handleForgot() {
   margin: 0 0 20px;
 
   .text-accent {
-    background: linear-gradient(90deg, #00D4AA, #7EFF4A, #00D4AA);
+    background: linear-gradient(90deg, #4FD1C5, #81E6D9, #4FD1C5);
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -418,7 +424,7 @@ async function handleForgot() {
 
   &.active {
     width: 24px;
-    background: #00D4AA;
+    background: #38B2AC;
   }
 }
 
@@ -442,7 +448,7 @@ async function handleForgot() {
 
 // Slide 0: sun — slow spin with color glow
 .icon-sun {
-  color: #00D4AA;
+  color: #4FD1C5;
   animation: sun-spin 8s linear infinite, sun-glow 3s ease-in-out infinite alternate;
 }
 @keyframes sun-spin {
@@ -450,42 +456,42 @@ async function handleForgot() {
   to   { transform: rotate(360deg); }
 }
 @keyframes sun-glow {
-  from { filter: drop-shadow(0 0 4px rgba(0, 212, 170, 0.6)); }
-  to   { filter: drop-shadow(0 0 12px rgba(126, 255, 74, 1)); }
+  from { filter: drop-shadow(0 0 4px rgba(79, 209, 197, 0.6)); }
+  to   { filter: drop-shadow(0 0 12px rgba(56, 178, 172, 1)); }
 }
 
 // Slide 1: route — soft pulse
 .icon-route {
-  color: #00D4AA;
+  color: #38B2AC;
   animation: route-pulse 2s ease-in-out infinite;
 }
 @keyframes route-pulse {
-  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 3px rgba(0, 212, 170, 0.5)); }
-  50%       { transform: scale(1.2); filter: drop-shadow(0 0 8px rgba(0, 212, 170, 0.9)); }
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 3px rgba(56, 178, 172, 0.5)); }
+  50%       { transform: scale(1.2); filter: drop-shadow(0 0 8px rgba(56, 178, 172, 0.9)); }
 }
 
 // Slide 2: folder — gentle bounce open
 .icon-docs {
-  color: #7EFF4A;
+  color: #81E6D9;
   animation: docs-bounce 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 0 4px rgba(126, 255, 74, 0.5));
+  filter: drop-shadow(0 0 4px rgba(129, 230, 217, 0.5));
 }
 @keyframes docs-bounce {
   0%, 100% { transform: translateY(0) scale(1); }
-  40%       { transform: translateY(-3px) scale(1.1); filter: drop-shadow(0 0 8px rgba(126, 255, 74, 0.9)); }
+  40%       { transform: translateY(-3px) scale(1.1); filter: drop-shadow(0 0 8px rgba(129, 230, 217, 0.9)); }
   60%       { transform: translateY(-1px) scale(1.05); }
 }
 
 // Slide 3: support_agent — wave side-to-side
 .icon-support {
-  color: #00D4AA;
+  color: #4FD1C5;
   animation: support-wave 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 0 4px rgba(0, 212, 170, 0.5));
+  filter: drop-shadow(0 0 4px rgba(79, 209, 197, 0.5));
 }
 @keyframes support-wave {
   0%, 100% { transform: rotate(0deg); }
   20%       { transform: rotate(-12deg); }
-  40%       { transform: rotate(12deg); filter: drop-shadow(0 0 8px rgba(0, 212, 170, 0.9)); }
+  40%       { transform: rotate(12deg); filter: drop-shadow(0 0 8px rgba(79, 209, 197, 0.9)); }
   60%       { transform: rotate(-6deg); }
   80%       { transform: rotate(6deg); }
 }
@@ -505,7 +511,7 @@ async function handleForgot() {
 
 .deco-1 { width: 400px; height: 400px; top: -100px; right: -100px; }
 .deco-2 { width: 300px; height: 300px; bottom: -80px; left: -60px; }
-.deco-3 { width: 200px; height: 200px; top: 50%; left: 60%; border-color: rgba(52, 211, 153, 0.1); }
+.deco-3 { width: 200px; height: 200px; top: 50%; left: 60%; border-color: rgba(56, 178, 172, 0.1); }
 
 // -- Right form --
 .form-side {
@@ -539,7 +545,39 @@ async function handleForgot() {
 
 .form-logo {
   height: 40px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.role-badge-wrapper {
+  margin-bottom: 12px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(27, 107, 110, 0.08) 0%, rgba(20, 52, 74, 0.12) 100%);
+  border: 1px solid rgba(56, 178, 172, 0.18);
+  border-radius: 16px;
+  padding: 5px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1B6B6E;
+  box-shadow: 0 1px 4px rgba(27, 107, 110, 0.12);
+}
+
+.role-badge-icon {
+  color: #38B2AC !important;
+  animation: sun-spin-badge 8s linear infinite, sun-glow-badge 3s ease-in-out infinite alternate;
+}
+
+@keyframes sun-spin-badge {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes sun-glow-badge {
+  from { filter: drop-shadow(0 0 2px rgba(56, 178, 172, 0.3)); }
+  to   { filter: drop-shadow(0 0 6px rgba(56, 178, 172, 0.7)); }
 }
 
 .form-title {
