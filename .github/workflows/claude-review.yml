@@ -22,7 +22,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: "claude-sonnet-4-20250514"
+          model: "claude-sonnet-4-6"
           timeout_minutes: 10
           prompt: |
             Review this pull request for the Loop Platform (NestJS + Vue 3/Quasar solar CRM).
