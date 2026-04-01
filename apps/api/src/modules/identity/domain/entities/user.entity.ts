@@ -15,6 +15,7 @@ export class UserEntity {
   closedDealEmoji: string | null;
   language: string;
   isActive: boolean;
+  termsAcceptedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 

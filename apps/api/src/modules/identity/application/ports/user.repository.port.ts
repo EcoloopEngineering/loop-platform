@@ -20,6 +20,7 @@ export interface UserRawRecord {
   nickname: string | null;
   closedDealEmoji: string | null;
   language: string | null;
+  termsAcceptedAt: Date | null;
   lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

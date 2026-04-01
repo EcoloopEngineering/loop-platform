@@ -83,6 +83,12 @@
             <div class="form-wrapper">
               <div class="form-header">
                 <img src="/logo_short_dark.svg" alt="ecoLoop" class="auth-logo" />
+                <div class="role-badge-wrapper">
+                  <div class="role-badge">
+                    <q-icon name="bolt" size="16px" class="role-badge-icon" />
+                    <span>Employee Platform</span>
+                  </div>
+                </div>
               </div>
               <router-view />
               <div class="form-footer">
@@ -183,7 +189,7 @@ onUnmounted(() => {
 // ── Left branding ──
 .brand-side {
   flex: 1;
-  background: linear-gradient(145deg, #042F1E 0%, #064E32 35%, #00897B 100%);
+  background: linear-gradient(145deg, #0A1929 0%, #0D2137 35%, #14344A 70%, #1B6B6E 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -476,6 +482,37 @@ onUnmounted(() => {
 
 .auth-logo {
   height: 36px;
+}
+
+.role-badge-wrapper {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(0, 137, 123, 0.08) 0%, rgba(0, 105, 92, 0.12) 100%);
+  border: 1px solid rgba(0, 137, 123, 0.18);
+  border-radius: 16px;
+  padding: 5px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #00796B;
+  box-shadow: 0 1px 4px rgba(0, 137, 123, 0.12);
+}
+
+.role-badge-icon {
+  color: #00897B !important;
+  animation: badge-bolt 2.4s ease-in-out infinite;
+}
+
+@keyframes badge-bolt {
+  0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 2px rgba(0, 137, 123, 0.3)); }
+  40%      { opacity: 0.5; transform: scale(0.85); }
+  55%      { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 8px rgba(0, 137, 123, 0.7)); }
+  70%      { opacity: 1; transform: scale(1); }
 }
 
 .form-footer {

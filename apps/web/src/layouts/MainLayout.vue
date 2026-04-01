@@ -8,7 +8,7 @@
         <q-btn v-if="userRole === 'ADMIN'" flat dense round icon="admin_panel_settings" color="grey-7" @click="$router.push('/crm')" aria-label="Admin Panel">
           <q-tooltip>Admin Panel</q-tooltip>
         </q-btn>
-        <q-btn flat dense no-caps color="amber-8" class="q-mr-xs coin-btn" @click="$router.push('/admin/rewards')" aria-label="Your coins">
+        <q-btn v-if="!isPartner" flat dense no-caps color="amber-8" class="q-mr-xs coin-btn" @click="$router.push('/admin/rewards')" aria-label="Your coins">
           <q-icon name="monetization_on" size="20px" class="q-mr-xs" />
           <span class="text-weight-bold">{{ coinBalance }}</span>
           <q-tooltip>Your coins — Visit Store</q-tooltip>
@@ -63,8 +63,16 @@
     </q-header>
 
     <q-page-container>
-      <router-view />
+      <router-view v-if="!showTerms" />
+      <q-page v-else class="flex flex-center" style="min-height: 80vh">
+        <div class="text-center">
+          <q-spinner-dots color="primary" size="40px" />
+          <div class="text-grey-6 q-mt-md">Loading...</div>
+        </div>
+      </q-page>
     </q-page-container>
+
+    <TermsDialog v-model="showTerms" @accepted="onTermsAccepted" />
 
     <q-footer class="main-footer" bordered>
       <div class="footer-gradient-bar" />
@@ -78,7 +86,7 @@
       >
         <q-tab name="home" icon="home" label="Home" aria-label="Go to home page" @click="$router.push('/home')" />
         <q-tab name="leads" icon="add_circle" label="New Lead" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
-        <q-tab v-if="isEmployee" name="referrals" icon="group_add" label="Referrals" aria-label="View referrals" @click="$router.push('/referrals')" />
+        <q-tab v-if="isEmployee && !isPartner" name="referrals" icon="group_add" label="Referrals" aria-label="View referrals" @click="$router.push('/referrals')" />
         <q-tab name="support" icon="chat" label="Support" aria-label="Open support chat" @click="$router.push('/support')" />
       </q-tabs>
     </q-footer>
@@ -93,6 +101,7 @@ import { useUserStore } from '@/stores/user.store';
 import { useNotificationPoller } from '@/composables/useNotificationPoller';
 import { useThemeSync } from '@/composables/useThemeSync';
 import { api } from '@/boot/axios';
+import TermsDialog from '@/components/common/TermsDialog.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -110,7 +119,18 @@ const { notifications, unreadCount, openNotification, iconFor, timeAgo } = useNo
 const { userName, userEmail, userAvatar, userInitials } = useThemeSync();
 
 const isEmployee = computed(() => userEmail.value.endsWith('@ecoloop.us'));
+const isPartner = computed(() => userRole.value === 'REFERRAL');
 provide('userName', userName);
+
+// Terms acceptance — block UI until accepted
+const termsNeeded = computed(() => !!userStore.user && !userStore.user.termsAcceptedAt);
+const showTerms = ref(false);
+
+watch(termsNeeded, (v) => { if (v) showTerms.value = true; }, { immediate: true });
+
+function onTermsAccepted() {
+  showTerms.value = false;
+}
 
 // Coin balance
 const coinBalance = ref(0);

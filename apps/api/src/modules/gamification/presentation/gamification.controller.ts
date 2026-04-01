@@ -17,7 +17,7 @@ export class GamificationController {
   ) {}
 
   @Get('balance')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.REFERRAL)
   @ApiOperation({ summary: 'Get current user coin balance' })
   async getBalance(@CurrentUser() user: AuthenticatedUser) {
     const balance = await this.coinService.getBalance(user.id);

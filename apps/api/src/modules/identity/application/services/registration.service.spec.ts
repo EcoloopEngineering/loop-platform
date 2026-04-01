@@ -233,7 +233,7 @@ describe('RegistrationService', () => {
     /* -------------------------------------------------------------- */
     /*  Non-ecoloop email — valid invitation code                      */
     /* -------------------------------------------------------------- */
-    it('should create non-ecoloop user as pending REFERRAL with valid invite', async () => {
+    it('should create non-ecoloop user as active REFERRAL with valid invite (pre-approved)', async () => {
       const inviter = { id: 'inviter-1', invitationCode: 'invite-code-1' };
       const mockUser = {
         id: 'user-1',
@@ -242,7 +242,7 @@ describe('RegistrationService', () => {
         lastName: 'User',
         phone: null,
         role: 'REFERRAL',
-        isActive: false,
+        isActive: true,
       };
 
       userRepo.findRawByEmail.mockResolvedValue(null);
@@ -262,7 +262,7 @@ describe('RegistrationService', () => {
         expect.objectContaining({
           email: 'partner@gmail.com',
           role: 'REFERRAL',
-          isActive: false,
+          isActive: true,
         }),
       );
       expect(referralRepo.create).toHaveBeenCalledWith(

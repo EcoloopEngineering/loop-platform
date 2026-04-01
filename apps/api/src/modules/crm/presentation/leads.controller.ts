@@ -48,7 +48,7 @@ export class LeadsController {
   ) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.REFERRAL)
   @ApiOperation({ summary: 'Create a new lead from wizard' })
   @ApiResponse({ status: 201, type: LeadResponseDto })
   async create(
@@ -59,14 +59,14 @@ export class LeadsController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.REFERRAL)
   @ApiOperation({ summary: 'List leads with filters and pagination' })
   async list(@Query() filter: LeadFilterDto): Promise<unknown> {
     return this.queryBus.execute(new ListLeadsQuery(filter));
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.REFERRAL)
   @ApiOperation({ summary: 'Get lead detail with score, assignments, and activities' })
   @ApiResponse({ status: 200, type: LeadResponseDto })
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<unknown> {
@@ -141,7 +141,7 @@ export class LeadsController {
   }
 
   @Get(':id/timeline')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.REFERRAL)
   @ApiOperation({ summary: 'Get lead activity timeline' })
   async getTimeline(@Param('id', ParseUUIDPipe) id: string): Promise<unknown> {
     return this.leadScoringAppService.getTimeline(id);

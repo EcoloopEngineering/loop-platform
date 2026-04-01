@@ -18,6 +18,19 @@ export class PrismaReferralRepository implements ReferralRepositoryPort {
       skip: params.skip,
       take: params.take,
       orderBy: { createdAt: 'desc' },
+      include: {
+        invitee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            isActive: true,
+            _count: { select: { leadAssignments: true } },
+          },
+        },
+      },
     });
     return referrals as unknown as ReferralRecord[];
   }

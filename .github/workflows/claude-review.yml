@@ -3,6 +3,7 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
+    branches: [main, develop]
   issue_comment:
     types: [created]
 
@@ -17,13 +18,12 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      id-token: write
 
     steps:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: "claude-sonnet-4-20250514"
-          timeout_minutes: 10
           prompt: |
             Review this pull request for the Loop Platform (NestJS + Vue 3/Quasar solar CRM).
 
@@ -36,3 +36,4 @@ jobs:
             6. **Business logic**: Lead pipeline flow, task automation, commission rules
 
             Be concise. Only comment on issues that matter. Skip style nitpicks.
+            If the code looks good, say so briefly.

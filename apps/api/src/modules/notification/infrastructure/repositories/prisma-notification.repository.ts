@@ -154,6 +154,15 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
     if (lead.projectManagerId) userIds.add(lead.projectManagerId);
     if (lead.createdById) userIds.add(lead.createdById);
 
+    // Include the referrer/partner who invited the lead creator
+    if (lead.createdById) {
+      const referral = await this.prisma.referral.findFirst({
+        where: { inviteeId: lead.createdById },
+        select: { inviterId: true },
+      });
+      if (referral?.inviterId) userIds.add(referral.inviterId);
+    }
+
     for (const id of excludeIds) {
       userIds.delete(id);
     }

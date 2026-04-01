@@ -34,6 +34,7 @@ model User {
   closedDealEmoji      String?  @default("🎉") @map("closed_deal_emoji")
   language             String   @default("en") @db.VarChar(5)
   isActive             Boolean  @default(true) @map("is_active")
+  termsAcceptedAt      DateTime? @map("terms_accepted_at")
   lastLoginAt          DateTime? @map("last_login_at")
   metadata             Json?     @default("{}")
   createdAt            DateTime @default(now()) @map("created_at")

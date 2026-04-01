@@ -43,8 +43,8 @@ export default route(function () {
   });
 
   Router.beforeEach(async (to, _from, next) => {
-    // Auth pages are always accessible
-    if (to.path.startsWith('/auth')) return next();
+    // Auth and partner pages are always accessible
+    if (to.path.startsWith('/auth') || to.path.startsWith('/partner')) return next();
 
     // Handle portal routes separately — portal has its own auth
     if (to.path.startsWith('/portal')) {

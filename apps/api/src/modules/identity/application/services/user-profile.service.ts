@@ -137,6 +137,16 @@ export class UserProfileService {
   }
 
   /* ------------------------------------------------------------------ */
+  /*  POST /users/me/accept-terms                                        */
+  /* ------------------------------------------------------------------ */
+  async acceptTerms(userId: string) {
+    const updated = await this.userRepo.updateRaw(userId, {
+      termsAcceptedAt: new Date(),
+    });
+    return sanitiseUser(updated as unknown as Record<string, unknown>);
+  }
+
+  /* ------------------------------------------------------------------ */
   /*  GET /users                                                         */
   /* ------------------------------------------------------------------ */
   async listUsers(skip: number, limit: number, search?: string): Promise<{ data: UserEntity[]; total: number }> {

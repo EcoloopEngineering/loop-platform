@@ -54,7 +54,9 @@ export default boot(({ app, router }) => {
         // Clear auth and redirect to login
         localStorage.removeItem('auth');
         delete api.defaults.headers.common['Authorization'];
-        if (!window.location.pathname.startsWith('/auth')) {
+        if (!window.location.pathname.startsWith('/auth') &&
+            !window.location.pathname.startsWith('/partner') &&
+            !window.location.pathname.startsWith('/portal')) {
           window.location.href = '/auth/login';
         }
       }
