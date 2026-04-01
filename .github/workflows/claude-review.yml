@@ -1,0 +1,60 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main, develop]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    name: Claude PR Review
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- '*.ts' '*.vue' '*.scss' | head -5000)
+          echo "diff<<ENDDIFF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "ENDDIFF" >> $GITHUB_OUTPUT
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        continue-on-error: true
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          direct_prompt: |
+            Review this pull request for the Loop Platform (NestJS + Vue 3/Quasar solar CRM).
+
+            Focus on:
+            1. **Architecture**: DDD/CQRS compliance, repository port usage (no PrismaService in app layer)
+            2. **Security**: RBAC, input validation, SQL injection, XSS
+            3. **Tests**: Are new features covered? Do specs exist for new services?
+            4. **TypeScript**: No `any` types, proper error handling
+            5. **Performance**: N+1 queries, missing indexes, expensive operations
+            6. **Business logic**: Lead pipeline flow, task automation, commission rules
+
+            Be concise. Only comment on issues that matter. Skip style nitpicks.
+            If the code looks good, say so briefly.
+
+            PR: ${{ github.event.pull_request.title }}
+            Files changed: ${{ github.event.pull_request.changed_files }}
