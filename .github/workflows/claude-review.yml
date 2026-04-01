@@ -7,11 +7,6 @@ on:
   issue_comment:
     types: [created]
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-
 jobs:
   review:
     name: Claude PR Review
@@ -19,30 +14,17 @@ jobs:
       (github.event_name == 'pull_request') ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get PR diff
-        id: diff
-        run: |
-          git fetch origin ${{ github.base_ref }}
-          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- '*.ts' '*.vue' '*.scss' | head -5000)
-          echo "diff<<ENDDIFF" >> $GITHUB_OUTPUT
-          echo "$DIFF" >> $GITHUB_OUTPUT
-          echo "ENDDIFF" >> $GITHUB_OUTPUT
-
-      - name: Claude Code Review
-        uses: anthropics/claude-code-action@v1
-        continue-on-error: true
+      - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          direct_prompt: |
+          prompt: |
             Review this pull request for the Loop Platform (NestJS + Vue 3/Quasar solar CRM).
 
             Focus on:
@@ -55,6 +37,3 @@ jobs:
 
             Be concise. Only comment on issues that matter. Skip style nitpicks.
             If the code looks good, say so briefly.
-
-            PR: ${{ github.event.pull_request.title }}
-            Files changed: ${{ github.event.pull_request.changed_files }}
