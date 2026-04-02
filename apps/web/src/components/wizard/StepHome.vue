@@ -29,8 +29,11 @@
           <q-icon name="location_on" color="grey-6" />
         </template>
         <template #append>
-          <q-spinner-dots v-if="searching" size="18px" color="primary" />
-          <q-icon v-else-if="addressSelected" name="check_circle" color="positive" />
+          <q-spinner-dots v-if="searching || geolocating" size="18px" color="primary" />
+          <q-btn v-else-if="!addressSelected" flat dense round icon="my_location" color="primary" size="sm" @click="useGeolocation">
+            <q-tooltip>Use my current location</q-tooltip>
+          </q-btn>
+          <q-icon v-else name="check_circle" color="positive" />
         </template>
       </q-input>
 
@@ -156,12 +159,15 @@ interface AddressSuggestion {
   state: string;
   zip: string;
   full: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 const addressQuery = ref(props.home.streetAddress || '');
 const suggestions = ref<AddressSuggestion[]>([]);
 const showSuggestions = ref(false);
 const searching = ref(false);
+const geolocating = ref(false);
 const addressSelected = ref(!!props.home.streetAddress);
 
 async function searchAddress(query: string | number | null) {
@@ -185,7 +191,8 @@ async function searchAddress(query: string | number | null) {
       place_name?: string;
       context?: MapboxContext[];
     }
-    suggestions.value = ((data.features ?? []) as MapboxFeature[]).map((f) => {
+    interface MapboxCenter { center?: [number, number] }
+    suggestions.value = ((data.features ?? []) as (MapboxFeature & MapboxCenter)[]).map((f) => {
       const ctx = (key: string) =>
         f.context?.find((c) => c.id?.startsWith(key))?.text ?? '';
 
@@ -197,6 +204,8 @@ async function searchAddress(query: string | number | null) {
         state: ctx('region'),
         zip: ctx('postcode'),
         full: f.place_name ?? '',
+        lng: f.center?.[0] ?? null,
+        lat: f.center?.[1] ?? null,
       };
     });
     showSuggestions.value = suggestions.value.length > 0;
@@ -212,10 +221,50 @@ function selectAddress(s: AddressSuggestion) {
   props.home.city = s.city;
   props.home.state = s.state;
   props.home.zip = s.zip;
+  props.home.lat = s.lat;
+  props.home.lng = s.lng;
   addressQuery.value = s.street;
   addressSelected.value = true;
   showSuggestions.value = false;
   suggestions.value = [];
+}
+
+async function useGeolocation() {
+  if (!navigator.geolocation) return;
+  geolocating.value = true;
+  try {
+    const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      });
+    });
+    const { latitude, longitude } = pos.coords;
+    props.home.lat = latitude;
+    props.home.lng = longitude;
+
+    // Reverse geocode to get address
+    if (!MAPBOX_TOKEN) { geolocating.value = false; return; }
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_TOKEN}&types=address&limit=1`,
+    );
+    const data = await res.json();
+    const feature = data.features?.[0];
+    if (feature) {
+      const ctx = (key: string) =>
+        feature.context?.find((c: { id?: string; text?: string }) => c.id?.startsWith(key))?.text ?? '';
+      props.home.streetAddress = feature.place_name?.split(',')[0] ?? feature.text ?? '';
+      props.home.city = ctx('place');
+      props.home.state = ctx('region');
+      props.home.zip = ctx('postcode');
+      addressQuery.value = props.home.streetAddress;
+      addressSelected.value = true;
+    }
+  } catch {
+    // Geolocation denied or failed — user can type manually
+  } finally {
+    geolocating.value = false;
+  }
 }
 
 const propertyTypes = [

@@ -142,13 +142,22 @@ async function handleAccept() {
 .terms-card {
   width: 560px;
   max-width: 95vw;
+  max-height: 90vh;
+  max-height: 90dvh;
   border-radius: 16px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .terms-header {
   text-align: center;
   padding: 24px 24px 16px;
+  flex-shrink: 0;
+
+  @media (max-height: 600px) {
+    padding: 16px 16px 12px;
+  }
 }
 
 .terms-icon-wrap {
@@ -160,6 +169,12 @@ async function handleAccept() {
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
+
+  @media (max-height: 600px) {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 8px;
+  }
 }
 
 .terms-title {
@@ -167,6 +182,10 @@ async function handleAccept() {
   font-size: 22px;
   font-weight: 700;
   color: #111827;
+
+  @media (max-height: 600px) {
+    font-size: 18px;
+  }
 }
 
 .terms-subtitle {
@@ -174,12 +193,22 @@ async function handleAccept() {
   font-size: 14px;
   color: #6B7280;
   line-height: 1.5;
+
+  @media (max-height: 600px) {
+    font-size: 12px;
+  }
 }
 
 .terms-body {
-  max-height: 360px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 20px 24px;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-height: 600px) {
+    padding: 12px 16px;
+  }
 }
 
 .terms-content {
@@ -204,6 +233,11 @@ async function handleAccept() {
 
 .terms-footer {
   padding: 16px 24px 20px;
+  flex-shrink: 0;
+
+  @media (max-height: 600px) {
+    padding: 12px 16px 16px;
+  }
 }
 
 .terms-check {
