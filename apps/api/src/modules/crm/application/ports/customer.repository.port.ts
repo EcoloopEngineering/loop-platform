@@ -12,8 +12,8 @@ export interface CustomerRaw {
 
 export interface CustomerRepositoryPort {
   create(data: {
-    firstName: string;
-    lastName: string;
+    firstName?: string | null;
+    lastName?: string | null;
     email?: string | null;
     phone?: string | null;
     source?: string | null;

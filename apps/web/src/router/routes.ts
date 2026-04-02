@@ -73,7 +73,12 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'leads/new',
-        name: 'lead-new-sales',
+        name: 'lead-new',
+        component: () => import('@/pages/prospects/ProspectCreatePage.vue'),
+      },
+      {
+        path: 'leads/new/details',
+        name: 'lead-new-details',
         component: () => import('@/pages/leads/LeadCreatePage.vue'),
       },
       {

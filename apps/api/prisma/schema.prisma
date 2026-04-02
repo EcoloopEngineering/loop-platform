@@ -154,8 +154,8 @@ enum CustomerType {
 
 model Customer {
   id               String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  firstName        String       @map("first_name")
-  lastName         String       @map("last_name")
+  firstName        String?      @map("first_name")
+  lastName         String?      @map("last_name")
   email            String?
   phone            String?
   source           String?

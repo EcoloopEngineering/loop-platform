@@ -1,19 +1,20 @@
-import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/boot/axios';
+import { defineStore } from 'pinia';
 import type { Customer, CustomerDetail } from '@/types/api';
 
 export type { Customer, CustomerDetail };
 
 export const useCustomerStore = defineStore('customer', () => {
+  const total = ref(0);
+  const error = ref<string | null>(null);
+  const loading = ref(false);
   const customers = ref<Customer[]>([]);
   const currentCustomer = ref<CustomerDetail | null>(null);
-  const loading = ref(false);
-  const error = ref<string | null>(null);
-  const total = ref(0);
 
   async function fetchCustomers(params?: {
     page?: number;
+    type?: string;
     limit?: number;
     search?: string;
   }) {
@@ -25,19 +26,19 @@ export const useCustomerStore = defineStore('customer', () => {
         { params },
       );
       interface RawCustomer extends Partial<Customer> {
-        firstName?: string;
         lastName?: string;
+        firstName?: string;
         _count?: { leads?: number };
       }
       const raw: RawCustomer[] = Array.isArray(data) ? data : data.data ?? [];
-      customers.value = raw.map((c) => ({
-        ...c,
-        id: c.id ?? '',
-        name: `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || c.name || '--',
-        email: c.email ?? '',
-        leadsCount: c._count?.leads ?? c.leadsCount ?? 0,
-        propertiesCount: c.propertiesCount ?? 0,
-        createdAt: c.createdAt ?? '',
+      customers.value = raw.map((customer) => ({
+        ...customer,
+        id: customer.id ?? '',
+        name: `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim() || customer.name || '--',
+        email: customer.email ?? '',
+        createdAt: customer.createdAt ?? '',
+        leadsCount: customer._count?.leads ?? customer.leadsCount ?? 0,
+        propertiesCount: customer.propertiesCount ?? 0,
       }));
       total.value = (data as { total?: number; meta?: { total: number } }).total ?? (data as { meta?: { total: number } }).meta?.total ?? raw.length;
     } catch (err) {
@@ -62,13 +63,46 @@ export const useCustomerStore = defineStore('customer', () => {
     }
   }
 
+  async function createProspect(data: {
+    email?: string;
+    phone?: string;
+    source?: string;
+    lastName?: string;
+    firstName?: string;
+    socialLink?: string;
+    address?: {
+      zip?: string;
+      city?: string;
+      state?: string;
+      latitude?: number;
+      longitude?: number;
+      streetAddress?: string;
+    };
+  }) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data: created } = await api.post<Customer>('/customers', {
+        ...data,
+        type: 'PROSPECT',
+      });
+      return created;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to create prospect';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
-    customers,
-    currentCustomer,
-    loading,
-    error,
     total,
-    fetchCustomers,
+    error,
+    loading,
+    customers,
     fetchCustomer,
+    currentCustomer,
+    fetchCustomers,
+    createProspect,
   };
 });

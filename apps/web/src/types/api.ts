@@ -37,12 +37,14 @@ export interface UserSummary {
 
 export interface Customer {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   name?: string;
   email: string;
   phone?: string;
   source?: string;
+  type?: string;
+  socialLink?: string;
   leadsCount: number;
   propertiesCount: number;
   createdAt: string;

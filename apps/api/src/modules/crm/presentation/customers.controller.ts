@@ -22,6 +22,10 @@ import {
   CUSTOMER_REPOSITORY,
   CustomerRepositoryPort,
 } from '../application/ports/customer.repository.port';
+import {
+  PROPERTY_REPOSITORY,
+  PropertyRepositoryPort,
+} from '../application/ports/property.repository.port';
 import { CustomerEntity } from '../domain/entities/customer.entity';
 
 @ApiTags('Customers')
@@ -32,6 +36,8 @@ export class CustomersController {
   constructor(
     @Inject(CUSTOMER_REPOSITORY)
     private readonly customerRepo: CustomerRepositoryPort,
+    @Inject(PROPERTY_REPOSITORY)
+    private readonly propertyRepo: PropertyRepositoryPort,
   ) {}
 
   @Get()
@@ -56,7 +62,11 @@ export class CustomersController {
   @ApiOperation({ summary: 'Get customer by ID' })
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerEntity> {
     const customer = await this.customerRepo.findById(id);
-    if (!customer) throw new NotFoundException('Customer not found');
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
     return customer;
   }
 
@@ -66,16 +76,38 @@ export class CustomersController {
   async create(
     @Body()
     body: {
-      firstName: string;
-      lastName: string;
       email?: string;
       phone?: string;
       source?: string;
       type?: CustomerType;
+      lastName?: string;
+      firstName?: string;
       socialLink?: string;
+      address?: {
+        zip?: string;
+        city?: string;
+        state?: string;
+        latitude?: number;
+        longitude?: number;
+        streetAddress?: string;
+      };
     },
   ): Promise<CustomerEntity> {
-    return this.customerRepo.create(body);
+    const { address, ...customerData } = body;
+    const customer = await this.customerRepo.create(customerData);
+
+    if (address?.streetAddress) {
+      await this.propertyRepo.create({
+        ...address,
+        zip: address.zip ?? '',
+        city: address.city ?? '',
+        state: address.state ?? '',
+        customerId: customer.id,
+        streetAddress: address.streetAddress,
+      });
+    }
+
+    return customer;
   }
 
   @Put(':id')
@@ -85,16 +117,20 @@ export class CustomersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     body: {
-      firstName?: string;
-      lastName?: string;
       email?: string;
       phone?: string;
-      socialLink?: string;
       source?: string;
+      lastName?: string;
+      firstName?: string;
+      socialLink?: string;
     },
   ): Promise<CustomerEntity> {
     const existing = await this.customerRepo.findById(id);
-    if (!existing) throw new NotFoundException('Customer not found');
+
+    if (!existing) {
+      throw new NotFoundException('Customer not found');
+    }
+
     return this.customerRepo.update(id, body);
   }
 
@@ -105,8 +141,15 @@ export class CustomersController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CustomerEntity> {
     const customer = await this.customerRepo.findById(id);
-    if (!customer) throw new NotFoundException('Customer not found');
-    if (customer.type === CustomerType.LEAD) return customer;
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    if (customer.type === CustomerType.LEAD) {
+      return customer;
+    }
+
     return this.customerRepo.update(id, { type: CustomerType.LEAD });
   }
 }

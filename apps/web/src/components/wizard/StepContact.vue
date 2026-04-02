@@ -38,7 +38,7 @@
       placeholder="email@example.com"
       type="email"
       class="q-mb-lg"
-      :rules="[(v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'Enter a valid email']"
+      :rules="[emailRule]"
     >
       <template #prepend>
         <q-icon name="email" color="grey-6" />
@@ -68,6 +68,7 @@
 <script setup lang="ts">
 import { LeadSource } from '@loop/shared';
 import EInput from '@/components/common/EInput.vue';
+import { emailRule } from '@/utils/validators';
 import type { ContactData } from '@/composables/useLeadWizard';
 
 defineProps<{

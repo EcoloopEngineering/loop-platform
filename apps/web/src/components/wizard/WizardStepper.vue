@@ -8,14 +8,37 @@
         :class="{ 'is-active': modelValue === idx + 1, 'is-done': modelValue > idx + 1 }"
         @click="$emit('update:modelValue', idx + 1)"
       >
-        <q-avatar
-          :size="'32px'"
-          :class="stepCircleClass(idx)"
-          class="q-mb-xs step-circle"
-        >
-          <q-icon v-if="modelValue > idx + 1" name="check" size="16px" />
-          <span v-else class="step-number">{{ idx + 1 }}</span>
-        </q-avatar>
+        <div class="step-circle q-mb-xs" :class="stepCircleClass(idx)">
+          <svg :viewBox="`0 0 ${SVG_VIEW_BOX} ${SVG_VIEW_BOX}`" :width="CIRCLE_SIZE" :height="CIRCLE_SIZE">
+            <!-- Background circle -->
+            <circle
+              :cx="SVG_CENTER"
+              :cy="SVG_CENTER"
+              :r="CIRCLE_RADIUS"
+              fill="none"
+              :stroke="circleTrackColor(idx)"
+              :stroke-width="STROKE_WIDTH"
+            />
+            <!-- Progress arc -->
+            <circle
+              :cx="SVG_CENTER"
+              :cy="SVG_CENTER"
+              :r="CIRCLE_RADIUS"
+              fill="none"
+              stroke="var(--color-primary)"
+              :stroke-width="STROKE_WIDTH"
+              stroke-linecap="round"
+              :stroke-dasharray="`${stepProgress(idx) * CIRCUMFERENCE} ${CIRCUMFERENCE}`"
+              :opacity="stepProgress(idx) > 0 ? 1 : 0"
+              :transform="`rotate(-90 ${SVG_CENTER} ${SVG_CENTER})`"
+              class="progress-arc"
+            />
+          </svg>
+          <div class="step-label">
+            <q-icon v-if="stepProgress(idx) >= 1" name="check" size="14px" color="teal" />
+            <span v-else class="step-number">{{ idx + 1 }}</span>
+          </div>
+        </div>
         <span
           class="text-caption"
           :class="modelValue >= idx + 1 ? 'text-teal text-weight-medium' : 'text-grey-6'"
@@ -24,44 +47,55 @@
         </span>
       </div>
     </div>
-    <q-linear-progress
-      :value="modelValue / 5"
-      color="teal"
-      track-color="grey-3"
-      size="3px"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
+const CIRCLE_SIZE = 32;
+const SVG_VIEW_BOX = 36;
+const SVG_CENTER = SVG_VIEW_BOX / 2;
+const CIRCLE_RADIUS = 16;
+const STROKE_WIDTH = 3;
+const CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
+
 const props = defineProps<{
   modelValue: number;
+  progress?: number[];
 }>();
 
 defineEmits<{
   'update:modelValue': [step: number];
 }>();
 
+function stepProgress(idx: number): number {
+  return props.progress?.[idx] ?? (props.modelValue > idx + 1 ? 1 : 0);
+}
+
 function stepCircleClass(idx: number) {
-  if (props.modelValue > idx + 1) return 'step-done';
   if (props.modelValue === idx + 1) return 'step-active';
+  if (stepProgress(idx) >= 1) return 'step-done';
   return 'step-inactive';
 }
 
+function circleTrackColor(idx: number) {
+  if (props.modelValue === idx + 1) return 'var(--color-primary-light)';
+  return 'var(--color-border)';
+}
+
 const steps = [
-  { label: 'Contact', icon: 'person' },
-  { label: 'Home', icon: 'home' },
-  { label: 'Energy', icon: 'bolt' },
-  { label: 'Design', icon: 'design_services' },
-  { label: 'Review', icon: 'fact_check' },
+  { label: 'Contact' },
+  { label: 'Home' },
+  { label: 'Energy' },
+  { label: 'Design' },
+  { label: 'Review' },
 ];
 </script>
 
 <style lang="scss" scoped>
 .wizard-stepper {
-  background: white;
+  background: var(--color-card-bg);
   padding-top: 12px;
-  border-bottom: 1px solid #F3F4F6;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .wizard-step-indicator {
@@ -81,33 +115,30 @@ const steps = [
 }
 
 .step-circle {
-  font-weight: 700;
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+.step-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .step-number {
   font-size: 13px;
   font-weight: 700;
+  color: var(--color-text-muted);
 }
 
-.step-active {
-  background: #00897B !important;
-  color: #FFFFFF !important;
+.step-active .step-number,
+.step-done .step-number {
+  color: var(--color-primary);
 }
 
-.step-done {
-  background: #00897B !important;
-  color: #FFFFFF !important;
-}
-
-.step-inactive {
-  background: #D1D5DB !important;
-  color: #4B5563 !important;
-}
-
-.body--dark {
-  .step-inactive {
-    background: #3A4050 !important;
-    color: #E8ECF1 !important;
-  }
-}
-</style>
+.progress-arc {
+  transition: stroke-dasharray 0.3s ease, opacity 0.15s ease;
+}</style>

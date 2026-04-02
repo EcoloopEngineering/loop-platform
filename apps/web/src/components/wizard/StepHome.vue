@@ -22,33 +22,33 @@
         dense
         debounce="300"
         class="e-input"
-        @update:model-value="searchAddress"
+        @update:model-value="onAddressInput"
         @focus="showSuggestions = true"
       >
         <template #prepend>
           <q-icon name="location_on" color="grey-6" />
         </template>
         <template #append>
-          <q-spinner-dots v-if="searching" size="18px" color="primary" />
+          <q-spinner-dots v-if="geo.searching.value" size="18px" color="primary" />
           <q-icon v-else-if="addressSelected" name="check_circle" color="positive" />
         </template>
       </q-input>
 
-      <q-list v-if="showSuggestions && suggestions.length > 0" class="suggestions-list" bordered>
+      <q-list v-if="showSuggestions && geo.suggestions.value.length > 0" class="suggestions-list" bordered>
         <q-item
-          v-for="s in suggestions"
-          :key="s.id"
+          v-for="suggestion in geo.suggestions.value"
+          :key="suggestion.full"
           clickable
           v-ripple
-          @click="selectAddress(s)"
+          @click="selectAddress(suggestion)"
           class="suggestion-item"
         >
           <q-item-section avatar>
             <q-icon name="place" color="primary" size="20px" />
           </q-item-section>
           <q-item-section>
-            <q-item-label>{{ s.street }}</q-item-label>
-            <q-item-label caption>{{ s.secondary }}</q-item-label>
+            <q-item-label>{{ suggestion.street }}</q-item-label>
+            <q-item-label caption>{{ suggestion.city }}, {{ suggestion.state }} {{ suggestion.zip }}</q-item-label>
           </q-item-section>
         </q-item>
       </q-list>
@@ -84,6 +84,14 @@
       </div>
     </div>
 
+    <!-- Tree Removal -->
+    <e-tri-toggle
+      label="Tree Removal"
+      class="q-mb-md"
+      :model-value="home.treeRemoval"
+      @update:model-value="home.treeRemoval = $event"
+    />
+
     <!-- Roof Condition -->
     <div class="text-subtitle2 text-weight-medium q-mb-sm">Roof Condition</div>
     <div class="row q-gutter-sm q-mb-md">
@@ -116,17 +124,17 @@
     <!-- Toggles -->
     <div class="row q-col-gutter-md q-mb-sm">
       <div class="col-6">
-        <q-toggle
-          v-model="home.hasPool"
+        <e-tri-toggle
           label="Pool / Hot Tub"
-          color="teal"
+          :model-value="home.hasPool"
+          @update:model-value="home.hasPool = $event"
         />
       </div>
       <div class="col-6">
-        <q-toggle
-          v-model="home.hasEV"
+        <e-tri-toggle
           label="Electric Vehicle"
-          color="teal"
+          :model-value="home.hasEV"
+          @update:model-value="home.hasEV = $event"
         />
       </div>
     </div>
@@ -137,85 +145,36 @@
 import { ref } from 'vue';
 import { RoofCondition, PropertyType } from '@loop/shared';
 import EInput from '@/components/common/EInput.vue';
+import ETriToggle from '@/components/common/ETriToggle.vue';
+import { useGeolocation, type ParsedAddress } from '@/composables/useGeolocation';
 import type { HomeData } from '@/composables/useLeadWizard';
 
-const MAPBOX_TOKEN = (import.meta.env?.VITE_MAPBOX_ACCESS_TOKEN as string)
-  || process.env.MAPBOX_ACCESS_TOKEN
-  || '';
+const geo = useGeolocation();
 
 const props = defineProps<{
   home: HomeData;
 }>();
 
-// --- Address Autocomplete ---
-interface AddressSuggestion {
-  id: string;
-  street: string;
-  secondary: string;
-  city: string;
-  state: string;
-  zip: string;
-  full: string;
-}
-
 const addressQuery = ref(props.home.streetAddress || '');
-const suggestions = ref<AddressSuggestion[]>([]);
 const showSuggestions = ref(false);
-const searching = ref(false);
 const addressSelected = ref(!!props.home.streetAddress);
 
-async function searchAddress(query: string | number | null) {
+function onAddressInput(query: string | number | null) {
   if (typeof query !== 'string') return;
   addressSelected.value = false;
-  if (!query || query.length < 3 || !MAPBOX_TOKEN) {
-    suggestions.value = [];
-    return;
-  }
-
-  searching.value = true;
-  try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&country=us&types=address&autocomplete=true&limit=5`;
-    const res = await fetch(url);
-    const data = await res.json();
-
-    interface MapboxContext { id?: string; text?: string }
-    interface MapboxFeature {
-      id: string;
-      text?: string;
-      place_name?: string;
-      context?: MapboxContext[];
-    }
-    suggestions.value = ((data.features ?? []) as MapboxFeature[]).map((f) => {
-      const ctx = (key: string) =>
-        f.context?.find((c) => c.id?.startsWith(key))?.text ?? '';
-
-      return {
-        id: f.id,
-        street: f.place_name?.split(',')[0] ?? f.text ?? '',
-        secondary: `${ctx('place')}, ${ctx('region')} ${ctx('postcode')}`.trim(),
-        city: ctx('place'),
-        state: ctx('region'),
-        zip: ctx('postcode'),
-        full: f.place_name ?? '',
-      };
-    });
-    showSuggestions.value = suggestions.value.length > 0;
-  } catch {
-    suggestions.value = [];
-  } finally {
-    searching.value = false;
-  }
+  geo.searchAddress(query);
+  showSuggestions.value = true;
 }
 
-function selectAddress(s: AddressSuggestion) {
-  props.home.streetAddress = s.street;
-  props.home.city = s.city;
-  props.home.state = s.state;
-  props.home.zip = s.zip;
-  addressQuery.value = s.street;
+function selectAddress(suggestion: ParsedAddress) {
+  props.home.streetAddress = suggestion.street;
+  props.home.city = suggestion.city;
+  props.home.state = suggestion.state;
+  props.home.zip = suggestion.zip;
+  addressQuery.value = suggestion.street;
   addressSelected.value = true;
   showSuggestions.value = false;
-  suggestions.value = [];
+  geo.clearSuggestions();
 }
 
 const propertyTypes = [

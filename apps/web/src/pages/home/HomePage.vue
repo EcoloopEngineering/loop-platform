@@ -16,8 +16,19 @@
     </q-banner>
 
     <!-- Stats -->
+    <div class="row q-col-gutter-sm q-mb-sm">
+      <div class="col-6" v-for="stat in topStats" :key="stat.label">
+        <div class="stat-card">
+          <div class="row items-center q-mb-xs gap-xs">
+            <q-icon :name="stat.icon" :color="stat.color" size="16px" />
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
+          <div class="stat-value">{{ stat.value }}</div>
+        </div>
+      </div>
+    </div>
     <div class="row q-col-gutter-sm q-mb-lg">
-      <div class="col-6" v-for="stat in stats" :key="stat.label">
+      <div class="col-4" v-for="stat in bottomStats" :key="stat.label">
         <div class="stat-card">
           <div class="row items-center q-mb-xs gap-xs">
             <q-icon :name="stat.icon" :color="stat.color" size="16px" />
@@ -32,11 +43,11 @@
     <div class="q-mb-lg">
       <div class="section-title q-mb-sm">Quick Actions</div>
       <div class="row q-col-gutter-sm">
-        <div :class="showInvite ? 'col-6' : 'col-12'">
-          <q-btn unelevated no-caps color="primary" text-color="white" icon="add" label="New Lead" class="full-width action-btn" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
-        </div>
         <div v-if="showInvite" class="col-6">
           <q-btn outline no-caps color="primary" icon="share" label="Invite" class="full-width action-btn" aria-label="Invite a referral partner" @click="$router.push('/referrals')" />
+        </div>
+        <div :class="showInvite ? 'col-6' : 'col-12'">
+          <q-btn unelevated no-caps color="primary" text-color="white" icon="add" label="New Lead" class="full-width action-btn" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
         </div>
       </div>
     </div>
@@ -164,6 +175,7 @@ const errorLeads = ref<string | null>(null);
 const leads = ref<Lead[]>([]);
 const activities = ref<ActivityItem[]>([]);
 const currentUser = ref<CurrentUserInfo | null>(null);
+const prospectCount = ref(0);
 const injectedName = inject<Ref<string>>('userName', ref(''));
 const displayName = computed(() => injectedName?.value || '');
 
@@ -184,14 +196,19 @@ const greeting = computed(() => {
 
 const totalLeads = computed(() => filteredLeads.value.length);
 const wonLeads = computed(() => filteredLeads.value.filter((l) => l.currentStage === 'WON').length);
-const referralLeads = computed(() => filteredLeads.value.filter((l) => l.source === 'REFERRAL').length);
 const conversionRate = computed(() => {
   if (totalLeads.value === 0) return 0;
   return Math.round((wonLeads.value / totalLeads.value) * 100);
 });
 
-const stats = computed(() => [
+const topStats = computed(() => [
+  { label: 'Prospects', value: String(prospectCount.value), icon: 'person_search', color: 'teal' },
   { label: 'Total Leads', value: String(totalLeads.value), icon: 'people', color: 'primary' },
+]);
+
+const referralLeads = computed(() => filteredLeads.value.filter((l) => l.source === 'REFERRAL').length);
+
+const bottomStats = computed(() => [
   { label: 'Referrals', value: String(referralLeads.value), icon: 'group_add', color: 'purple' },
   { label: 'Closed Won', value: String(wonLeads.value), icon: 'emoji_events', color: 'positive' },
   { label: 'Conversion', value: `${conversionRate.value}%`, icon: 'trending_up', color: 'orange-8' },
@@ -243,15 +260,19 @@ async function loadData() {
   } catch { /* dev bypass user */ }
 
   try {
-    const [leadsRes, notifsRes] = await Promise.all([
+    const [leadsRes, notifsRes, prospectsRes] = await Promise.all([
       api.get('/leads', { params: { limit: 100 } }),
       api.get('/notifications').catch(() => ({ data: { data: [] } })),
+      api.get('/customers', { params: { type: 'PROSPECT', limit: 1 } }).catch(() => ({ data: { meta: { total: 0 } } })),
     ]);
     const leadsData = leadsRes.data;
     leads.value = Array.isArray(leadsData) ? leadsData : leadsData.data ?? [];
 
     const notifsData = notifsRes.data;
     activities.value = (Array.isArray(notifsData) ? notifsData : notifsData.data ?? []).slice(0, 5);
+
+    const prospectsData = prospectsRes.data;
+    prospectCount.value = prospectsData?.meta?.total ?? prospectsData?.total ?? 0;
   } catch {
     errorLeads.value = 'Failed to load your sales data. Please try again.';
   } finally {

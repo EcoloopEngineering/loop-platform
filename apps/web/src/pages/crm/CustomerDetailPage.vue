@@ -41,9 +41,9 @@
       <q-card flat bordered class="rounded-card q-mb-md">
         <q-card-section>
           <div class="text-subtitle2 text-weight-bold q-mb-sm">
-            Properties ({{ customer.properties.length }})
+            Properties ({{ customer.properties?.length ?? 0 }})
           </div>
-          <q-list v-if="customer.properties.length" separator dense>
+          <q-list v-if="customer.properties?.length" separator dense>
             <q-item v-for="prop in customer.properties" :key="prop.id">
               <q-item-section>
                 <q-item-label>{{ prop.address }}</q-item-label>
@@ -59,9 +59,9 @@
       <q-card flat bordered class="rounded-card q-mb-md">
         <q-card-section>
           <div class="text-subtitle2 text-weight-bold q-mb-sm">
-            Leads ({{ customer.leads.length }})
+            Leads ({{ customer.leads?.length ?? 0 }})
           </div>
-          <q-list v-if="customer.leads.length" separator dense>
+          <q-list v-if="customer.leads?.length" separator dense>
             <q-item
               v-for="lead in customer.leads"
               :key="lead.id"
@@ -93,7 +93,7 @@
       <q-card flat bordered class="rounded-card">
         <q-card-section>
           <div class="text-subtitle2 text-weight-bold q-mb-sm">Activity</div>
-          <LeadTimeline :activities="customer.activities" />
+          <LeadTimeline :activities="customer.activities ?? []" />
         </q-card-section>
       </q-card>
     </template>

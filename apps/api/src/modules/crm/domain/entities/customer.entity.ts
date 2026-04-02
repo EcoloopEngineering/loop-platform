@@ -2,13 +2,14 @@ import { CustomerType } from '@loop/shared';
 
 export class CustomerEntity {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   source: string | null;
-  type: CustomerType;
+  type: string;
   socialLink: string | null;
+  properties?: unknown[];
   createdAt: Date;
   updatedAt: Date;
 
@@ -17,7 +18,7 @@ export class CustomerEntity {
   }
 
   get fullName(): string {
-    return `${this.firstName} ${this.lastName}`;
+    return `${this.firstName ?? ''} ${this.lastName ?? ''}`.trim();
   }
 
   get isProspect(): boolean {

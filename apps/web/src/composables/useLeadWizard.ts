@@ -1,101 +1,204 @@
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { api } from '@/boot/axios';
+import { useRouter, useRoute } from 'vue-router';
 import { useLeadStore } from '@/stores/lead.store';
+import { EMAIL_REGEX } from '@/utils/validators';
+import { ref, computed, watch, onMounted } from 'vue';
 import {
   LeadSource,
-  RoofCondition,
-  PropertyType,
   DesignType,
-  SCORING_WEIGHTS,
+  PropertyType,
+  RoofCondition,
   ROOF_SCORE_MAP,
+  SCORING_WEIGHTS,
   ENERGY_SCORE_THRESHOLDS,
 } from '@loop/shared';
 
 export interface ContactData {
-  firstName: string;
-  lastName: string;
   phone: string;
   email: string;
+  lastName: string;
+  firstName: string;
   source: LeadSource | null;
 }
 
 export interface HomeData {
-  streetAddress: string;
-  city: string;
-  state: string;
   zip: string;
   lat: number | null;
   lng: number | null;
-  roofCondition: RoofCondition | null;
+  city: string;
+  state: string;
+  hasEV: boolean | null;
+  hasPool: boolean | null;
+  streetAddress: string;
+  treeRemoval: boolean | null;
   propertyType: PropertyType;
+  roofCondition: RoofCondition | null;
   electricalService: string;
-  hasPool: boolean;
-  hasEV: boolean;
 }
 
 export interface EnergyData {
-  monthlyBill: number | null;
-  annualKwhUsage: number | null;
-  utilityProvider: string;
   billFiles: File[];
+  monthlyBill: number | null;
+  utilityProvider: string;
+  annualKwhUsage: number | null;
 }
 
 export interface DesignData {
-  designType: DesignType | null;
   notes: string;
+  designType: DesignType | null;
 }
 
 const STEP_NAMES = ['Contact', 'Home', 'Energy', 'Design', 'Review'] as const;
 
 export function useLeadWizard() {
+  const route = useRoute();
   const router = useRouter();
   const leadStore = useLeadStore();
 
-  const currentStep = ref(1);
   const submitting = ref(false);
+  const currentStep = ref(1);
+  const leadId = ref<string | undefined>();
+  const propertyId = ref<string | undefined>();
+  const customerId = ref(route.query.customerId as string | undefined);
 
   const contactData = ref<ContactData>({
-    firstName: '',
-    lastName: '',
     phone: '',
     email: '',
     source: null,
+    lastName: '',
+    firstName: '',
   });
 
+  const treeRemovalQuery = route.query.treeRemoval;
+  const treeRemovalValue = customerId.value
+    ? (treeRemovalQuery === 'true' ? true : treeRemovalQuery === 'false' ? false : null)
+    : null;
+
   const homeData = ref<HomeData>({
-    streetAddress: '',
-    city: '',
-    state: '',
     zip: '',
     lat: null,
     lng: null,
-    roofCondition: null,
+    city: '',
+    state: '',
+    hasEV: null,
+    hasPool: null,
+    streetAddress: '',
+    treeRemoval: treeRemovalValue,
     propertyType: PropertyType.RESIDENTIAL,
+    roofCondition: null,
     electricalService: '200A',
-    hasPool: false,
-    hasEV: false,
   });
 
   const energyData = ref<EnergyData>({
-    monthlyBill: null,
-    annualKwhUsage: null,
-    utilityProvider: '',
     billFiles: [],
+    monthlyBill: null,
+    utilityProvider: '',
+    annualKwhUsage: null,
   });
 
   const designData = ref<DesignData>({
-    designType: null,
     notes: '',
+    designType: null,
+  });
+
+  // --- Load customer + create Lead on mount ---
+
+  if (customerId.value) {
+    onMounted(async () => {
+      try {
+        const { data: customer } = await api.get(`/customers/${customerId.value}`);
+        contactData.value.email = customer.email || '';
+        contactData.value.phone = customer.phone || '';
+        contactData.value.source = customer.source || null;
+        contactData.value.lastName = customer.lastName || '';
+        contactData.value.firstName = customer.firstName || '';
+
+        if (customer.properties?.length) {
+          const property = customer.properties[0];
+          propertyId.value = property.id;
+          homeData.value.zip = property.zip || '';
+          homeData.value.city = property.city || '';
+          homeData.value.state = property.state || '';
+          homeData.value.lat = property.latitude ?? null;
+          homeData.value.lng = property.longitude ?? null;
+          homeData.value.streetAddress = property.streetAddress || '';
+        }
+
+        if (customerId.value && propertyId.value) {
+          const lead = await leadStore.createLead({
+            contact: {
+              phone: customer.phone || '',
+              email: customer.email || 'noemail@placeholder.com',
+              source: customer.source || LeadSource.OTHER,
+              lastName: customer.lastName,
+              firstName: customer.firstName,
+            },
+            home: {
+              city: homeData.value.city,
+              zip: homeData.value.zip,
+              state: homeData.value.state,
+              latitude: homeData.value.lat ?? undefined,
+              longitude: homeData.value.lng ?? undefined,
+              propertyType: homeData.value.propertyType,
+              roofCondition: RoofCondition.UNKNOWN,
+              streetAddress: homeData.value.streetAddress,
+            },
+            energy: {},
+            design: { designType: DesignType.MANUAL_DESIGN },
+          });
+          leadId.value = lead.id;
+        }
+      } catch {
+        // Customer fetch or lead creation failed — continue without pre-fill
+      }
+    });
+  }
+
+  // --- Auto-save on step change ---
+
+  watch(currentStep, async () => {
+    if (!leadId.value) return;
+    try {
+      await api.patch(`/leads/${leadId.value}`, {
+        contact: {
+          phone: contactData.value.phone,
+          email: contactData.value.email || undefined,
+          source: contactData.value.source ?? undefined,
+          lastName: contactData.value.lastName.trim(),
+          firstName: contactData.value.firstName.trim(),
+        },
+        home: {
+          zip: homeData.value.zip,
+          city: homeData.value.city,
+          hasEV: homeData.value.hasEV,
+          state: homeData.value.state,
+          hasPool: homeData.value.hasPool,
+          monthlyBill: energyData.value.monthlyBill ?? undefined,
+          propertyType: homeData.value.propertyType,
+          streetAddress: homeData.value.streetAddress,
+          roofCondition: homeData.value.roofCondition ?? undefined,
+          annualKwhUsage: energyData.value.annualKwhUsage ?? undefined,
+          utilityProvider: energyData.value.utilityProvider || undefined,
+          electricalService: homeData.value.electricalService || undefined,
+        },
+        design: {
+          designType: designData.value.designType ?? undefined,
+          designNotes: designData.value.notes || undefined,
+        },
+      });
+    } catch {
+      // Auto-save failed silently
+    }
   });
 
   // --- Validation ---
 
   const isStep1Valid = computed(() => {
-    const c = contactData.value;
+    const contact = contactData.value;
     return (
-      c.firstName.trim().length > 0 &&
-      c.lastName.trim().length > 0 &&
-      c.phone.replace(/\D/g, '').length >= 10
+      contact.firstName.trim().length > 0 &&
+      contact.lastName.trim().length > 0 &&
+      contact.phone.replace(/\D/g, '').length >= 10
     );
   });
 
@@ -115,7 +218,51 @@ export function useLeadWizard() {
 
   const isStep5Valid = computed(() => true);
 
-  // All required fields filled + design type selected
+  // --- Step progress (0-1 per step, based on filled fields) ---
+
+  const stepProgress = computed(() => {
+    const contact = contactData.value;
+    const contactFilled = [
+      contact.firstName.trim(),
+      contact.lastName.trim(),
+      contact.phone.replace(/\D/g, '').length >= 10,
+      contact.email.trim() && EMAIL_REGEX.test(contact.email.trim()),
+    ].filter(Boolean).length;
+
+    const home = homeData.value;
+    const homeFilled = [
+      home.streetAddress.trim(),
+      home.city.trim(),
+      home.state.trim(),
+      home.zip.trim(),
+      home.roofCondition,
+      home.hasPool !== null,
+      home.hasEV !== null,
+      home.treeRemoval !== null,
+    ].filter(Boolean).length;
+
+    const energy = energyData.value;
+    const energyFilled = [
+      energy.monthlyBill && energy.monthlyBill > 0 ? energy.monthlyBill : null,
+      energy.annualKwhUsage,
+      energy.utilityProvider.trim(),
+    ].filter(Boolean).length;
+
+    const design = designData.value;
+    const designFilled = [
+      design.designType,
+      design.notes.trim(),
+    ].filter(Boolean).length;
+
+    return [
+      contactFilled / 4,
+      homeFilled / 8,
+      energyFilled / 3,
+      designFilled / 2,
+      isStep5Valid.value ? 1 : 0,
+    ];
+  });
+
   const canSubmit = computed(() => {
     return isStep1Valid.value && isStep2Valid.value && isStep3Valid.value && isStep4Valid.value;
   });
@@ -140,9 +287,9 @@ export function useLeadWizard() {
   // --- Scoring ---
 
   const roofScore = computed(() => {
-    const cond = homeData.value.roofCondition;
-    if (!cond) return 0;
-    return ROOF_SCORE_MAP[cond] ?? 0;
+    const condition = homeData.value.roofCondition;
+    if (!condition) return 0;
+    return ROOF_SCORE_MAP[condition] ?? 0;
   });
 
   const energyScore = computed(() => {
@@ -156,24 +303,24 @@ export function useLeadWizard() {
 
   const contactScore = computed(() => {
     let score = 0;
-    const c = contactData.value;
-    if (c.firstName.trim()) score += 30;
-    if (c.lastName.trim()) score += 20;
-    if (c.phone.replace(/\D/g, '').length >= 10) score += 30;
-    if (c.email.trim()) score += 10;
-    if (c.source) score += 10;
+    const contact = contactData.value;
+    if (contact.firstName.trim()) score += 30;
+    if (contact.lastName.trim()) score += 20;
+    if (contact.phone.replace(/\D/g, '').length >= 10) score += 30;
+    if (contact.email.trim()) score += 10;
+    if (contact.source) score += 10;
     return score;
   });
 
   const propertyScore = computed(() => {
     let score = 0;
-    const h = homeData.value;
-    if (h.streetAddress.trim()) score += 40;
-    if (h.city.trim()) score += 15;
-    if (h.state.trim()) score += 10;
-    if (h.zip.trim()) score += 10;
-    if (h.electricalService) score += 15;
-    if (h.propertyType) score += 10;
+    const home = homeData.value;
+    if (home.streetAddress.trim()) score += 40;
+    if (home.city.trim()) score += 15;
+    if (home.state.trim()) score += 10;
+    if (home.zip.trim()) score += 10;
+    if (home.electricalService) score += 15;
+    if (home.propertyType) score += 10;
     return Math.min(score, 100);
   });
 
@@ -195,7 +342,7 @@ export function useLeadWizard() {
   // --- Navigation ---
 
   function nextStep() {
-    if (currentStep.value < 5 && isStepValid(currentStep.value)) {
+    if (currentStep.value < 5) {
       currentStep.value++;
     }
   }
@@ -217,31 +364,67 @@ export function useLeadWizard() {
   async function submitLead() {
     submitting.value = true;
     try {
+      if (leadId.value) {
+        await api.patch(`/leads/${leadId.value}`, {
+          contact: {
+            phone: contactData.value.phone,
+            email: contactData.value.email || undefined,
+            source: contactData.value.source ?? LeadSource.OTHER,
+            lastName: contactData.value.lastName.trim(),
+            firstName: contactData.value.firstName.trim(),
+          },
+          home: {
+            zip: homeData.value.zip,
+            city: homeData.value.city,
+            hasEV: homeData.value.hasEV,
+            state: homeData.value.state,
+            hasPool: homeData.value.hasPool,
+            monthlyBill: energyData.value.monthlyBill ?? undefined,
+            propertyType: homeData.value.propertyType,
+            streetAddress: homeData.value.streetAddress,
+            roofCondition: homeData.value.roofCondition ?? RoofCondition.UNKNOWN,
+            annualKwhUsage: energyData.value.annualKwhUsage ?? undefined,
+            utilityProvider: energyData.value.utilityProvider || undefined,
+            electricalService: homeData.value.electricalService || undefined,
+          },
+          design: {
+            designType: designData.value.designType ?? DesignType.MANUAL_DESIGN,
+            designNotes: designData.value.notes || undefined,
+          },
+        });
+        router.push(`/crm/leads/${leadId.value}`);
+        return { id: leadId.value };
+      }
+
+      // Fallback: create new lead (no customerId flow)
       const payload = {
         contact: {
-          firstName: contactData.value.firstName.trim(),
-          lastName: contactData.value.lastName.trim(),
           phone: contactData.value.phone,
           email: contactData.value.email || 'noemail@placeholder.com',
           source: contactData.value.source ?? LeadSource.OTHER,
+          lastName: contactData.value.lastName.trim(),
+          firstName: contactData.value.firstName.trim(),
         },
         home: {
-          streetAddress: homeData.value.streetAddress,
-          city: homeData.value.city,
-          state: homeData.value.state,
           zip: homeData.value.zip,
+          city: homeData.value.city,
+          hasEV: homeData.value.hasEV,
+          state: homeData.value.state,
+          hasPool: homeData.value.hasPool,
           latitude: homeData.value.lat ?? undefined,
           longitude: homeData.value.lng ?? undefined,
-          roofCondition: homeData.value.roofCondition ?? RoofCondition.UNKNOWN,
+          monthlyBill: energyData.value.monthlyBill ?? undefined,
           propertyType: homeData.value.propertyType,
+          streetAddress: homeData.value.streetAddress,
+          roofCondition: homeData.value.roofCondition ?? RoofCondition.UNKNOWN,
+          annualKwhUsage: energyData.value.annualKwhUsage ?? undefined,
+          utilityProvider: energyData.value.utilityProvider || undefined,
           electricalService: homeData.value.electricalService || undefined,
-          hasPool: homeData.value.hasPool,
-          hasEV: homeData.value.hasEV,
         },
         energy: {
           monthlyBill: energyData.value.monthlyBill ?? undefined,
-          annualKwhUsage: energyData.value.annualKwhUsage ?? undefined,
           utilityProvider: energyData.value.utilityProvider || undefined,
+          annualKwhUsage: energyData.value.annualKwhUsage ?? undefined,
         },
         design: {
           designType: designData.value.designType ?? DesignType.MANUAL_DESIGN,
@@ -254,7 +437,7 @@ export function useLeadWizard() {
     } catch (err: unknown) {
       const axErr = err as { response?: { data?: { message?: string | string[] } } };
       const msg = axErr?.response?.data?.message;
-      const errorMsg = Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create lead. Please check the data and try again.');
+      const errorMsg = Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create lead.');
       throw new Error(errorMsg);
     } finally {
       submitting.value = false;
@@ -262,29 +445,31 @@ export function useLeadWizard() {
   }
 
   return {
-    currentStep,
-    submitting,
-    contactData,
+    leadId,
+    goToStep,
+    nextStep,
+    prevStep,
     homeData,
-    energyData,
+    canSubmit,
+    roofScore,
+    scoreTier,
+    submitting,
+    submitLead,
+    STEP_NAMES,
     designData,
+    energyData,
+    contactData,
+    currentStep,
+    isStepValid,
+    energyScore,
+    contactScore,
+    stepProgress,
+    scorePreview,
     isStep1Valid,
     isStep2Valid,
     isStep3Valid,
     isStep4Valid,
     isStep5Valid,
-    canSubmit,
-    isStepValid,
-    roofScore,
-    energyScore,
-    contactScore,
     propertyScore,
-    scorePreview,
-    scoreTier,
-    nextStep,
-    prevStep,
-    goToStep,
-    submitLead,
-    STEP_NAMES,
   };
 }

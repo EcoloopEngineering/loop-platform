@@ -29,6 +29,7 @@
 
     <q-form @submit.prevent="save" class="q-gutter-y-md">
       <EInput v-model="form.name" label="Full Name" :rules="[required]" />
+     
       <EInput v-model="form.email" label="Email" type="email" disable />
       <EInput
         v-model="form.phone"
@@ -36,7 +37,7 @@
         type="tel"
         mask="(###) ###-####"
         unmasked-value
-        :rules="[(v: string) => !v || /^\d{10,15}$/.test(v) || 'Enter a valid phone number']"
+        :rules="[phoneRule]"
       />
 
       <q-select
@@ -111,6 +112,7 @@ import { API_URL } from '@/config/api';
 import EHeader from '@/components/common/EHeader.vue';
 import EInput from '@/components/common/EInput.vue';
 import EBtn from '@/components/common/EBtn.vue';
+import { phoneRule } from '@/utils/validators';
 import { useQuasar } from 'quasar';
 
 const userStore = useUserStore();

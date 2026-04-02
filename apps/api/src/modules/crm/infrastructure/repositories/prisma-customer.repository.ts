@@ -9,8 +9,8 @@ export class PrismaCustomerRepository implements CustomerRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: {
-    firstName: string;
-    lastName: string;
+    firstName?: string | null;
+    lastName?: string | null;
     email?: string | null;
     phone?: string | null;
     source?: string | null;
@@ -22,7 +22,10 @@ export class PrismaCustomerRepository implements CustomerRepositoryPort {
   }
 
   async findById(id: string): Promise<CustomerEntity | null> {
-    const customer = await this.prisma.customer.findUnique({ where: { id } });
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: { properties: true },
+    });
     return customer ? new CustomerEntity(customer) : null;
   }
 

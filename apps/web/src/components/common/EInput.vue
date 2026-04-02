@@ -1,5 +1,6 @@
 <template>
   <q-input
+    ref="inputRef"
     v-bind="$attrs"
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
@@ -16,12 +17,23 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
+import { QInput } from 'quasar';
+
 defineProps<{
   modelValue?: string | number | null;
   rules?: ((val: string) => boolean | string)[];
   size?: 'sm' | 'md' | 'lg';
 }>();
 defineEmits<{ 'update:modelValue': [value: string | number | null] }>();
+
+const inputRef = ref<InstanceType<typeof QInput> | null>(null);
+
+function focus() {
+  inputRef.value?.focus();
+}
+
+defineExpose({ focus });
 </script>
 
 <style lang="scss" scoped>
