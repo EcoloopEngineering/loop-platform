@@ -1,32 +1,33 @@
 <template>
   <q-timeline color="primary" class="q-px-sm timeline-improved">
     <q-timeline-entry
-      v-for="item in activities"
-      :key="item.id"
-      :icon="activityIcon(item.type)"
-      :color="activityColor(item.type)"
-      :class="{ 'stage-entry': isStageChange(item.type) }"
+      v-for="entry in enrichedActivities"
+      :key="entry.id"
+      :icon="activityIcon(entry.type)"
+      :color="activityColor(entry.type)"
     >
       <template #subtitle>
         <div class="row items-center q-gutter-x-sm">
-          <q-avatar v-if="item.userName" size="28px" color="grey-4" text-color="grey-8">
-            <span class="text-caption" style="font-size: 10px">
-              {{ initials(item.userName) }}
-            </span>
+          <q-avatar v-if="entry.name" size="24px" color="grey-4" text-color="grey-8">
+            <span style="font-size: 10px">{{ initials(entry.name) }}</span>
           </q-avatar>
-          <span class="text-caption text-grey-6">
-            {{ formatDate(item.createdAt) }}
-          </span>
-          <q-badge v-if="isStageChange(item.type)" color="primary" text-color="white" class="text-10 q-ml-xs">
+          <span class="text-caption text-grey-6">{{ formatDate(entry.createdAt) }}</span>
+          <q-badge v-if="isStageChange(entry.type)" color="primary" text-color="white" class="text-10">
             Stage Change
           </q-badge>
         </div>
       </template>
-      <div class="text-body2" :class="{ 'text-weight-medium': isStageChange(item.type) }">
-        {{ item.description }}
+      <!-- Stage transition: From → To -->
+      <div v-if="entry.transition" class="text-body2">
+        <span v-if="entry.transition.label" class="text-grey-6">{{ entry.transition.label }} </span>
+        <span v-if="entry.transition.from" class="stage-name">{{ entry.transition.from }}</span>
+        <span v-if="entry.transition.from" class="text-grey-5"> &rarr; </span>
+        <span class="stage-name">{{ entry.transition.to }}</span>
       </div>
-      <div v-if="activityLabel(item.type)" class="text-caption text-grey-5 q-mt-xs">
-        {{ activityLabel(item.type) }}
+      <!-- Default description -->
+      <div v-else class="text-body2">{{ entry.description }}</div>
+      <div v-if="activityLabel(entry.type)" class="text-caption text-grey-5 q-mt-xs">
+        {{ activityLabel(entry.type) }}
       </div>
     </q-timeline-entry>
 
@@ -38,16 +39,51 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  activities: {
-    id: string;
-    type: string;
-    description: string;
-    createdAt: string;
-    userName?: string;
-    metadata?: Record<string, unknown>;
-  }[];
-}>();
+import { computed } from 'vue';
+
+type ActivityItem = {
+  id: string;
+  type: string;
+  description: string;
+  createdAt: string;
+  userName?: string;
+  user?: { firstName: string; lastName: string };
+  metadata?: Record<string, unknown>;
+};
+
+const props = defineProps<{ activities: ActivityItem[] }>();
+
+interface Transition { label: string; from: string; to: string }
+interface EnrichedEntry extends ActivityItem {
+  name: string;
+  transition: Transition | null;
+}
+
+const enrichedActivities = computed<EnrichedEntry[]>(() =>
+  props.activities.map((a) => ({
+    ...a,
+    name: a.userName ?? (a.user ? `${a.user.firstName} ${a.user.lastName}` : ''),
+    transition: isStageChange(a.type) ? parseTransition(a) : null,
+  })),
+);
+
+function parseTransition(item: ActivityItem): Transition | null {
+  const meta = item.metadata as Record<string, string> | null;
+  if (meta?.fromStage && meta?.toStage) {
+    return { label: '', from: stageName(meta.fromStage), to: stageName(meta.toStage) };
+  }
+  if (meta?.previousStage && meta?.newStage) {
+    return { label: 'Auto: ', from: stageName(meta.previousStage), to: stageName(meta.newStage) };
+  }
+  if (meta?.stage) {
+    return { label: 'Started at ', from: '', to: stageName(meta.stage) };
+  }
+  const match = item.description.match(/from\s+(\S+)\s+to\s+(\S+)/i);
+  if (match) {
+    return { label: '', from: stageName(match[1]), to: stageName(match[2]) };
+  }
+  return null;
+}
 
 // Maps both UPPER_CASE (backend enum) and lower_case (legacy) formats
 const ICONS: Record<string, string> = {
@@ -61,6 +97,7 @@ const ICONS: Record<string, string> = {
   APPOINTMENT_BOOKED: 'event',
   APPOINTMENT_COMPLETED: 'event_available',
   COMMISSION_CALCULATED: 'payments',
+  SITE_ANNOTATION: 'edit_location_alt',
   EMAIL_SENT: 'email',
   CALL_LOGGED: 'phone',
   HUBSPOT_SYNCED: 'sync',
@@ -84,6 +121,7 @@ const COLORS: Record<string, string> = {
   APPOINTMENT_BOOKED: 'purple',
   APPOINTMENT_COMPLETED: 'purple',
   COMMISSION_CALCULATED: 'green-8',
+  SITE_ANNOTATION: 'cyan-7',
   EMAIL_SENT: 'orange',
   CALL_LOGGED: 'positive',
   HUBSPOT_SYNCED: 'grey-7',
@@ -116,8 +154,66 @@ function activityLabel(type: string) {
   return LABELS[type] ?? '';
 }
 
+const STAGE_NAMES: Record<string, string> = {
+  NEW_LEAD: 'New Lead',
+  ALREADY_CALLED: 'Already Called',
+  CONNECTED: 'Connected',
+  REQUEST_DESIGN: 'Request Design',
+  DESIGN_IN_PROGRESS: 'Design In Progress',
+  DESIGN_READY: 'Design Ready',
+  PENDING_SIGNATURE: 'Pending Signature',
+  SIT: 'SIT',
+  WON: 'Won',
+  LOST: 'Lost',
+  SITE_AUDIT: 'Site Audit',
+  PROGRESS_REVIEW: 'Progress Review',
+  NTP: 'NTP',
+  ENGINEERING: 'Engineering',
+  PERMIT_AND_ICE: 'Permit & ICE',
+  FINAL_APPROVAL: 'Final Approval',
+  INSTALL_READY: 'Install Ready',
+  INSTALL: 'Install',
+  COMMISSION: 'Commission',
+  SITE_COMPLETE: 'Site Complete',
+  INITIAL_SUBMISSION_AND_INSPECTION: 'Initial Submission & Inspection',
+  WAITING_FOR_PTO: 'Waiting For PTO',
+  FINAL_SUBMISSION: 'Final Submission',
+  CUSTOMER_SUCCESS: 'Customer Success',
+  FIN_TICKETS_OPEN: 'Tickets Open',
+  FIN_IN_PROGRESS: 'In Progress',
+  FIN_POST_INITIAL_NURTURE: 'Post Initial Nurture',
+  FIN_TICKETS_CLOSED: 'Tickets Closed',
+  MAINT_TICKETS_OPEN: 'Tickets Open',
+  MAINT_IN_PROGRESS: 'In Progress',
+  MAINT_POST_INSTALL_NURTURE: 'Post Install Nurture',
+  MAINT_TICKETS_CLOSED: 'Tickets Closed',
+};
+
+function stageName(raw: string) {
+  return STAGE_NAMES[raw] ?? raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function isStageChange(type: string) {
   return type === 'STAGE_CHANGE' || type === 'stage_change';
+}
+
+function stageTransition(item: (typeof props.activities)[number]) {
+  const meta = item.metadata as Record<string, string> | null;
+  if (meta?.fromStage && meta?.toStage) {
+    return { label: '', from: stageName(meta.fromStage), to: stageName(meta.toStage) };
+  }
+  if (meta?.previousStage && meta?.newStage) {
+    return { label: 'Auto-transitioned: ', from: stageName(meta.previousStage), to: stageName(meta.newStage) };
+  }
+  if (meta?.stage) {
+    return { label: 'Started at ', from: '', to: stageName(meta.stage) };
+  }
+  // Fallback: parse from description "Stage changed from X to Y"
+  const match = item.description.match(/from\s+(\S+)\s+to\s+(\S+)/i);
+  if (match) {
+    return { label: '', from: stageName(match[1]), to: stageName(match[2]) };
+  }
+  return null;
 }
 
 function initials(name: string) {
@@ -147,9 +243,8 @@ function formatDate(iso: string) {
   }
 }
 
-.stage-entry {
-  :deep(.q-timeline__dot) {
-    box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.15);
-  }
+.stage-name {
+  font-weight: 700;
+  color: #1A1A2E;
 }
 </style>

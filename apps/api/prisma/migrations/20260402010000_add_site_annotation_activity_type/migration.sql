@@ -1,0 +1,2 @@
+-- Add SITE_ANNOTATION to ActivityType enum
+ALTER TYPE "ActivityType" ADD VALUE IF NOT EXISTS 'SITE_ANNOTATION';

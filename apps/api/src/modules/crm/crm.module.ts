@@ -55,6 +55,7 @@ import { LeadNotesController } from './presentation/lead-notes.controller';
 import { LeadAssignmentsController } from './presentation/lead-assignments.controller';
 import { CustomersController } from './presentation/customers.controller';
 import { PipelineController } from './presentation/pipeline.controller';
+import { SiteAnnotationsController } from './presentation/site-annotations.controller';
 
 const CommandHandlers = [
   CreateLeadHandler,
@@ -76,6 +77,7 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
     LeadAssignmentsController,
     CustomersController,
     PipelineController,
+    SiteAnnotationsController,
   ],
   providers: [
     LeadScoringDomainService,

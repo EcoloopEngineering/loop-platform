@@ -1,5 +1,5 @@
 <template>
-  <q-tab-panel name="files">
+  <div>
     <div class="row items-center q-mb-md">
       <span class="text-subtitle2 text-weight-bold col">Documents</span>
       <q-btn
@@ -39,7 +39,7 @@
     <div v-else class="text-grey-6 text-center q-pa-lg">
       No documents uploaded yet.
     </div>
-  </q-tab-panel>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -73,7 +73,7 @@ const apiBaseUrl = API_URL;
 function uploadFile() {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.pdf,.doc,.docx,.jpg,.png';
+  input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.heic,.svg,.xls,.xlsx,.csv,.txt';
   input.onchange = async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;

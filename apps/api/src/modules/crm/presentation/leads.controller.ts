@@ -65,6 +65,13 @@ export class LeadsController {
     return this.queryBus.execute(new ListLeadsQuery(filter));
   }
 
+  @Get(':id/timeline')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.REFERRAL)
+  @ApiOperation({ summary: 'Get lead activity timeline' })
+  async getTimeline(@Param('id', ParseUUIDPipe) id: string): Promise<unknown> {
+    return this.leadScoringAppService.getTimeline(id);
+  }
+
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.REFERRAL)
   @ApiOperation({ summary: 'Get lead detail with score, assignments, and activities' })
@@ -138,13 +145,6 @@ export class LeadsController {
     @CurrentUser('id') userId: string,
   ): Promise<unknown> {
     return this.leadScoringAppService.recalculateScore(id, userId);
-  }
-
-  @Get(':id/timeline')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.REFERRAL)
-  @ApiOperation({ summary: 'Get lead activity timeline' })
-  async getTimeline(@Param('id', ParseUUIDPipe) id: string): Promise<unknown> {
-    return this.leadScoringAppService.getTimeline(id);
   }
 
   @Delete(':id')

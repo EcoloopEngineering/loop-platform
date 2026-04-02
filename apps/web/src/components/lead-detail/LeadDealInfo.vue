@@ -58,101 +58,119 @@
           <q-separator class="q-my-sm" />
 
           <!-- Owner -->
-          <div class="field-row">
-            <div class="field-label">Lead Owner</div>
-            <q-select
-              v-model="selectedOwner"
-              :options="filteredUsers('owner')"
-              option-value="id"
-              option-label="label"
-              emit-value
-              map-options
-              dense
-              borderless
-              use-input
-              input-debounce="0"
-              class="field-select"
-              :loading="loadingUsers"
-              placeholder="Type to search..."
-              aria-label="Change lead owner"
-              @filter="(val: string, update: (fn: () => void) => void) => filterUsers(val, update, 'owner')"
-              @update:model-value="onOwnerChange"
-            >
-              <template #no-option>
-                <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
-              </template>
-              <template #option="scope">
-                <q-item v-bind="scope.itemProps">
-                  <q-item-section avatar>
-                    <q-avatar size="28px" color="primary" text-color="white" class="avatar-text-sm">
-                      {{ scope.opt.label.charAt(0) }}
-                    </q-avatar>
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label>{{ scope.opt.label }}</q-item-label>
-                    <q-item-label caption>{{ scope.opt.email }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </template>
-              <template #selected-item="scope">
-                <div class="row items-center no-wrap gap-xs">
-                  <q-avatar size="18px" color="primary" text-color="white" class="avatar-text-sm">
-                    {{ scope.opt?.label?.charAt(0) || '?' }}
+          <div class="assignment-row">
+            <div class="assignment-label">Lead Owner</div>
+            <div class="assignment-value" @click="ownerEditing = true">
+              <template v-if="!ownerEditing">
+                <div v-if="ownerDisplay" class="row items-center no-wrap gap-xs cursor-pointer">
+                  <q-avatar size="24px" color="primary" text-color="white" class="avatar-text-sm">
+                    {{ ownerDisplay.charAt(0) }}
                   </q-avatar>
-                  <span class="text-caption">{{ scope.opt?.label || 'Unassigned' }}</span>
+                  <span class="assignment-name">{{ ownerDisplay }}</span>
+                  <q-icon name="expand_more" size="14px" color="grey-5" />
                 </div>
+                <span v-else class="text-caption text-grey-5 cursor-pointer">Click to assign</span>
               </template>
-            </q-select>
+              <q-select
+                v-if="ownerEditing"
+                ref="ownerSelectRef"
+                v-model="selectedOwner"
+                :options="filteredUsers('owner')"
+                option-value="id"
+                option-label="label"
+                emit-value
+                map-options
+                dense
+                outlined
+                use-input
+                hide-selected
+                fill-input
+                input-debounce="0"
+                class="assignment-select"
+                :loading="loadingUsers"
+                placeholder="Search user..."
+                @filter="(val: string, update: (fn: () => void) => void) => filterUsers(val, update, 'owner')"
+                @update:model-value="(v: string | null) => { onOwnerChange(v); ownerEditing = false; }"
+                @blur="ownerEditing = false"
+                @keyup.escape="ownerEditing = false"
+              >
+                <template #no-option>
+                  <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
+                </template>
+                <template #option="scope">
+                  <q-item v-bind="scope.itemProps">
+                    <q-item-section avatar>
+                      <q-avatar size="26px" color="primary" text-color="white" class="avatar-text-sm">
+                        {{ scope.opt.label.charAt(0) }}
+                      </q-avatar>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>{{ scope.opt.label }}</q-item-label>
+                      <q-item-label caption>{{ scope.opt.email }}</q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </template>
+              </q-select>
+            </div>
           </div>
 
           <!-- Project Manager -->
-          <div class="field-row">
-            <div class="field-label">Project Manager</div>
-            <q-select
-              v-model="selectedPM"
-              :options="filteredUsers('pm')"
-              option-value="id"
-              option-label="label"
-              emit-value
-              map-options
-              dense
-              borderless
-              use-input
-              clearable
-              input-debounce="0"
-              class="field-select"
-              :loading="loadingUsers"
-              placeholder="Type to search..."
-              aria-label="Change project manager"
-              @filter="(val: string, update: (fn: () => void) => void) => filterUsers(val, update, 'pm')"
-              @update:model-value="onPMChange"
-            >
-              <template #no-option>
-                <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
-              </template>
-              <template #option="scope">
-                <q-item v-bind="scope.itemProps">
-                  <q-item-section avatar>
-                    <q-avatar size="28px" color="orange-8" text-color="white" class="avatar-text-sm">
-                      {{ scope.opt.label.charAt(0) }}
-                    </q-avatar>
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label>{{ scope.opt.label }}</q-item-label>
-                    <q-item-label caption>{{ scope.opt.email }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </template>
-              <template #selected-item="scope">
-                <div v-if="scope.opt" class="row items-center no-wrap gap-xs">
-                  <q-avatar size="18px" color="orange-8" text-color="white" class="avatar-text-sm">
-                    {{ scope.opt?.label?.charAt(0) || '?' }}
+          <div class="assignment-row">
+            <div class="assignment-label">Project Manager</div>
+            <div class="assignment-value" @click="pmEditing = true">
+              <template v-if="!pmEditing">
+                <div v-if="pmDisplay" class="row items-center no-wrap gap-xs cursor-pointer">
+                  <q-avatar size="24px" color="orange-8" text-color="white" class="avatar-text-sm">
+                    {{ pmDisplay.charAt(0) }}
                   </q-avatar>
-                  <span class="text-caption">{{ scope.opt?.label }}</span>
+                  <span class="assignment-name">{{ pmDisplay }}</span>
+                  <q-btn flat dense round icon="close" size="8px" color="grey-5" @click.stop="onPMChange(null); selectedPM = null">
+                    <q-tooltip>Remove PM</q-tooltip>
+                  </q-btn>
                 </div>
-                <span v-else class="text-caption text-grey-5">Not assigned</span>
+                <span v-else class="text-caption text-grey-5 cursor-pointer">Click to assign</span>
               </template>
-            </q-select>
+              <q-select
+                v-if="pmEditing"
+                ref="pmSelectRef"
+                v-model="selectedPM"
+                :options="filteredUsers('pm')"
+                option-value="id"
+                option-label="label"
+                emit-value
+                map-options
+                dense
+                outlined
+                use-input
+                hide-selected
+                fill-input
+                input-debounce="0"
+                class="assignment-select"
+                :loading="loadingUsers"
+                placeholder="Search user..."
+                @filter="(val: string, update: (fn: () => void) => void) => filterUsers(val, update, 'pm')"
+                @update:model-value="(v: string | null) => { onPMChange(v); pmEditing = false; }"
+                @blur="pmEditing = false"
+                @keyup.escape="pmEditing = false"
+              >
+                <template #no-option>
+                  <q-item><q-item-section class="text-grey-5">No users found</q-item-section></q-item>
+                </template>
+                <template #option="scope">
+                  <q-item v-bind="scope.itemProps">
+                    <q-item-section avatar>
+                      <q-avatar size="26px" color="orange-8" text-color="white" class="avatar-text-sm">
+                        {{ scope.opt.label.charAt(0) }}
+                      </q-avatar>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>{{ scope.opt.label }}</q-item-label>
+                      <q-item-label caption>{{ scope.opt.email }}</q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </template>
+              </q-select>
+            </div>
           </div>
 
           <q-separator class="q-my-sm" />
@@ -188,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
@@ -280,25 +298,51 @@ const selectedOwner = ref<string | null>(null);
 const selectedPM = ref<string | null>(null);
 const ownerFilteredUsers = ref<UserOption[]>([]);
 const pmFilteredUsers = ref<UserOption[]>([]);
+const ownerEditing = ref(false);
+const pmEditing = ref(false);
+const ownerSelectRef = ref<InstanceType<typeof import('quasar').QSelect> | null>(null);
+const pmSelectRef = ref<InstanceType<typeof import('quasar').QSelect> | null>(null);
+
+const ownerDisplay = computed(() => {
+  if (!selectedOwner.value) return '';
+  const u = allUsers.value.find((u) => u.id === selectedOwner.value);
+  return u?.label ?? '';
+});
+
+const pmDisplay = computed(() => {
+  if (!selectedPM.value) return '';
+  const u = allUsers.value.find((u) => u.id === selectedPM.value);
+  return u?.label ?? '';
+});
 
 function filteredUsers(which: string) {
   return which === 'owner' ? ownerFilteredUsers.value : pmFilteredUsers.value;
 }
 
+let usersFetched = false;
+
 async function loadUsers() {
-  if (allUsers.value.length > 0) return;
+  if (usersFetched) return;
+  usersFetched = true;
   loadingUsers.value = true;
   try {
     const { data } = await api.get('/users');
     const list = Array.isArray(data) ? data : (data as Record<string, unknown>).data ?? [];
-    allUsers.value = (list as Array<Record<string, string>>).map((u) => ({
+    const fetched = (list as Array<Record<string, string>>).map((u) => ({
       id: u.id,
       label: `${u.firstName} ${u.lastName}`,
       email: u.email,
       role: u.role,
     }));
-  } catch { /* ignore */ }
-  finally { loadingUsers.value = false; }
+    // Merge: keep any pre-loaded users (from initAssignments) that weren't in the API response
+    const fetchedIds = new Set(fetched.map((u) => u.id));
+    const extra = allUsers.value.filter((u) => !fetchedIds.has(u.id));
+    allUsers.value = [...fetched, ...extra];
+  } catch {
+    // If /users fails (e.g. role restriction), keep the pre-loaded users
+  } finally {
+    loadingUsers.value = false;
+  }
 }
 
 function filterUsers(val: string, update: (fn: () => void) => void, which: string) {
@@ -307,7 +351,7 @@ function filterUsers(val: string, update: (fn: () => void) => void, which: strin
       const needle = (val || '').toLowerCase();
       let pool = allUsers.value;
 
-      // Both owner and PM: only @ecoloop.us employees
+      // Owner and PM: only @ecoloop.us employees
       pool = pool.filter((u) => u.email.endsWith('@ecoloop.us'));
 
       const filtered = needle
@@ -376,6 +420,9 @@ function initAssignments() {
 
 initAssignments();
 loadUsers();
+
+watch(ownerEditing, (v) => { if (v) nextTick(() => ownerSelectRef.value?.showPopup()); });
+watch(pmEditing, (v) => { if (v) nextTick(() => pmSelectRef.value?.showPopup()); });
 
 watch(() => props.lead.assignments, () => initAssignments(), { deep: true });
 
@@ -447,6 +494,54 @@ function formatDate(iso?: string) {
     font-weight: 500;
     padding: 0;
   }
+}
+
+.assignment-row {
+  padding: 8px 0;
+  border-bottom: 1px solid #F3F4F6;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.assignment-label {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+
+.assignment-value {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.assignment-name {
+  font-size: 13px;
+  color: #1A1A2E;
+  font-weight: 600;
+}
+
+.assignment-select {
+  width: 100%;
+
+  :deep(.q-field__control) {
+    min-height: 32px;
+    border-radius: 8px;
+  }
+
+  :deep(.q-field__native) {
+    font-size: 13px;
+    padding: 2px 8px;
+  }
+}
+
+.gap-xs {
+  gap: 6px;
 }
 
 .tier-badge {

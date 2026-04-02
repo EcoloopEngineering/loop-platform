@@ -66,8 +66,8 @@
       </div>
 
       <div v-else class="lead-list">
-        <q-card v-for="lead in paginatedLeads" :key="lead.id" flat class="lead-card q-mb-xs" clickable @click="$router.push(`/crm/leads/${lead.id}`)">
-          <q-card-section class="q-pa-sm">
+        <q-card v-for="lead in paginatedLeads" :key="lead.id" flat class="lead-card q-mb-xs">
+          <q-card-section class="q-pa-sm" clickable @click="$router.push(`/crm/leads/${lead.id}`)">
             <div class="row items-center no-wrap">
               <UserAvatar :name="titleCase(lead.name)" size="36px" class="q-mr-sm" />
               <div class="col">
@@ -83,6 +83,10 @@
               </q-badge>
             </div>
           </q-card-section>
+          <!-- Request Design CTA — only for NEW_LEAD stage -->
+          <div v-if="lead.stage === 'NEW_LEAD'" class="q-px-sm q-pb-xs" style="margin-top: -4px">
+            <q-btn flat dense no-caps size="xs" color="primary" icon="design_services" label="Request Design" class="design-cta-btn" @click.stop="openDesignDialog(lead)" />
+          </div>
         </q-card>
 
         <!-- Pagination -->
@@ -129,6 +133,17 @@
         </q-card-section>
       </q-card>
     </div>
+
+    <!-- Design Request Dialog -->
+    <DesignRequestDialog
+      v-model="showDesignDialog"
+      :lead-id="designLead.id"
+      :customer-name="designLead.name"
+      :address="designLead.address"
+      :latitude="designLead.lat"
+      :longitude="designLead.lng"
+      @submitted="onDesignSubmitted"
+    />
   </q-page>
 </template>
 
@@ -139,6 +154,7 @@ import { api } from '@/boot/axios';
 import type { Lead, LeadAssignment } from '@/types/api';
 import { titleCase } from '@/composables/useLeadFormatting';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import DesignRequestDialog from '@/components/lead/DesignRequestDialog.vue';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
 
 interface CurrentUserInfo {
@@ -241,8 +257,24 @@ const myLeads = computed(() =>
       stage: l.currentStage,
       source: formatSource(l.source),
       timeAgo: timeAgo(l.createdAt),
+      address: [l.property?.streetAddress, l.property?.city, l.property?.state, l.property?.zip].filter(Boolean).join(', '),
+      lat: (l.property as any)?.latitude ?? l.property?.lat ?? null,
+      lng: (l.property as any)?.longitude ?? l.property?.lng ?? null,
     })),
 );
+
+// Design request dialog
+const showDesignDialog = ref(false);
+const designLead = ref({ id: '', name: '', address: '', lat: null as number | null, lng: null as number | null });
+
+function openDesignDialog(lead: { id: string; name: string; address: string; lat: number | null; lng: number | null }) {
+  designLead.value = { ...lead };
+  showDesignDialog.value = true;
+}
+
+function onDesignSubmitted() {
+  loadData(); // Refresh leads to update stage
+}
 
 async function loadData() {
   loadingLeads.value = true;
@@ -324,5 +356,11 @@ function activityColor(t: string) { return COLORS[t] ?? 'grey-6'; }
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     transform: translateY(-1px);
   }
+}
+
+.design-cta-btn {
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
 }
 </style>

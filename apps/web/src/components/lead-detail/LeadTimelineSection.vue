@@ -1,7 +1,7 @@
 <template>
-  <q-tab-panel name="activity">
+  <div>
     <LeadTimeline :activities="activities" />
-  </q-tab-panel>
+  </div>
 </template>
 
 <script setup lang="ts">

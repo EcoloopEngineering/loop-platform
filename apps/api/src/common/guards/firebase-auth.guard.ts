@@ -56,9 +56,14 @@ export class FirebaseAuthGuard implements CanActivate {
       !token &&
       !this.firebaseService.isConfigured()
     ) {
+      // Prefer an ADMIN user for dev bypass so all endpoints are accessible
       const devUser = await this.prisma.user.findFirst({
+        where: { isActive: true, role: 'ADMIN' },
+        orderBy: { createdAt: 'asc' },
+        select: SAFE_USER_SELECT,
+      }) ?? await this.prisma.user.findFirst({
         where: { isActive: true },
-        orderBy: { id: 'asc' },
+        orderBy: { createdAt: 'asc' },
         select: SAFE_USER_SELECT,
       });
       if (devUser) {
@@ -112,8 +117,12 @@ export class FirebaseAuthGuard implements CanActivate {
     // 3. Dev bypass with token that fails both JWT and Firebase
     if (nodeEnv === 'development') {
       const devUser = await this.prisma.user.findFirst({
+        where: { isActive: true, role: 'ADMIN' },
+        orderBy: { createdAt: 'asc' },
+        select: SAFE_USER_SELECT,
+      }) ?? await this.prisma.user.findFirst({
         where: { isActive: true },
-        orderBy: { id: 'asc' },
+        orderBy: { createdAt: 'asc' },
         select: SAFE_USER_SELECT,
       });
       if (devUser) {

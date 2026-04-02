@@ -319,6 +319,20 @@ export interface RewardBalance {
   balance?: number;
 }
 
+// ─── Site Annotation ────────────────────────────────────────────────
+
+export interface SiteAnnotation {
+  id: string;
+  leadId: string;
+  type: 'TREE_REMOVAL' | 'SHADE_AREA' | 'OBSTACLE' | 'PANEL_PLACEMENT' | 'CUSTOM';
+  geometryType: 'POINT' | 'POLYGON' | 'LINE';
+  coordinates: number[] | number[][];
+  label?: string;
+  note?: string;
+  color?: string;
+  createdAt: string;
+}
+
 // ─── Settings ───────────────────────────────────────────────────────
 
 export interface Settings {

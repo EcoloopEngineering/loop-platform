@@ -1,5 +1,5 @@
 <template>
-  <q-tab-panel name="commission">
+  <div>
     <div v-if="lines.length" class="commission-table">
       <q-markup-table flat bordered separator="horizontal" class="rounded-card">
         <thead>
@@ -27,7 +27,7 @@
     <div v-else class="text-grey-6 text-center q-pa-lg">
       No commission data available.
     </div>
-  </q-tab-panel>
+  </div>
 </template>
 
 <script setup lang="ts">

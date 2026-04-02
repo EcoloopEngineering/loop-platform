@@ -1,6 +1,6 @@
 <template>
   <q-page class="lead-detail-page">
-    <!-- Loading state -->
+    <!-- Loading -->
     <div v-if="leadStore.loading && !lead" class="row justify-center q-pa-xl">
       <q-spinner-dots color="primary" size="40px" />
     </div>
@@ -19,48 +19,104 @@
       Lead not found.
     </div>
 
-    <!-- Main layout -->
-    <div v-else class="row q-col-gutter-md">
-      <!-- LEFT SIDEBAR -->
-      <div class="col-12 col-md-3">
-        <LeadInfoCard
-          :lead="lead"
-          :lead-id="id"
-          @quick-action="onQuickAction"
-          @stage-changed="onStageChange"
-          @file-added="onFileAdded"
-          @status-changed="onStatusChanged"
-          @refresh="loadExtras"
-        />
-      </div>
-
-      <!-- CENTER COLUMN -->
-      <div class="col-12 col-md-6">
-        <div class="center-card">
-          <q-tabs v-model="activeTab" dense align="left" active-color="primary" indicator-color="primary" no-caps class="center-tabs">
-            <q-tab name="activity" label="Activity" aria-label="View lead activity timeline" />
-            <q-tab name="notes" label="Notes" aria-label="View and add lead notes" />
-            <q-tab name="tasks" label="Tasks" aria-label="View lead tasks" />
-            <q-tab name="files" label="Files" aria-label="View lead files and documents" />
-            <q-tab name="commission" label="Commission" aria-label="View commission details" />
-          </q-tabs>
-          <q-separator />
-          <q-tab-panels v-model="activeTab" animated class="center-panels">
-            <LeadTimelineSection :activities="activities" />
-            <LeadNotesSection :lead-id="id" :notes="notes" @note-added="onNoteAdded" @note-updated="onNoteUpdated" @note-deleted="onNoteDeleted" />
-            <LeadTasksSection :tasks="leadTasks" @complete-task="completeTask" @task-updated="fetchLeadTasks" />
-            <LeadDocumentsSection :lead-id="id" :documents="files" @file-added="onFileAdded" @file-deleted="onFileDeleted" />
-            <LeadCommissionSection :lines="commissionLines" :total="commissionTotal" />
-          </q-tab-panels>
+    <!-- Main content -->
+    <template v-else>
+      <!-- HEADER — always full width -->
+      <div class="lead-header">
+        <div class="row items-center q-mb-xs">
+          <a class="back-link cursor-pointer q-mr-sm" @click="$router.back()" tabindex="0" @keyup.enter="$router.back()">
+            <q-icon name="chevron_left" size="20px" />
+          </a>
+          <h1 class="lead-name">
+            {{ titleCase((lead.customer?.firstName ?? '') + ' ' + (lead.customer?.lastName ?? '')) }}
+          </h1>
+        </div>
+        <div class="row items-center q-gutter-x-sm q-mb-sm">
+          <q-badge :style="{ backgroundColor: stageColor(lead.currentStage) }" class="stage-badge" text-color="white">
+            {{ formatStage(lead.currentStage) }}
+          </q-badge>
+          <q-badge v-if="lead.status === 'LOST'" color="red" text-color="white" class="stage-badge">LOST</q-badge>
+          <q-badge v-if="lead.status === 'CANCELLED'" color="grey-6" text-color="white" class="stage-badge">CANCELLED</q-badge>
+          <q-badge v-if="lead.source" outline color="grey-6" class="source-badge">{{ formatSource(lead.source) }}</q-badge>
+        </div>
+        <div class="action-bar">
+          <q-btn flat dense no-caps icon="sticky_note_2" label="Note" size="sm" color="grey-7" class="action-btn" @click="onQuickAction('note')" />
+          <q-btn flat dense no-caps icon="email" label="Email" size="sm" color="grey-7" class="action-btn" @click="onQuickAction('email')" />
+          <q-btn flat dense no-caps icon="phone" label="Call" size="sm" color="grey-7" class="action-btn" @click="onQuickAction('call')" />
+          <q-btn flat dense no-caps icon="event" label="Schedule" size="sm" color="grey-7" class="action-btn" @click="dialogs?.openSchedule()" />
+          <q-separator vertical class="q-mx-xs" style="height: 20px" />
+          <LeadQuickActions
+            :lead-status="lead.status"
+            @change-order="dialogs?.openChangeOrder()"
+            @generate-cap="dialogs?.openCap()"
+            @send-email="onQuickAction('email')"
+            @mark-lost="dialogs?.openLost()"
+            @mark-cancelled="dialogs?.openCancelled()"
+          />
         </div>
       </div>
 
-      <!-- RIGHT SIDEBAR -->
-      <div class="col-12 col-md-3 right-sidebar">
-        <LeadAssignmentsSection :lead="lead" :lead-id="id" />
-        <LeadAppointmentsSection :lead="lead" :lead-id="id" :appointments="appointments" />
+      <!-- BODY — 2 columns on desktop, stacked on mobile -->
+      <div class="lead-body">
+        <!-- SIDEBAR (desktop only — hidden on mobile, content goes into Details tab) -->
+        <aside class="lead-sidebar gt-sm">
+          <LeadDealInfo :lead="lead" :lead-id="id" @stage-changed="onStageChange" />
+          <LeadAssignmentsSection :lead="lead" :lead-id="id" />
+          <LeadAppointmentsSection :lead="lead" :lead-id="id" :appointments="appointments" />
+        </aside>
+
+        <!-- MAIN — tabs -->
+        <div class="lead-main">
+          <div class="main-card">
+            <q-tabs v-model="activeTab" dense active-color="primary" indicator-color="primary" no-caps class="main-tabs" narrow-indicator mobile-arrows outside-arrows align="left">
+              <q-tab name="activity" label="Activity" />
+              <q-tab name="notes" label="Notes" />
+              <q-tab name="tasks" label="Tasks" />
+              <q-tab name="files" label="Files" />
+              <q-tab name="commission" label="Commission" />
+              <q-tab name="sitemap" label="Site Map" />
+              <q-tab name="details" label="Details" class="lt-md" />
+            </q-tabs>
+            <q-separator />
+            <q-tab-panels v-model="activeTab" animated class="main-panels">
+              <q-tab-panel name="activity">
+                <LeadTimeline :activities="activities" />
+              </q-tab-panel>
+              <q-tab-panel name="notes">
+                <LeadNotesContent :lead-id="id" :notes="notes" @note-added="onNoteAdded" @note-updated="onNoteUpdated" @note-deleted="onNoteDeleted" />
+              </q-tab-panel>
+              <q-tab-panel name="tasks">
+                <LeadTasksContent :tasks="leadTasks" @complete-task="completeTask" @task-updated="fetchLeadTasks" />
+              </q-tab-panel>
+              <q-tab-panel name="files">
+                <LeadDocumentsContent :lead-id="id" :documents="files" @file-added="onFileAdded" @file-deleted="onFileDeleted" />
+              </q-tab-panel>
+              <q-tab-panel name="commission">
+                <LeadCommissionContent :lines="commissionLines" :total="commissionTotal" />
+              </q-tab-panel>
+              <q-tab-panel name="sitemap">
+                <LeadSiteMapSection :lead-id="id" :lead="(lead as Record<string, unknown>)" />
+              </q-tab-panel>
+              <!-- Details tab — mobile only, shows sidebar content -->
+              <q-tab-panel name="details">
+                <LeadDealInfo :lead="lead" :lead-id="id" @stage-changed="onStageChange" />
+                <LeadAssignmentsSection :lead="lead" :lead-id="id" />
+                <LeadAppointmentsSection :lead="lead" :lead-id="id" :appointments="appointments" />
+              </q-tab-panel>
+            </q-tab-panels>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <!-- Dialogs -->
+      <LeadDialogs
+        ref="dialogs"
+        :lead-id="id"
+        @file-added="(file) => onFileAdded(file)"
+        @status-changed="onStatusChanged"
+        @refresh="loadExtras"
+      />
+    </template>
   </q-page>
 </template>
 
@@ -70,16 +126,20 @@ import { useQuasar } from 'quasar';
 import { useLeadStore } from '@/stores/lead.store';
 import { useLeadApi } from '@/composables/useLeadApi';
 import { api } from '@/boot/axios';
-import LeadInfoCard from '@/components/lead-detail/LeadInfoCard.vue';
-import LeadTimelineSection from '@/components/lead-detail/LeadTimelineSection.vue';
+import { titleCase, useLeadFormatting } from '@/composables/useLeadFormatting';
+import LeadTimeline from '@/components/lead/LeadTimeline.vue';
+import LeadDealInfo from '@/components/lead-detail/LeadDealInfo.vue';
 import LeadAssignmentsSection from '@/components/lead-detail/LeadAssignmentsSection.vue';
-import LeadNotesSection from '@/components/lead-detail/LeadNotesSection.vue';
-import LeadDocumentsSection from '@/components/lead-detail/LeadDocumentsSection.vue';
+import LeadNotesContent from '@/components/lead-detail/LeadNotesSection.vue';
+import LeadDocumentsContent from '@/components/lead-detail/LeadDocumentsSection.vue';
 import LeadAppointmentsSection from '@/components/lead-detail/LeadAppointmentsSection.vue';
-import LeadTasksSection from '@/components/lead-detail/LeadTasksSection.vue';
-import LeadCommissionSection from '@/components/lead-detail/LeadCommissionSection.vue';
+import LeadTasksContent from '@/components/lead-detail/LeadTasksSection.vue';
+import LeadCommissionContent from '@/components/lead-detail/LeadCommissionSection.vue';
+import LeadQuickActions from '@/components/lead-detail/LeadQuickActions.vue';
+import LeadDialogs from '@/components/lead-detail/LeadDialogs.vue';
+import LeadSiteMapSection from '@/components/lead-detail/LeadSiteMapSection.vue';
 
-import type { Activity, Note, Document as DocFile, Task } from '@/types/api';
+import type { Activity } from '@/types/api';
 
 interface NoteItem {
   id: string;
@@ -101,6 +161,7 @@ const props = defineProps<{ id: string }>();
 const $q = useQuasar();
 const leadStore = useLeadStore();
 const leadApi = useLeadApi();
+const { stageColor, formatStage, formatSource } = useLeadFormatting();
 
 const lead = computed(() => leadStore.currentLead as Record<string, unknown> | null);
 const error = ref<string | null>(null);
@@ -111,6 +172,7 @@ const files = ref<FileItem[]>([]);
 const leadTasks = ref<Array<{ id: string; title: string; status: string; dueDate?: string; assignee?: { firstName: string; lastName: string }; subtasks?: Array<{ id: string; title: string; status: string }> }>>([]);
 const commissionLines = ref<{ label: string; value: string }[]>([]);
 const commissionTotal = ref('$0');
+const dialogs = ref<InstanceType<typeof LeadDialogs> | null>(null);
 
 const appointments = computed(() => {
   const raw = ((lead.value as Record<string, unknown> | null)?.appointments ?? []) as Array<Record<string, unknown>>;
@@ -121,7 +183,7 @@ async function loadData() {
   error.value = null;
   try {
     await leadStore.fetchLead(props.id);
-    loadExtras();
+    await loadExtras();
   } catch {
     error.value = 'Failed to load lead details. Please try again.';
   }
@@ -130,25 +192,29 @@ async function loadData() {
 onMounted(() => { loadData(); });
 
 async function loadExtras() {
-  const [timelineData, docsData, commData] = await Promise.all([
-    leadApi.fetchTimeline(props.id),
-    leadApi.fetchDocuments(props.id),
-    leadApi.fetchCommissions(props.id),
-  ]);
-  activities.value = timelineData as (typeof activities.value);
-  files.value = docsData as FileItem[];
-  notes.value = activities.value
-    .filter((a) => a.type === 'NOTE_ADDED' && a.description !== '[deleted]' && !a.metadata?.action)
-    .map((a) => ({
-      id: a.id,
-      body: a.description,
-      userName: a.userName ?? (a.user ? `${a.user.firstName} ${a.user.lastName}` : 'Unknown'),
-      createdAt: a.createdAt,
-      editedAt: a.metadata?.editedAt,
-    }));
-  commissionLines.value = commData.lines;
-  commissionTotal.value = commData.total;
-  fetchLeadTasks();
+  try {
+    const [timelineData, docsData, commData] = await Promise.all([
+      leadApi.fetchTimeline(props.id),
+      leadApi.fetchDocuments(props.id),
+      leadApi.fetchCommissions(props.id),
+    ]);
+    activities.value = timelineData as (typeof activities.value);
+    files.value = docsData as FileItem[];
+    notes.value = activities.value
+      .filter((a) => a.type === 'NOTE_ADDED' && a.description !== '[deleted]' && !a.metadata?.action)
+      .map((a) => ({
+        id: a.id,
+        body: a.description,
+        userName: a.userName ?? (a.user ? `${a.user.firstName} ${a.user.lastName}` : 'Unknown'),
+        createdAt: a.createdAt,
+        editedAt: a.metadata?.editedAt,
+      }));
+    commissionLines.value = commData.lines;
+    commissionTotal.value = commData.total;
+    fetchLeadTasks();
+  } catch {
+    // safety net
+  }
 }
 
 async function fetchLeadTasks() {
@@ -183,11 +249,7 @@ async function onStageChange(newStage: string) {
   try {
     const oldTaskCount = leadTasks.value.length;
     await leadStore.changeStage(props.id, newStage);
-
-    // Reload lead (stage may have auto-advanced, e.g. WON → SITE_AUDIT)
     await leadStore.fetchLead(props.id);
-
-    // Wait for backend event handlers to create tasks, then refresh
     await new Promise((r) => setTimeout(r, 1500));
     await fetchLeadTasks();
     await loadExtras();
@@ -196,12 +258,7 @@ async function onStageChange(newStage: string) {
     const created = newTaskCount - oldTaskCount;
 
     if (created > 0) {
-      $q.notify({
-        type: 'positive',
-        message: `Stage updated — ${created} new task${created > 1 ? 's' : ''} auto-created`,
-        icon: 'task_alt',
-        timeout: 4000,
-      });
+      $q.notify({ type: 'positive', message: `Stage updated — ${created} new task${created > 1 ? 's' : ''} auto-created`, icon: 'task_alt', timeout: 4000 });
       activeTab.value = 'tasks';
     } else {
       $q.notify({ type: 'positive', message: 'Stage updated' });
@@ -228,32 +285,128 @@ function onNoteDeleted(noteId: string) { notes.value = notes.value.filter((n) =>
 <style lang="scss" scoped>
 .lead-detail-page {
   background: #F8FAFB;
-  padding: 24px;
+  padding: 16px;
   min-height: 100vh;
+
+  @media (min-width: 1024px) {
+    padding: 24px;
+  }
 }
 
-.center-card {
+// ─── Header ──────────────────────────────────────────
+.lead-header {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.back-link {
+  color: #6B7280;
+  transition: color 0.15s;
+  &:hover { color: #1A1A2E; }
+}
+
+.lead-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1A1A2E;
+  margin: 0;
+  line-height: 1.3;
+
+  @media (min-width: 600px) {
+    font-size: 24px;
+  }
+}
+
+.stage-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.source-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.action-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding-top: 10px;
+  border-top: 1px solid #F3F4F6;
+  margin-top: 8px;
+}
+
+.action-btn {
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  min-height: 32px;
+  &:hover { background: #F3F4F6; color: #00897B !important; }
+}
+
+// ─── Body layout ─────────────────────────────────────
+.lead-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+// Sidebar — only visible on md+ (>= 1024px)
+.lead-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding-bottom: 16px;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+}
+
+// Main content — fills remaining space
+.lead-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.main-card {
   background: #fff;
   border: 1px solid #E5E7EB;
   border-radius: 12px;
   overflow: hidden;
 }
 
-.center-tabs :deep(.q-tab) {
-  font-weight: 600;
-  font-size: 13px;
+.main-tabs {
+  :deep(.q-tab) {
+    font-weight: 600;
+    font-size: 13px;
+    padding: 0 10px;
+    min-width: unset;
+  }
 }
 
-.center-panels {
-  min-height: 400px;
-  :deep(.q-tab-panel) { padding: 20px; }
+.main-panels {
+  min-height: 300px;
+  :deep(.q-tab-panel) { padding: 16px; }
+
+  @media (min-width: 600px) {
+    min-height: 400px;
+    :deep(.q-tab-panel) { padding: 20px; }
+  }
 }
 
-.right-sidebar {
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  padding-bottom: 24px;
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
-}
+// ─── Quasar responsive helpers ───────────────────────
+// .gt-sm = display only when screen >= 1024 (md breakpoint)
+// .lt-md = display only when screen < 1024
 </style>

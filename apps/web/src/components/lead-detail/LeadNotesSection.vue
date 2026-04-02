@@ -1,5 +1,5 @@
 <template>
-  <q-tab-panel name="notes">
+  <div>
     <div class="q-mb-md">
       <q-input
         v-model="newNote"
@@ -71,7 +71,7 @@
       <div v-else class="text-body2 text-grey-8 note-body">{{ note.body }}</div>
       <div v-if="note.editedAt" class="text-caption text-grey-4 q-mt-xs text-10">(edited)</div>
     </div>
-  </q-tab-panel>
+  </div>
 </template>
 
 <script setup lang="ts">
