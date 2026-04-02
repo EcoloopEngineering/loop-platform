@@ -31,7 +31,9 @@ async function bootstrap() {
   const corsOrigins = [
     'https://loop.ecoloop.app',
     'https://app.ecoloop.us',
-    ...(!isProduction ? ['http://localhost:9000', 'http://localhost:9001'] : []),
+    'https://develop.ecoloop.us',
+    'http://develop.ecoloop.us',
+    ...(!isProduction ? ['http://localhost:9000', 'http://localhost:9001', 'http://44.202.51.163'] : []),
   ];
 
   app.enableCors({

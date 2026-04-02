@@ -107,6 +107,8 @@ async function handleSubmit() {
 function onStepClick(step: number) {
   if (step < currentStep.value) {
     currentStep.value = step;
+  } else if (step === currentStep.value + 1) {
+    nextStep();
   }
 }
 </script>
