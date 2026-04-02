@@ -30,9 +30,9 @@
         </template>
         <template #append>
           <q-spinner-dots v-if="searching || geolocating" size="18px" color="primary" />
-          <q-btn v-else-if="!addressSelected" flat dense round icon="my_location" color="primary" size="sm" @click="useGeolocation">
+          <q-icon v-else-if="!addressSelected" name="my_location" color="primary" class="cursor-pointer" size="20px" @click.stop.prevent="useGeolocation">
             <q-tooltip>Use my current location</q-tooltip>
-          </q-btn>
+          </q-icon>
           <q-icon v-else name="check_circle" color="positive" />
         </template>
       </q-input>
@@ -143,8 +143,7 @@ import EInput from '@/components/common/EInput.vue';
 import type { HomeData } from '@/composables/useLeadWizard';
 
 const MAPBOX_TOKEN = (import.meta.env?.VITE_MAPBOX_ACCESS_TOKEN as string)
-  || process.env.MAPBOX_ACCESS_TOKEN
-  || '';
+  || (typeof process !== 'undefined' ? process.env?.MAPBOX_ACCESS_TOKEN : '') || '';
 
 const props = defineProps<{
   home: HomeData;
