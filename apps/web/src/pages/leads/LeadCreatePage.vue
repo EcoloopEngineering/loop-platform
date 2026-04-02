@@ -7,10 +7,8 @@
     <div class="step-content">
       <step-contact v-if="currentStep === 1" :contact="contactData" />
       <step-home v-if="currentStep === 2" :home="homeData" />
-      <step-energy v-if="currentStep === 3" :energy="energyData" />
-      <step-design v-if="currentStep === 4" :design="designData" />
       <step-review
-        v-if="currentStep === 5"
+        v-if="currentStep === 3"
         :contact="contactData"
         :home="homeData"
         :energy="energyData"
@@ -21,6 +19,7 @@
         :energy-score="energyScore"
         :contact-score="contactScore"
         :property-score="propertyScore"
+        :missing-fields="missingFields"
       />
     </div>
 
@@ -39,11 +38,10 @@
       </q-btn>
 
       <e-btn
-        v-if="currentStep < 5"
+        v-if="currentStep < 3"
         color="primary"
         class="full-width"
         size="lg"
-        :disable="!isStepValid(currentStep)"
         @click="nextStep"
       >
         Continue to {{ STEP_NAMES[currentStep] }}
@@ -71,8 +69,6 @@ import EBtn from '@/components/common/EBtn.vue';
 import WizardStepper from '@/components/wizard/WizardStepper.vue';
 import StepContact from '@/components/wizard/StepContact.vue';
 import StepHome from '@/components/wizard/StepHome.vue';
-import StepEnergy from '@/components/wizard/StepEnergy.vue';
-import StepDesign from '@/components/wizard/StepDesign.vue';
 import StepReview from '@/components/wizard/StepReview.vue';
 import { useLeadWizard } from '@/composables/useLeadWizard';
 import { useQuasar } from 'quasar';
@@ -84,8 +80,8 @@ const {
   homeData,
   energyData,
   designData,
-  isStepValid,
   canSubmit,
+  missingFields,
   scorePreview,
   scoreTier,
   roofScore,

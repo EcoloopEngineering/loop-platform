@@ -2,7 +2,33 @@
   "permissions": {
     "allow": [
       "Bash(NODE_OPTIONS=--max-old-space-size=4096 node dist/main.js)",
-      "Bash(echo \"EXIT_CODE: $?\")"
+      "Bash(echo \"EXIT_CODE: $?\")",
+      "Bash(find /home/orafasb/Documentos/ecoLoop/loop-platform/apps -name *referral* -type f)",
+      "Bash(find /home/orafasb/Documentos/ecoLoop/loop-platform -path */node_modules -prune -o -name *referral* -type f)",
+      "Bash(grep -r Unknown /home/orafasb/Documentos/ecoLoop/loop-platform/apps/web --include=*.tsx --include=*.ts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X POST http://localhost:3000/api/v1/users/me/accept-terms -H \"Content-Type: application/json\")",
+      "Bash(lsof -ti:3000)",
+      "Bash(gh pr:*)",
+      "Bash(find /home/orafasb/Documentos/ecoLoop/loop-platform -name *.prisma -o -name schema.prisma)",
+      "Bash(./node_modules/.bin/jest src/modules/crm/application/commands/create-lead.handler.spec.ts --forceExit)",
+      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/leads.controller.spec.ts --forceExit)",
+      "Bash(curl -s http://localhost:3000/api/v1/leads?limit=1 -H \"Content-Type: application/json\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); l=d.get\\(''''data'''',d\\) if isinstance\\(d,dict\\) else d; print\\(json.dumps\\(l[0].get\\(''''property'''',{}\\) if l else {}, indent=2\\)\\)\")",
+      "Bash(PGPASSWORD=loop_dev_2026 psql -h localhost -U loop -d loop_platform -c \"SELECT id, lead_id, type, description, created_at FROM lead_activities ORDER BY created_at DESC LIMIT 10;\")",
+      "Bash(curl -s http://localhost:3000/api/v1/leads/e5b8ba10-723d-44f0-b8be-9f79420b232f/timeline)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(curl -s http://localhost:3000/api/v1/users)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); items=data if isinstance\\(data,list\\) else data.get\\('data',[]\\); print\\(f'Total: {len\\(items\\)}'\\); [print\\(f'  {u[\\\\\"email\\\\\"]} - {u[\\\\\"role\\\\\"]} - active:{u.get\\(\\\\\"isActive\\\\\"\\)}'\\) for u in items[:20]]\")",
+      "Bash(pkill -f \"node dist/main.js\")",
+      "Bash(node dist/main.js)",
+      "Bash(disown)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/v1/users)",
+      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/site-annotations.controller.spec.ts --forceExit)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/v1/leads/37e25850-1300-46d4-bc9b-49cc293041b3/annotations)",
+      "Bash(curl -s http://localhost:3000/api/v1/leads/37e25850-1300-46d4-bc9b-49cc293041b3/annotations)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(json.dumps\\(data[:2], indent=2\\)\\)\")",
+      "Bash(curl -s -X PATCH http://localhost:3000/api/v1/leads/37e25850-1300-46d4-bc9b-49cc293041b3/annotations/5f4e10c9-9279-491a-871b-150ecc3f41a8 -H \"Content-Type: application/json\" -d '{\"label\":\"test tree\",\"note\":\"remove this\"}')",
+      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/site-annotations.controller.spec.ts --forceExit --verbose)"
     ]
   }
 }

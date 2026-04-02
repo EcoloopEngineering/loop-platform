@@ -45,7 +45,7 @@ export interface DesignData {
   notes: string;
 }
 
-const STEP_NAMES = ['Contact', 'Home', 'Energy', 'Design', 'Review'] as const;
+const STEP_NAMES = ['Contact', 'Home', 'Review'] as const;
 
 export function useLeadWizard() {
   const router = useRouter();
@@ -90,51 +90,36 @@ export function useLeadWizard() {
 
   // --- Validation ---
 
-  const isStep1Valid = computed(() => {
-    const c = contactData.value;
-    return (
-      c.firstName.trim().length > 0 &&
-      c.lastName.trim().length > 0 &&
-      c.phone.replace(/\D/g, '').length >= 10
-    );
-  });
+  // Step fields are free-form (user can navigate freely)
+  // But on submit, all required fields must be filled
+  const isStep1Valid = computed(() => true);
+  const isStep2Valid = computed(() => true);
+  const isStep3Valid = computed(() => true);
 
-  const isStep2Valid = computed(() => {
-    return homeData.value.streetAddress.trim().length > 0;
-  });
-
-  const isStep3Valid = computed(() => {
-    return (
-      energyData.value.monthlyBill !== null && energyData.value.monthlyBill > 0
-    );
-  });
-
-  const isStep4Valid = computed(() => {
-    return designData.value.designType !== null;
-  });
-
-  const isStep5Valid = computed(() => true);
-
-  // All required fields filled + design type selected
+  // Submit validation — checks ALL required fields across all steps
   const canSubmit = computed(() => {
-    return isStep1Valid.value && isStep2Valid.value && isStep3Valid.value && isStep4Valid.value;
+    const c = contactData.value;
+    const h = homeData.value;
+    const hasContact = c.firstName.trim().length > 0 && c.lastName.trim().length > 0 && c.phone.replace(/\D/g, '').length >= 10;
+    const hasAddress = h.streetAddress.trim().length > 0;
+    return hasContact && hasAddress;
+  });
+
+  // Missing fields helper for review step
+  const missingFields = computed(() => {
+    const missing: string[] = [];
+    const c = contactData.value;
+    const h = homeData.value;
+    if (!c.firstName.trim()) missing.push('First Name');
+    if (!c.lastName.trim()) missing.push('Last Name');
+    if (c.phone.replace(/\D/g, '').length < 10) missing.push('Phone (10 digits)');
+    if (!h.streetAddress.trim()) missing.push('Street Address');
+    return missing;
   });
 
   function isStepValid(step: number): boolean {
-    switch (step) {
-      case 1:
-        return isStep1Valid.value;
-      case 2:
-        return isStep2Valid.value;
-      case 3:
-        return isStep3Valid.value;
-      case 4:
-        return isStep4Valid.value;
-      case 5:
-        return isStep5Valid.value;
-      default:
-        return false;
-    }
+    // All steps allow free navigation
+    return true;
   }
 
   // --- Scoring ---
@@ -195,7 +180,7 @@ export function useLeadWizard() {
   // --- Navigation ---
 
   function nextStep() {
-    if (currentStep.value < 5 && isStepValid(currentStep.value)) {
+    if (currentStep.value < 3) {
       currentStep.value++;
     }
   }
@@ -207,7 +192,7 @@ export function useLeadWizard() {
   }
 
   function goToStep(step: number) {
-    if (step >= 1 && step <= 5) {
+    if (step >= 1 && step <= 3) {
       currentStep.value = step;
     }
   }
@@ -243,10 +228,6 @@ export function useLeadWizard() {
           annualKwhUsage: energyData.value.annualKwhUsage ?? undefined,
           utilityProvider: energyData.value.utilityProvider || undefined,
         },
-        design: {
-          designType: designData.value.designType ?? DesignType.MANUAL_DESIGN,
-          designNotes: designData.value.notes || undefined,
-        },
       };
       const lead = await leadStore.createLead(payload);
       router.push(`/crm/leads/${lead.id}`);
@@ -268,12 +249,8 @@ export function useLeadWizard() {
     homeData,
     energyData,
     designData,
-    isStep1Valid,
-    isStep2Valid,
-    isStep3Valid,
-    isStep4Valid,
-    isStep5Valid,
     canSubmit,
+    missingFields,
     isStepValid,
     roofScore,
     energyScore,

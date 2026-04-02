@@ -25,7 +25,7 @@
       </div>
     </div>
     <q-linear-progress
-      :value="modelValue / 5"
+      :value="modelValue / 3"
       color="teal"
       track-color="grey-3"
       size="3px"
@@ -51,8 +51,6 @@ function stepCircleClass(idx: number) {
 const steps = [
   { label: 'Contact', icon: 'person' },
   { label: 'Home', icon: 'home' },
-  { label: 'Energy', icon: 'bolt' },
-  { label: 'Design', icon: 'design_services' },
   { label: 'Review', icon: 'fact_check' },
 ];
 </script>

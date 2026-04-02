@@ -134,8 +134,9 @@ export class CreateLeadDto {
   @Type(() => EnergyStepDto)
   energy: EnergyStepDto;
 
-  @ApiProperty({ type: DesignStepDto })
+  @ApiPropertyOptional({ type: DesignStepDto })
+  @IsOptional()
   @ValidateNested()
   @Type(() => DesignStepDto)
-  design: DesignStepDto;
+  design?: DesignStepDto;
 }

@@ -33,7 +33,7 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
     const property = await this.createProperty(home, energy, customer.id);
     const pipeline = await this.findDefaultPipeline();
     const ownerId = await this.resolveOwner(userId);
-    const initialStage = design.designType === 'AI_DESIGN' ? 'DESIGN_READY' : 'NEW_LEAD';
+    const initialStage = design?.designType === 'AI_DESIGN' ? 'DESIGN_READY' : 'NEW_LEAD';
 
     const lead = await this.leadRepo.create({
       customerId: customer.id,
@@ -68,8 +68,8 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
       score: scoreBreakdown,
       primaryOwnerId: ownerId,
       creatorId: userId,
-      designType: design.designType,
-      designNotes: design.designNotes,
+      designType: design?.designType,
+      designNotes: design?.designNotes,
       initialStage,
       source: contact.source,
     });
@@ -145,14 +145,14 @@ export class CreateLeadHandler implements ICommandHandler<CreateLeadCommand> {
 
   private emitEvents(
     leadId: string,
-    dto: { contact: any; home: any; energy: any; design: any },
+    dto: { contact: any; home: any; energy: any; design?: any },
     designRequest: { id: string } | null,
     ownerId: string,
     userId: string,
   ): void {
     const { contact, home, energy, design } = dto;
 
-    if (design.designType === 'AI_DESIGN' && designRequest) {
+    if (design?.designType === 'AI_DESIGN' && designRequest) {
       const address = `${home.streetAddress}, ${home.city}, ${home.state} ${home.zip}`;
       const aiPayload: AiDesignRequestedPayload = {
         designRequestId: designRequest.id,

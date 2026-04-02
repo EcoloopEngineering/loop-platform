@@ -1,5 +1,14 @@
 <template>
   <div class="step-review q-pa-md">
+    <!-- Missing Fields Warning -->
+    <q-banner v-if="missingFields.length > 0" class="bg-orange-1 text-orange-9 q-mb-md" rounded dense>
+      <template #avatar><q-icon name="warning" color="orange-7" /></template>
+      <div class="text-weight-medium">Please fill in before submitting:</div>
+      <ul class="q-ma-none q-pl-md" style="font-size: 13px">
+        <li v-for="f in missingFields" :key="f">{{ f }}</li>
+      </ul>
+    </q-banner>
+
     <!-- Score Card -->
     <q-card flat bordered class="score-card q-mb-md">
       <q-card-section>
@@ -116,18 +125,6 @@
       </q-card-section>
     </q-card>
 
-    <!-- Design Summary -->
-    <q-card flat bordered class="summary-card q-mb-sm">
-      <q-card-section>
-        <div class="text-subtitle2 text-weight-bold q-mb-xs">Design</div>
-        <div class="text-body2">
-          {{ design.designType === 'AI_DESIGN' ? 'AI Design (Instant)' : 'Manual Design (~20 min)' }}
-        </div>
-        <div v-if="design.notes" class="text-body2 text-grey-7">
-          Notes: {{ design.notes }}
-        </div>
-      </q-card-section>
-    </q-card>
   </div>
 </template>
 
@@ -149,6 +146,7 @@ defineProps<{
   energyScore: number;
   contactScore: number;
   propertyScore: number;
+  missingFields: string[];
 }>();
 
 function formatRoof(condition: string): string {
