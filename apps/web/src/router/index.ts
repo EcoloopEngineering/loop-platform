@@ -15,9 +15,10 @@ const ROLE_ROUTES: Record<string, string[]> = {
   ADMIN: ['*'],
   MANAGER: [
     '/home', '/leads', '/referrals', '/support', '/profile', '/notifications', '/dashboard',
+    '/pipeline', '/store', '/scoreboard',
     '/crm', '/admin/scoreboard', '/admin/settings',
   ],
-  SALES_REP: ['/home', '/leads', '/referrals', '/support', '/profile', '/notifications'],
+  SALES_REP: ['/home', '/leads', '/referrals', '/support', '/profile', '/notifications', '/pipeline', '/store', '/scoreboard', '/dashboard'],
   REFERRAL: ['/home', '/leads', '/referrals', '/support', '/profile', '/notifications'],
 };
 
@@ -43,8 +44,18 @@ export default route(function () {
   });
 
   Router.beforeEach(async (to, _from, next) => {
-    // Auth and partner pages are always accessible
-    if (to.path.startsWith('/auth') || to.path.startsWith('/partner')) return next();
+    // Partner pages are always accessible
+    if (to.path.startsWith('/partner')) return next();
+
+    // Auth pages — redirect to home if already logged in
+    if (to.path.startsWith('/auth')) {
+      const authStore = useAuthStore();
+      authStore.restoreSession();
+      if (authStore.isAuthenticated) {
+        return next('/home');
+      }
+      return next();
+    }
 
     // Handle portal routes separately — portal has its own auth
     if (to.path.startsWith('/portal')) {
