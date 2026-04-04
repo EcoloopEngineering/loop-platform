@@ -2,6 +2,7 @@ export const FORM_REPOSITORY = Symbol('FORM_REPOSITORY');
 
 export interface FormRepositoryPort {
   findAll(): Promise<any[]>;
+  findByUserId(userId: string): Promise<any[]>;
 
   create(data: {
     name: string;

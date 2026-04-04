@@ -51,6 +51,7 @@
         <template #body-cell-type="props">
           <q-td :props="props">
             <q-badge :color="tierColor(props.row.type)" :label="props.row.type" />
+            <q-badge v-if="props.row.isAdvance" color="amber-8" label="ADV" class="q-ml-xs" />
           </q-td>
         </template>
 
@@ -122,13 +123,25 @@ import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
 
+interface RawPayment {
+  id: string;
+  type: string;
+  amount: number | string;
+  status: string;
+  isAdvance?: boolean;
+  createdAt: string;
+  lead?: { id?: string; currentStage?: string; customer?: { firstName?: string; lastName?: string } };
+  user?: { id?: string; firstName?: string; lastName?: string; email?: string };
+}
+
 interface Payment {
   id: string;
   leadName: string;
   repName: string;
-  type: string; // M1, M2, M3
+  type: string;
   amount: number;
-  status: string; // PENDING, APPROVED, PAID, CANCELLED
+  status: string;
+  isAdvance: boolean;
   createdAt: string;
 }
 
@@ -180,8 +193,22 @@ async function fetchPayments() {
   loading.value = true;
   error.value = null;
   try {
-    const { data } = await api.get<Payment[]>('/commissions/payments');
-    payments.value = Array.isArray(data) ? data : (data as { data?: Payment[] }).data ?? [];
+    const { data } = await api.get<RawPayment[]>('/commissions/payments');
+    const raw = Array.isArray(data) ? data : (data as { data?: RawPayment[] }).data ?? [];
+    payments.value = raw.map((p) => ({
+      id: p.id,
+      leadName: p.lead?.customer
+        ? `${p.lead.customer.firstName ?? ''} ${p.lead.customer.lastName ?? ''}`.trim()
+        : '—',
+      repName: p.user
+        ? `${p.user.firstName ?? ''} ${p.user.lastName ?? ''}`.trim()
+        : '—',
+      type: p.type,
+      amount: Number(p.amount) || 0,
+      status: p.status,
+      isAdvance: p.isAdvance ?? false,
+      createdAt: p.createdAt,
+    }));
   } catch {
     error.value = 'Failed to load commission payments. Please try again.';
     payments.value = [];

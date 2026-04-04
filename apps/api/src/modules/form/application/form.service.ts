@@ -31,6 +31,10 @@ export class FormService {
     return this.formRepo.findAll();
   }
 
+  async listFormsByUser(userId: string) {
+    return this.formRepo.findByUserId(userId);
+  }
+
   async createForm(dto: CreateFormDto, userId: string) {
     return this.formRepo.create({
       name: dto.name,

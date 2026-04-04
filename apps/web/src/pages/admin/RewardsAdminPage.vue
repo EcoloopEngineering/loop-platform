@@ -80,41 +80,9 @@
         </div>
       </div>
 
-      <!-- My Orders section -->
-      <div class="text-subtitle1 text-weight-bold q-mb-sm">My Orders</div>
-      <q-table
-        :rows="orders"
-        :columns="orderColumns"
-        row-key="id"
-        flat
-        bordered
-        class="rounded-card"
-        :loading="loadingOrders"
-        :pagination="{ rowsPerPage: 10 }"
-      >
-        <template #body-cell-status="props">
-          <q-td :props="props">
-            <q-badge
-              :color="statusColor(props.row.status)"
-              :label="props.row.status"
-            />
-          </q-td>
-        </template>
-        <template #body-cell-price="props">
-          <q-td :props="props">
-            <q-icon name="monetization_on" color="amber-8" size="14px" class="q-mr-xs" />
-            {{ props.row.price }}
-          </q-td>
-        </template>
-        <template #no-data>
-          <div class="text-grey-5 q-pa-md text-center full-width">No orders yet.</div>
-        </template>
-      </q-table>
-
-      <!-- Admin: All Orders Management -->
+      <!-- All Orders Management -->
       <template v-if="isAdmin">
-        <q-separator class="q-my-lg" />
-        <div class="text-subtitle1 text-weight-bold q-mb-sm">All Orders (Admin)</div>
+        <div class="text-subtitle1 text-weight-bold q-mb-sm">All Orders</div>
         <q-table
           :rows="allOrders"
           :columns="adminOrderColumns"

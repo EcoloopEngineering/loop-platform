@@ -73,6 +73,7 @@
               <q-tab name="notes" label="Notes" />
               <q-tab name="tasks" label="Tasks" />
               <q-tab name="files" label="Files" />
+              <q-tab name="chat" label="Chat" />
               <q-tab name="commission" label="Commission" />
               <q-tab name="sitemap" label="Site Map" />
               <q-tab name="details" label="Details" class="lt-md" />
@@ -91,8 +92,11 @@
               <q-tab-panel name="files">
                 <LeadDocumentsContent :lead-id="id" :documents="files" @file-added="onFileAdded" @file-deleted="onFileDeleted" />
               </q-tab-panel>
+              <q-tab-panel name="chat">
+                <LeadChatSection :lead-id="id" />
+              </q-tab-panel>
               <q-tab-panel name="commission">
-                <LeadCommissionContent :lines="commissionLines" :total="commissionTotal" />
+                <LeadCommissionContent :lead-id="id" :lines="commissionLines" :total="commissionTotal" />
               </q-tab-panel>
               <q-tab-panel name="sitemap">
                 <LeadSiteMapSection :lead-id="id" :lead="(lead as Record<string, unknown>)" />
@@ -122,6 +126,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useLeadStore } from '@/stores/lead.store';
 import { useLeadApi } from '@/composables/useLeadApi';
@@ -138,6 +143,7 @@ import LeadCommissionContent from '@/components/lead-detail/LeadCommissionSectio
 import LeadQuickActions from '@/components/lead-detail/LeadQuickActions.vue';
 import LeadDialogs from '@/components/lead-detail/LeadDialogs.vue';
 import LeadSiteMapSection from '@/components/lead-detail/LeadSiteMapSection.vue';
+import LeadChatSection from '@/components/lead-detail/LeadChatSection.vue';
 
 import type { Activity } from '@/types/api';
 
@@ -158,14 +164,18 @@ interface FileItem {
 }
 
 const props = defineProps<{ id: string }>();
+const route = useRoute();
 const $q = useQuasar();
 const leadStore = useLeadStore();
 const leadApi = useLeadApi();
 const { stageColor, formatStage, formatSource } = useLeadFormatting();
 
+const validTabs = ['activity', 'notes', 'tasks', 'files', 'chat', 'commission', 'sitemap', 'details'];
+const tabFromQuery = typeof route.query.tab === 'string' && validTabs.includes(route.query.tab) ? route.query.tab : 'activity';
+
 const lead = computed(() => leadStore.currentLead as Record<string, unknown> | null);
 const error = ref<string | null>(null);
-const activeTab = ref('activity');
+const activeTab = ref(tabFromQuery);
 const activities = ref<Activity[]>([]);
 const notes = ref<NoteItem[]>([]);
 const files = ref<FileItem[]>([]);

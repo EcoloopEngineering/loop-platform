@@ -28,7 +28,28 @@
       "Bash(curl -s http://localhost:3000/api/v1/leads/37e25850-1300-46d4-bc9b-49cc293041b3/annotations)",
       "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(json.dumps\\(data[:2], indent=2\\)\\)\")",
       "Bash(curl -s -X PATCH http://localhost:3000/api/v1/leads/37e25850-1300-46d4-bc9b-49cc293041b3/annotations/5f4e10c9-9279-491a-871b-150ecc3f41a8 -H \"Content-Type: application/json\" -d '{\"label\":\"test tree\",\"note\":\"remove this\"}')",
-      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/site-annotations.controller.spec.ts --forceExit --verbose)"
+      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/site-annotations.controller.spec.ts --forceExit --verbose)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 5 https://develop.ecoloop.us)",
+      "Read(//home/orafasb/Documentos/ecoLoop/AuroraService/api/src/controllers/**)",
+      "Read(//home/orafasb/Documentos/ecoLoop/AuroraService/api/src/routes/**)",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(./node_modules/.bin/jest src/modules/design/presentation/design.controller.spec.ts --forceExit)",
+      "Bash(./node_modules/.bin/jest src/modules/dashboard/presentation/dashboard.controller.spec.ts --forceExit)",
+      "Bash(./node_modules/.bin/jest src/modules/document/application/document-generation.service.spec.ts --forceExit)",
+      "Bash(./node_modules/.bin/jest src/modules/commission/presentation/user-finance.controller.spec.ts --forceExit)",
+      "Bash(./node_modules/.bin/jest src/modules/dashboard/application/services/scoreboard-email.service.spec.ts --forceExit)",
+      "Bash(./node_modules/.bin/jest src/modules/form/presentation/form.controller.spec.ts --forceExit)",
+      "Bash(pnpm --filter @loop/shared build)",
+      "Bash(curl -s http://localhost:3000/api/v1/health)",
+      "Bash(curl -s http://localhost:3000/socket.io/)",
+      "Bash(curl -s \"http://localhost:3000/lead-chat/socket.io/?EIO=4&transport=polling\")",
+      "Bash(curl -s \"http://localhost:3000/chat/socket.io/?EIO=4&transport=polling\")",
+      "Bash(node -e ':*)",
+      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/lead-chat.controller.spec.ts --forceExit)",
+      "Bash(cp admin/ScoreboardPage.vue shared/ScoreboardPage.vue)",
+      "Bash(cp admin/NotificationsPage.vue shared/NotificationsPage.vue)",
+      "Bash(cp admin/TasksPage.vue shared/TasksPage.vue)",
+      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/lead-chat.controller.spec.ts src/modules/crm/application/services/lead-chat.service.spec.ts --forceExit)"
     ]
   }
 }

@@ -110,6 +110,168 @@ describe('AuroraService', () => {
     ).rejects.toThrow('Aurora integration is not configured');
   });
 
+  describe('getDesignFinancing', () => {
+    let financingService: AuroraService;
+
+    beforeEach(async () => {
+      const module = await Test.createTestingModule({
+        providers: [
+          AuroraService,
+          { provide: HttpService, useValue: http },
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn((key: string, fallback?: string) => {
+                const map: Record<string, string> = {
+                  AURORA_SERVICE_URL: 'https://aurora.test',
+                  AURORA_SERVICE_TOKEN: 'tok',
+                  AURORA_TENANT_ID: 'tenant-123',
+                };
+                return map[key] ?? fallback;
+              }),
+            },
+          },
+        ],
+      }).compile();
+
+      financingService = module.get(AuroraService);
+    });
+
+    it('should fetch design financing data from Aurora', async () => {
+      // Summary
+      http.get.mockReturnValueOnce(of({
+        data: {
+          design: {
+            system_size_stc: 8750,
+            energy_production: { annual: 12345.67 },
+          },
+        },
+      }));
+      // Financings list
+      http.get.mockReturnValueOnce(of({
+        data: {
+          financings: [
+            { id: 'fin-1', selected_in_sales_mode: false },
+            { id: 'fin-2', selected_in_sales_mode: true },
+          ],
+        },
+      }));
+      // Financing detail
+      http.get.mockReturnValueOnce(of({
+        data: {
+          financing: {
+            escalation: 2.9,
+            solar_rate: 0.12,
+            monthly_payment: 150.5,
+          },
+        },
+      }));
+      // Pricing
+      http.get.mockReturnValueOnce(of({
+        data: {
+          pricing: {
+            price_per_watt: 3.456,
+            system_price: 28500,
+          },
+        },
+      }));
+
+      const result = await financingService.getDesignFinancing('design-abc');
+
+      expect(result).toEqual({
+        kw: 8.75,
+        epc: 3.46,
+        contractCost: 28500,
+        escalator: 2.9,
+        solarRate: 0.12,
+        monthlyPayment: 150.5,
+        systemProduction: 12346,
+      });
+
+      expect(http.get).toHaveBeenCalledWith(
+        'https://aurora.test/tenants/tenant-123/designs/design-abc/summary',
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer tok' }) }),
+      );
+    });
+
+    it('should handle missing financing data gracefully', async () => {
+      http.get.mockReturnValueOnce(of({
+        data: { design: {} },
+      }));
+      http.get.mockReturnValueOnce(of({
+        data: { financings: [] },
+      }));
+      http.get.mockReturnValueOnce(of({
+        data: { pricing: {} },
+      }));
+
+      const result = await financingService.getDesignFinancing('design-xyz');
+
+      expect(result).toEqual({
+        kw: null,
+        epc: null,
+        contractCost: null,
+        escalator: null,
+        solarRate: null,
+        monthlyPayment: null,
+        systemProduction: null,
+      });
+    });
+
+    it('should throw when tenant is not configured', async () => {
+      const module = await Test.createTestingModule({
+        providers: [
+          AuroraService,
+          { provide: HttpService, useValue: http },
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn((key: string, fallback?: string) => {
+                const map: Record<string, string> = {
+                  AURORA_SERVICE_URL: 'https://aurora.test',
+                  AURORA_SERVICE_TOKEN: 'tok',
+                };
+                return map[key] ?? fallback;
+              }),
+            },
+          },
+        ],
+      }).compile();
+
+      const noTenantService = module.get(AuroraService);
+      await expect(
+        noTenantService.getDesignFinancing('design-1'),
+      ).rejects.toThrow('Aurora tenant not configured');
+    });
+
+    it('should use first financing when none is selected', async () => {
+      http.get.mockReturnValueOnce(of({
+        data: { design: { system_size_stc: 5000 } },
+      }));
+      http.get.mockReturnValueOnce(of({
+        data: {
+          financings: [
+            { id: 'fin-first', selected_in_sales_mode: false },
+          ],
+        },
+      }));
+      http.get.mockReturnValueOnce(of({
+        data: { financing: { escalation: 1.5 } },
+      }));
+      http.get.mockReturnValueOnce(of({
+        data: { pricing: { price_per_watt: 2.5 } },
+      }));
+
+      const result = await financingService.getDesignFinancing('design-fallback');
+
+      expect(result.escalator).toBe(1.5);
+      expect(http.get).toHaveBeenCalledWith(
+        expect.stringContaining('financings/fin-first'),
+        expect.anything(),
+      );
+    });
+  });
+
   it('should retry on transient failure then succeed', async () => {
     http.post
       .mockReturnValueOnce(throwError(() => new Error('timeout')))

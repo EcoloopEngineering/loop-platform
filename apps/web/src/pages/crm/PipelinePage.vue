@@ -31,15 +31,16 @@
       @update:model-value="onPipelineTabChange"
     >
       <q-tab name="closer" label="Closer" aria-label="Closer pipeline" />
-      <q-tab name="pm" label="PM" aria-label="Project Manager pipeline" />
-      <q-tab name="finance" label="Finance" aria-label="Finance pipeline" />
-      <q-tab name="maintenance" label="Maintenance" aria-label="Maintenance pipeline" />
+      <q-tab v-if="!isSalesContext" name="pm" label="PM" aria-label="Project Manager pipeline" />
+      <q-tab v-if="!isSalesContext" name="finance" label="Finance" aria-label="Finance pipeline" />
+      <q-tab v-if="!isSalesContext" name="maintenance" label="Maintenance" aria-label="Maintenance pipeline" />
       <q-tab name="lost" label="Lost" aria-label="Lost leads" icon="thumb_down" />
     </q-tabs>
 
     <PipelineFilters
       :source-options="sourceOptions"
-      :user-options="userOptions"
+      :user-options="isSalesContext ? [] : userOptions"
+      :hide-assigned="isSalesContext"
       @change="onFilterChange"
     />
 
@@ -63,7 +64,7 @@
           flat
           :pagination="{ rowsPerPage: 25 }"
           class="pipeline-table"
-          @row-click="(_e: Event, row: Record<string, string>) => router.push(`/crm/leads/${row.id}`)"
+          @row-click="(_e: Event, row: Record<string, string>) => router.push(`${leadDetailPrefix}/${row.id}`)"
         >
           <template #body-cell-name="props">
             <q-td :props="props">
@@ -180,7 +181,7 @@
               <q-btn flat dense round icon="more_vert" size="sm" color="grey-6" aria-label="Lead actions menu" @click.stop>
                 <q-menu>
                   <q-list dense class="menu-sm">
-                    <q-item clickable v-close-popup @click="router.push(`/crm/leads/${props.row.id}`)">
+                    <q-item clickable v-close-popup @click="router.push(`${leadDetailPrefix}/${props.row.id}`)">
                       <q-item-section avatar><q-icon name="visibility" size="18px" /></q-item-section>
                       <q-item-section>View Details</q-item-section>
                     </q-item>
@@ -211,7 +212,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
 import { usePipelineStore } from '@/stores/pipeline.store';
@@ -232,9 +233,12 @@ import {
 const { stageColor, formatStage, formatSource } = useLeadFormatting();
 
 const $q = useQuasar();
+const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const isSalesContext = computed(() => !route.path.startsWith('/crm'));
 const isAdmin = computed(() => userStore.user?.role === 'ADMIN');
+const currentUserId = computed(() => userStore.user?.id ?? '');
 const pipelineStore = usePipelineStore();
 const viewMode = ref('list');
 const pipelineTab = ref('closer');
@@ -408,7 +412,10 @@ async function loadUsers() {
 async function loadData() {
   error.value = null;
   try {
-    await pipelineStore.fetchPipelineView({ pipelineId: pipelineIds.value[pipelineTab.value] || undefined });
+    await pipelineStore.fetchPipelineView({
+      pipelineId: pipelineIds.value[pipelineTab.value] || undefined,
+      assignedTo: isSalesContext.value ? currentUserId.value : undefined,
+    });
   } catch {
     error.value = 'Failed to load pipeline data. Please try again.';
   }
@@ -436,6 +443,7 @@ function onFilterChange(filters: PipelineFilterValues) {
       pipelineId: pipelineIds.value[pipelineTab.value] || undefined,
       search: filters.search || undefined,
       source: filters.source ?? undefined,
+      assignedTo: isSalesContext.value ? currentUserId.value : (filters as Record<string, string>).assignedTo ?? undefined,
       dateFrom: filters.dateFrom ?? undefined,
       dateTo: filters.dateTo ?? undefined,
     });
@@ -452,8 +460,10 @@ async function onStageChange(payload: { leadId: string; toStage: string }) {
   }
 }
 
+const leadDetailPrefix = computed(() => route.path.startsWith('/crm') ? '/crm/leads' : '/leads');
+
 function onRowClick(_evt: Event, row: { id: string }) {
-  router.push(`/crm/leads/${row.id}`);
+  router.push(`${leadDetailPrefix.value}/${row.id}`);
 }
 
 function scoreColor(score: number) {

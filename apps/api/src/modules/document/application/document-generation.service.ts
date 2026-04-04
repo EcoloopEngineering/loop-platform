@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DOCUMENT_REPOSITORY, DocumentRepositoryPort } from './ports/document.repository.port';
@@ -48,6 +49,7 @@ export class DocumentGenerationService {
     @Inject(DOCUMENT_REPOSITORY) private readonly documentRepo: DocumentRepositoryPort,
     private readonly pdfService: PdfService,
     private readonly deliveryService: DocumentDeliveryService,
+    private readonly emitter: EventEmitter2,
   ) {}
 
   async generateChangeOrder(
@@ -95,6 +97,13 @@ export class DocumentGenerationService {
       type: 'DOCUMENT_UPLOADED',
       description: 'Change Order generated',
       metadata: { documentId: doc.id, type: 'change_order' },
+    });
+
+    this.emitter.emit('lead.changeOrderCreated', {
+      leadId,
+      changes: dto.changes,
+      userId: user.id,
+      customerName: `${lead.customer.firstName} ${lead.customer.lastName}`,
     });
 
     return {

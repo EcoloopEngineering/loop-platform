@@ -66,6 +66,41 @@ export class CommissionPaymentService {
     return this.commissionPaymentRepo.updateStatus(id, 'PAID', { paidAt: new Date() });
   }
 
+  async requestAdvance(
+    leadId: string,
+    type: 'M1' | 'M2' | 'M3',
+    amount: number,
+    user: AuthenticatedUser,
+  ) {
+    // Check if there's already a paid/pending advance for this lead+type
+    const existing = await this.commissionPaymentRepo.findPaidCommissionPayment(leadId, type);
+    if (existing) {
+      throw new ForbiddenException(
+        `${type} commission payment already exists for this lead`,
+      );
+    }
+
+    // Find the lead to get the assigned sales rep
+    const lead = await this.commissionPaymentRepo.findLeadById(leadId);
+    if (!lead) {
+      throw new NotFoundException(`Lead ${leadId} not found`);
+    }
+
+    // Upsert the commission as advance
+    const commission = await this.commissionPaymentRepo.upsertCommission({
+      leadId,
+      userId: (lead as { assignments?: Array<{ userId: string; isPrimary: boolean }> }).assignments?.find(
+        (a) => a.isPrimary,
+      )?.userId ?? user.id,
+      type,
+      amount,
+      status: 'PENDING',
+      isAdvance: true,
+    });
+
+    return commission;
+  }
+
   async cancelPayment(id: string) {
     const payment = await this.findPaymentOrFail(id);
     this.assertTransition(payment.status, 'CANCELLED');

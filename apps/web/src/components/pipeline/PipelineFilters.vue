@@ -37,7 +37,7 @@
       />
     </div>
 
-    <div class="col-6 col-sm-2">
+    <div v-if="!hideAssigned" class="col-6 col-sm-2">
       <q-select
         v-model="filters.assignedTo"
         dense
@@ -93,6 +93,7 @@ export interface PipelineFilterValues {
 defineProps<{
   sourceOptions?: { label: string; value: string }[];
   userOptions?: { label: string; value: string }[];
+  hideAssigned?: boolean;
 }>();
 
 const emit = defineEmits<{

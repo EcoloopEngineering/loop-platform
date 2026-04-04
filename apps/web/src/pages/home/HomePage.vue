@@ -67,7 +67,7 @@
 
       <div v-else class="lead-list">
         <q-card v-for="lead in paginatedLeads" :key="lead.id" flat class="lead-card q-mb-xs">
-          <q-card-section class="q-pa-sm" clickable @click="$router.push(`/crm/leads/${lead.id}`)">
+          <q-card-section class="q-pa-sm" clickable @click="$router.push(`/leads/${lead.id}`)">
             <div class="row items-center no-wrap">
               <UserAvatar :name="titleCase(lead.name)" size="36px" class="q-mr-sm" />
               <div class="col">
@@ -83,9 +83,15 @@
               </q-badge>
             </div>
           </q-card-section>
-          <!-- Request Design CTA — only for NEW_LEAD stage -->
-          <div v-if="lead.stage === 'NEW_LEAD'" class="q-px-sm q-pb-xs" style="margin-top: -4px">
-            <q-btn flat dense no-caps size="xs" color="primary" icon="design_services" label="Request Design" class="design-cta-btn" @click.stop="openDesignDialog(lead)" />
+          <div v-if="lead.stage === 'NEW_LEAD' || lead.stage === 'REQUEST_DESIGN'" class="q-px-sm q-pb-xs" style="margin-top: -4px">
+            <q-btn
+              unelevated no-caps dense
+              color="primary" text-color="white"
+              icon="design_services" label="Request Design"
+              size="xs"
+              class="design-cta-btn"
+              @click.stop="openDesignDialog(lead)"
+            />
           </div>
         </q-card>
 
@@ -359,8 +365,9 @@ function activityColor(t: string) { return COLORS[t] ?? 'grey-6'; }
 }
 
 .design-cta-btn {
-  border-radius: 6px;
-  font-size: 11px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 </style>

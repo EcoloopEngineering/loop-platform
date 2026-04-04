@@ -47,6 +47,18 @@
           <div class="row items-center q-mb-md">
             <div class="text-subtitle1 text-weight-bold">Leaderboard</div>
             <q-space />
+            <q-btn
+              v-if="isAdmin"
+              flat
+              dense
+              no-caps
+              icon="email"
+              label="Send Report"
+              color="primary"
+              class="q-mr-sm"
+              :loading="sendingEmail"
+              @click="showSendEmailDialog = true"
+            />
             <q-tabs v-model="period" dense inline-label class="text-grey-7" active-color="primary" indicator-color="primary">
               <q-tab name="weekly" label="Weekly" />
               <q-tab name="monthly" label="Monthly" />
@@ -107,12 +119,47 @@
         </div>
       </div>
     </template>
+
+    <!-- Send Scoreboard Email Dialog (admin only) -->
+    <q-dialog v-if="isAdmin" v-model="showSendEmailDialog" persistent>
+      <q-card style="min-width: 400px; border-radius: 12px;">
+        <q-card-section>
+          <div class="text-h6">Send Scoreboard Report</div>
+        </q-card-section>
+        <q-card-section>
+          <q-input
+            v-model="emailRecipients"
+            outlined
+            dense
+            label="Recipients (comma separated)"
+            placeholder="john@ecoloop.us, jane@ecoloop.us"
+          />
+          <div class="text-caption text-grey-6 q-mt-xs">
+            The report will include the current {{ period }} leaderboard data.
+          </div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
+          <q-btn
+            unelevated
+            no-caps
+            label="Send"
+            color="primary"
+            :loading="sendingEmail"
+            :disable="!emailRecipients.trim()"
+            @click="sendScoreboardEmail"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
+const $q = useQuasar();
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import { titleCase } from '@/composables/useLeadFormatting';
 import { useLeadFormatting } from '@/composables/useLeadFormatting';
@@ -142,9 +189,13 @@ interface MilestoneEvent {
 
 const userStore = useUserStore();
 const currentUserId = computed(() => userStore.user?.id ?? '');
+const isAdmin = computed(() => userStore.user?.role === 'ADMIN');
 
 const loading = ref(false);
 const error = ref<string | null>(null);
+const showSendEmailDialog = ref(false);
+const sendingEmail = ref(false);
+const emailRecipients = ref('');
 const balance = ref<Balance>({ coins: 0, points: 0 });
 const period = ref<'weekly' | 'monthly'>('weekly');
 const leaderboard = ref<LeaderboardEntry[]>([]);
@@ -219,6 +270,32 @@ async function fetchScoreboard() {
     milestones.value = Array.isArray(data) ? data : (data as { data?: typeof milestones.value }).data ?? [];
   } catch {
     milestones.value = [];
+  }
+}
+
+async function sendScoreboardEmail() {
+  sendingEmail.value = true;
+  try {
+    const now = new Date();
+    const startDate = period.value === 'weekly'
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).toISOString()
+      : new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const endDate = now.toISOString();
+    const recipients = emailRecipients.value.split(',').map(e => e.trim()).filter(Boolean);
+
+    await api.post('/dashboard/scoreboard/send-email', {
+      startDate,
+      endDate,
+      recipients,
+    });
+
+    $q.notify({ type: 'positive', message: `Report sent to ${recipients.length} recipient(s)` });
+    showSendEmailDialog.value = false;
+    emailRecipients.value = '';
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to send report' });
+  } finally {
+    sendingEmail.value = false;
   }
 }
 

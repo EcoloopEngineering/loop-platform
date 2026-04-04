@@ -13,6 +13,13 @@ export class PrismaFormRepository implements FormRepositoryPort {
     });
   }
 
+  async findByUserId(userId: string): Promise<any[]> {
+    return this.prisma.form.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async create(data: {
     name: string;
     slug: string;

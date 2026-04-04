@@ -63,6 +63,8 @@ model User {
   rewardOrders     RewardOrder[]    @relation("UserRewardOrders")
   monthlyRecords   MonthlyRecord[]  @relation("UserMonthlyRecords")
   siteAnnotations  SiteAnnotation[] @relation("SiteAnnotationCreatedBy")
+  leadChatMessages LeadChat[]       @relation("LeadChatMessages")
+  leadChatFollows  LeadChatFollow[] @relation("LeadChatFollows")
 
   @@index([email])
   @@index([invitationCode])
@@ -337,6 +339,8 @@ model Lead {
   tasks          Task[]
   gamificationEvents GamificationEvent[]
   siteAnnotations SiteAnnotation[]
+  chatMessages   LeadChat[]
+  chatFollows    LeadChatFollow[]
   metadata       Json?          @default("{}")
 
   @@index([customerId])
@@ -398,6 +402,7 @@ enum ActivityType {
   CALL_LOGGED
   HUBSPOT_SYNCED
   SITE_ANNOTATION
+  TASK_CREATED
 }
 
 model LeadActivity {
@@ -972,4 +977,33 @@ model WebhookEvent {
   @@index([status])
   @@index([provider, status])
   @@map("webhook_events")
+}
+
+// ==================== DEAL CHAT CONTEXT ====================
+
+model LeadChat {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId    String   @map("lead_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User @relation("LeadChatMessages", fields: [userId], references: [id])
+
+  @@index([leadId, createdAt])
+  @@map("lead_chats")
+}
+
+model LeadChatFollow {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  leadId    String   @map("lead_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User @relation("LeadChatFollows", fields: [userId], references: [id])
+
+  @@unique([leadId, userId])
+  @@map("lead_chat_follows")
 }

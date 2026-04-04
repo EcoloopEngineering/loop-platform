@@ -37,7 +37,8 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
-  // Main app routes (auth required, mobile-first layout)
+  // ── Sales routes (all authenticated users) ────────────────────────
+  // MainLayout = mobile-first, bottom tabs: Home, Leads, Pipeline, Profile
   {
     path: '/',
     component: () => import('@/layouts/MainLayout.vue'),
@@ -68,6 +69,7 @@ const routes: RouteRecordRaw[] = [
         name: 'support',
         component: () => import('@/pages/chat/SupportChatPage.vue'),
       },
+      // ── Leads (sales context) ──
       {
         path: 'leads',
         name: 'my-leads',
@@ -79,92 +81,88 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/leads/LeadCreatePage.vue'),
       },
       {
+        path: 'leads/:id',
+        name: 'lead-detail',
+        component: () => import('@/pages/leads/LeadDetailPage.vue'),
+        props: true,
+      },
+      // ── Pipeline (sales view) ──
+      {
+        path: 'pipeline',
+        name: 'sales-pipeline',
+        component: () => import('@/pages/crm/PipelinePage.vue'),
+      },
+      // ── Store / Rewards (accessible to all reps) ──
+      {
+        path: 'store',
+        name: 'store',
+        component: () => import('@/pages/shared/StorePage.vue'),
+      },
+      // ── Scoreboard (all users can see) ──
+      {
+        path: 'scoreboard',
+        name: 'scoreboard',
+        component: () => import('@/pages/shared/ScoreboardPage.vue'),
+      },
+      // ── Notifications ──
+      {
         path: 'notifications',
         name: 'notifications',
-        component: () => import('@/pages/admin/NotificationsPage.vue'),
+        component: () => import('@/pages/shared/NotificationsPage.vue'),
       },
     ],
   },
 
-  // Basic layout routes (auth required, simple back-button layout)
+  // ── Profile & simple pages (BasicLayout with back button) ─────────
   {
     path: '/',
     component: () => import('@/layouts/BasicLayout.vue'),
     meta: { requiresAuth: true },
     children: [
       {
-        path: 'leads/:id',
-        name: 'lead-detail',
-        component: () => import('@/pages/leads/LeadDetailPage.vue'),
-        props: true,
-      },
-      {
         path: 'profile',
         name: 'profile',
         component: () => import('@/pages/profile/ProfilePage.vue'),
       },
-      {
-        path: 'referrals/:id',
-        name: 'referral-detail',
-        component: () => import('@/pages/home/HomePage.vue'),
-        props: true,
-      },
-      {
-        path: 'forms/new',
-        name: 'form-new',
-        component: () => import('@/pages/home/HomePage.vue'),
-      },
-      {
-        path: 'forms/:id/edit',
-        name: 'form-edit',
-        component: () => import('@/pages/home/HomePage.vue'),
-        props: true,
-      },
     ],
   },
 
-  // CRM routes (admin/manager only)
+  // ── CRM routes (admin/manager — AdminLayout with sidebar) ─────────
   {
     path: '/crm',
     component: () => import('@/layouts/AdminLayout.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, roles: ['ADMIN', 'MANAGER'] },
     children: [
       {
         path: '',
         name: 'crm',
         component: () => import('@/pages/crm/CrmDashboardPage.vue'),
-        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'pipeline',
         name: 'crm-pipeline',
         component: () => import('@/pages/crm/PipelinePage.vue'),
-        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'tasks',
         name: 'crm-tasks',
-        component: () => import('@/pages/admin/TasksPage.vue'),
-        meta: { requiresAuth: true, roles: ['ADMIN', 'MANAGER'] },
+        component: () => import('@/pages/shared/TasksPage.vue'),
       },
       {
         path: 'customers',
         name: 'crm-customers',
         component: () => import('@/pages/crm/CustomerListPage.vue'),
-        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'customers/:id',
         name: 'crm-customer-detail',
         component: () => import('@/pages/crm/CustomerDetailPage.vue'),
         props: true,
-        meta: { roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'financiers',
         name: 'crm-financiers',
         component: () => import('@/pages/admin/FinanciersPage.vue'),
-        meta: { requiresAuth: true, roles: ['ADMIN', 'MANAGER'] },
       },
       {
         path: 'leads/:id',
@@ -175,7 +173,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
-  // Admin routes (admin only)
+  // ── Admin routes (admin only — AdminLayout with sidebar) ──────────
   {
     path: '/admin',
     component: () => import('@/layouts/AdminLayout.vue'),
@@ -184,14 +182,12 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'scoreboard',
         name: 'admin-scoreboard',
-        component: () => import('@/pages/admin/ScoreboardPage.vue'),
-        meta: { roles: ['ADMIN', 'MANAGER'] },
+        component: () => import('@/pages/shared/ScoreboardPage.vue'),
       },
       {
         path: 'rewards',
         name: 'admin-rewards',
-        component: () => import('@/pages/admin/RewardsPage.vue'),
-        meta: { requiresAuth: true, roles: ['ADMIN', 'MANAGER', 'SALES_REP'] },
+        component: () => import('@/pages/admin/RewardsAdminPage.vue'),
       },
       {
         path: 'users',
@@ -202,12 +198,11 @@ const routes: RouteRecordRaw[] = [
         path: 'commissions',
         name: 'admin-commissions',
         component: () => import('@/pages/admin/CommissionPaymentsPage.vue'),
-        meta: { requiresAuth: true, roles: ['ADMIN'] },
       },
       {
         path: 'notifications',
         name: 'admin-notifications',
-        component: () => import('@/pages/admin/NotificationsPage.vue'),
+        component: () => import('@/pages/shared/NotificationsPage.vue'),
       },
       {
         path: 'live-chat',
@@ -222,7 +217,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
-  // Public form page
+  // ── Public form page ──────────────────────────────────────────────
   {
     path: '/f/:slug',
     name: 'public-form',
@@ -230,7 +225,7 @@ const routes: RouteRecordRaw[] = [
     props: true,
   },
 
-  // ── Customer Portal ─────────────────────────
+  // ── Customer Portal ───────────────────────────────────────────────
   {
     path: '/portal/login',
     name: 'portal-login',
@@ -273,7 +268,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
-  // ── Partner Auth ────────────────────────────
+  // ── Partner Auth ──────────────────────────────────────────────────
   {
     path: '/partner/:code?',
     name: 'partner-auth',

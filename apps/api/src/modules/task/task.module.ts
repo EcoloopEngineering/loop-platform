@@ -12,6 +12,7 @@ import { PrismaTaskRepository } from './infrastructure/repositories/prisma-task.
 import { StageTaskListener } from './application/listeners/stage-task.listener';
 import { TaskCompletedListener } from './application/listeners/task-completed.listener';
 import { TaskStatusChangedListener } from './application/listeners/task-status-changed.listener';
+import { ChangeOrderTaskListener } from './application/listeners/change-order-task.listener';
 
 @Module({
   imports: [PrismaModule, CqrsModule, IntegrationsModule],
@@ -27,6 +28,7 @@ import { TaskStatusChangedListener } from './application/listeners/task-status-c
     StageTaskListener,
     TaskCompletedListener,
     TaskStatusChangedListener,
+    ChangeOrderTaskListener,
   ],
   exports: [TASK_REPOSITORY, TaskService, TaskTemplateService],
 })

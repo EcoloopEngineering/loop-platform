@@ -41,7 +41,53 @@
       </q-card-section>
     </q-card>
 
-    <!-- Goals Progress -->
+    <!-- Annual Goal -->
+    <q-card flat bordered class="rounded-card q-mb-lg">
+      <q-card-section>
+        <div class="row items-center q-mb-md">
+          <div class="text-subtitle1 text-weight-bold">Annual Goal</div>
+          <q-space />
+          <q-btn
+            v-if="!editingGoal"
+            flat dense no-caps icon="edit" label="Edit"
+            color="primary" size="sm"
+            @click="editingGoal = true; goalInput = annualGoal"
+          />
+        </div>
+
+        <div v-if="editingGoal" class="row items-center q-gutter-sm q-mb-md">
+          <q-input
+            v-model.number="goalInput"
+            outlined dense type="number" prefix="$"
+            class="col" style="max-width: 200px;"
+            @keyup.enter="saveGoal"
+          />
+          <q-btn unelevated no-caps color="primary" label="Save" :loading="savingGoal" @click="saveGoal" style="border-radius: 10px;" />
+          <q-btn flat no-caps color="grey-6" label="Cancel" @click="editingGoal = false" />
+        </div>
+
+        <div v-if="annualGoal > 0" class="q-mb-sm">
+          <div class="row items-center q-mb-xs">
+            <span class="text-body2 col">Won Deals Revenue</span>
+            <span class="text-caption text-weight-bold">
+              ${{ wonEarnings.toLocaleString() }} / ${{ annualGoal.toLocaleString() }}
+            </span>
+          </div>
+          <q-linear-progress
+            :value="annualGoal ? wonEarnings / annualGoal : 0"
+            color="primary" rounded size="12px" class="goal-bar"
+          />
+          <div class="text-caption text-grey-5 q-mt-xs">
+            {{ annualGoal ? Math.round(wonEarnings / annualGoal * 100) : 0 }}% of annual goal
+          </div>
+        </div>
+        <div v-else-if="!editingGoal" class="text-grey-6 text-center q-pa-md">
+          No annual goal set. Click Edit to set one.
+        </div>
+      </q-card-section>
+    </q-card>
+
+    <!-- Monthly Goals Progress -->
     <q-card flat bordered class="rounded-card">
       <q-card-section>
         <div class="text-subtitle1 text-weight-bold q-mb-md">Monthly Goals</div>
@@ -73,7 +119,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useQuasar } from 'quasar';
 import { api } from '@/boot/axios';
+const $q = useQuasar();
 
 interface DashboardStats {
   leadsThisMonth: number;
@@ -99,14 +147,20 @@ const statCards = ref([
 ]);
 
 const goals = ref<Goal[]>([]);
+const annualGoal = ref(0);
+const wonEarnings = ref(0);
+const editingGoal = ref(false);
+const goalInput = ref(0);
+const savingGoal = ref(false);
 
 async function loadData() {
   loading.value = true;
   error.value = null;
   try {
-    const [statsRes, goalsRes] = await Promise.all([
-      api.get<DashboardStats>('/dashboard/stats'),
-      api.get<Goal[]>('/dashboard/goals'),
+    const [statsRes, goalsRes, annualGoalRes] = await Promise.all([
+      api.get<DashboardStats>('/dashboard/stats').catch(() => ({ data: { leadsThisMonth: 0, wonDeals: 0, conversionPct: 0, earnings: 0 } })),
+      api.get<Goal[]>('/dashboard/goals').catch(() => ({ data: [] })),
+      api.get<{ annualGoal?: number }>('/dashboard/goals').catch(() => ({ data: { annualGoal: 0 } })),
     ]);
 
     const s = statsRes.data;
@@ -115,11 +169,27 @@ async function loadData() {
     statCards.value[2].value = `${s.conversionPct}%`;
     statCards.value[3].value = `$${s.earnings.toLocaleString()}`;
 
-    goals.value = goalsRes.data;
+    goals.value = Array.isArray(goalsRes.data) ? goalsRes.data : [];
+    annualGoal.value = annualGoalRes.data?.annualGoal ?? 0;
+    wonEarnings.value = s.earnings;
   } catch {
     error.value = 'Failed to load dashboard data. Please try again.';
   } finally {
     loading.value = false;
+  }
+}
+
+async function saveGoal() {
+  savingGoal.value = true;
+  try {
+    await api.put('/dashboard/goals', { amount: goalInput.value });
+    annualGoal.value = goalInput.value;
+    editingGoal.value = false;
+    $q.notify({ type: 'positive', message: 'Annual goal updated' });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to save goal' });
+  } finally {
+    savingGoal.value = false;
   }
 }
 

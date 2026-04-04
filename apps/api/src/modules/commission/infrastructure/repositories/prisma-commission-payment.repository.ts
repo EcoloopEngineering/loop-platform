@@ -43,18 +43,25 @@ export class PrismaCommissionPaymentRepository implements CommissionPaymentRepos
 
   // ── Used by CalculateCommissionHandler ──────────────────────────────────
 
-  async findLeadById(leadId: string): Promise<{ id: string } | null> {
-    return this.prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } });
+  async findLeadById(leadId: string): Promise<{ id: string; assignments?: Array<{ userId: string; isPrimary: boolean }> } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: {
+        id: true,
+        assignments: { select: { userId: true, isPrimary: true } },
+      },
+    });
   }
 
   async upsertCommission(data: {
     leadId: string;
     userId: string;
-    splitPct: number;
+    splitPct?: number;
     amount: number;
-    breakdown: unknown;
+    breakdown?: unknown;
     status: string;
     type: string;
+    isAdvance?: boolean;
   }): Promise<any> {
     const existing = await this.prisma.commission.findFirst({
       where: { leadId: data.leadId, userId: data.userId },
@@ -77,10 +84,11 @@ export class PrismaCommissionPaymentRepository implements CommissionPaymentRepos
         lead: { connect: { id: data.leadId } },
         user: { connect: { id: data.userId } },
         type: data.type as any,
-        splitPct: data.splitPct,
+        splitPct: data.splitPct ?? 0,
         amount: data.amount,
-        breakdown: data.breakdown as any,
+        breakdown: data.breakdown as any ?? {},
         status: data.status as any,
+        isAdvance: data.isAdvance ?? false,
       },
     });
   }

@@ -73,3 +73,50 @@ export interface AuroraDesignStatus {
   status: string;
   progressPct: number;
 }
+
+export interface AuroraFinancingData {
+  kw: number | null;
+  epc: number | null;
+  contractCost: number | null;
+  escalator: number | null;
+  solarRate: number | null;
+  monthlyPayment: number | null;
+  systemProduction: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Aurora API raw response types for financing endpoints
+// ---------------------------------------------------------------------------
+
+export interface AuroraDesignSummaryResponse {
+  design: {
+    system_size_stc?: number;
+    energy_production?: {
+      annual?: number;
+    };
+  };
+}
+
+export interface AuroraFinancingEntry {
+  id: string;
+  selected_in_sales_mode?: boolean;
+}
+
+export interface AuroraFinancingsResponse {
+  financings: AuroraFinancingEntry[];
+}
+
+export interface AuroraFinancingDetailResponse {
+  financing: {
+    escalation?: number;
+    solar_rate?: number;
+    monthly_payment?: number;
+  };
+}
+
+export interface AuroraPricingResponse {
+  pricing: {
+    price_per_watt?: number;
+    system_price?: number;
+  };
+}

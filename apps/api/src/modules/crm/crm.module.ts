@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 // Sub-modules
 import { PortalModule } from './portal.module';
 import { SalesRabbitModule } from './salesrabbit.module';
+import { NotificationModule } from '../notification/notification.module';
 
 // Domain services
 import { LeadScoringDomainService } from './domain/services/lead-scoring.domain-service';
@@ -56,6 +57,11 @@ import { LeadAssignmentsController } from './presentation/lead-assignments.contr
 import { CustomersController } from './presentation/customers.controller';
 import { PipelineController } from './presentation/pipeline.controller';
 import { SiteAnnotationsController } from './presentation/site-annotations.controller';
+import { LeadChatController } from './presentation/lead-chat.controller';
+import { LeadChatGateway } from './presentation/lead-chat.gateway';
+import { LeadChatService } from './application/services/lead-chat.service';
+import { LEAD_CHAT_REPOSITORY } from './application/ports/lead-chat.repository.port';
+import { PrismaLeadChatRepository } from './infrastructure/repositories/prisma-lead-chat.repository';
 
 const CommandHandlers = [
   CreateLeadHandler,
@@ -70,7 +76,7 @@ const CronHandlers = [AutoAdvanceInstallsHandler];
 const Listeners = [StageAdvanceListener, LeadTransitionListener];
 
 @Module({
-  imports: [CqrsModule, ConfigModule, ScheduleModule.forRoot(), PortalModule, SalesRabbitModule],
+  imports: [CqrsModule, ConfigModule, ScheduleModule.forRoot(), PortalModule, SalesRabbitModule, NotificationModule],
   controllers: [
     LeadsController,
     LeadNotesController,
@@ -78,6 +84,7 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
     CustomersController,
     PipelineController,
     SiteAnnotationsController,
+    LeadChatController,
   ],
   providers: [
     LeadScoringDomainService,
@@ -90,6 +97,9 @@ const Listeners = [StageAdvanceListener, LeadTransitionListener];
     ...QueryHandlers,
     ...CronHandlers,
     ...Listeners,
+    LeadChatGateway,
+    LeadChatService,
+    { provide: LEAD_CHAT_REPOSITORY, useClass: PrismaLeadChatRepository },
     {
       provide: LEAD_REPOSITORY,
       useClass: PrismaLeadRepository,

@@ -88,7 +88,7 @@
             <div class="text-h4 text-weight-bold">{{ coinBalance }}</div>
             <div class="text-caption text-grey">Available coins</div>
           </div>
-          <q-btn flat color="primary" label="Visit Store" to="/admin/rewards" no-caps />
+          <q-btn flat color="primary" label="Visit Store" to="/store" no-caps />
         </div>
       </q-card-section>
     </q-card>

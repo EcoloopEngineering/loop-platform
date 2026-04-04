@@ -7,6 +7,7 @@ import { SettingsController } from './presentation/settings.controller';
 import { GetDashboardHandler } from './application/queries/get-dashboard.handler';
 import { GetScoreboardHandler } from './application/queries/get-scoreboard.handler';
 import { DashboardMetricsService } from './application/services/dashboard-metrics.service';
+import { ScoreboardEmailService } from './application/services/scoreboard-email.service';
 import { SettingsService } from './application/services/settings.service';
 import { DASHBOARD_REPOSITORY } from './application/ports/dashboard.repository.port';
 import { SETTINGS_REPOSITORY } from './application/ports/settings.repository.port';
@@ -22,6 +23,7 @@ const QueryHandlers = [GetDashboardHandler, GetScoreboardHandler];
   providers: [
     ...QueryHandlers,
     DashboardMetricsService,
+    ScoreboardEmailService,
     SettingsService,
     { provide: DASHBOARD_REPOSITORY, useClass: PrismaDashboardRepository },
     { provide: SETTINGS_REPOSITORY, useClass: PrismaSettingsRepository },

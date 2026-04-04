@@ -14,11 +14,12 @@ export interface CommissionPaymentRepositoryPort {
   upsertCommission(data: {
     leadId: string;
     userId: string;
-    splitPct: number;
+    splitPct?: number;
     amount: number;
-    breakdown: unknown;
+    breakdown?: unknown;
     status: string;
     type: string;
+    isAdvance?: boolean;
   }): Promise<any>;
 
   // ── Used by StageCommissionListener ────────────────────────────────────

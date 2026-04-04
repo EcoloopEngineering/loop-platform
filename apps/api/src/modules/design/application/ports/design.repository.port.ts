@@ -13,6 +13,13 @@ export interface DesignRepositoryPort {
     status: string;
   }): Promise<{ id: string; leadId: string; designType: string; status: string }>;
 
+  // ── Used by DesignQueryService (financing persistence) ─────────────────
+  findLeadMetadata(leadId: string): Promise<{ metadata: unknown } | null>;
+  updateLeadFinancing(
+    leadId: string,
+    data: { kw?: number; epc?: number; metadata: Record<string, unknown> },
+  ): Promise<void>;
+
   // ── Used by AuroraDesignListener ──────────────────────────────────────
   createLeadActivity(data: {
     leadId: string;

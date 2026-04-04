@@ -1,8 +1,10 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
+  Body,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -38,6 +40,17 @@ export class CommissionPaymentController {
   @ApiOperation({ summary: 'Get commission payments for a specific lead' })
   async getPaymentsByLead(@Param('leadId') leadId: string) {
     return this.commissionPaymentService.getPaymentsByLead(leadId);
+  }
+
+  @Post('leads/:leadId/commission/advance')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Request advance commission payout for a lead' })
+  async requestAdvance(
+    @Param('leadId') leadId: string,
+    @Body() body: { type: 'M1' | 'M2' | 'M3'; amount: number },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.commissionPaymentService.requestAdvance(leadId, body.type, body.amount, user);
   }
 
   @Patch('commissions/payments/:id/approve')

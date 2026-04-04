@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DocumentGenerationService } from './document-generation.service';
 import { DOCUMENT_REPOSITORY } from './ports/document.repository.port';
 import { PdfService } from '../../../infrastructure/pdf/pdf.service';
@@ -21,6 +22,7 @@ describe('DocumentGenerationService', () => {
   };
   let pdfService: { generateChangeOrder: jest.Mock; generateCAP: jest.Mock };
   let deliveryService: { handleCAPDelivery: jest.Mock };
+  let emitter: { emit: jest.Mock };
 
   const mockUser: AuthenticatedUser = {
     id: 'user-1',
@@ -65,6 +67,9 @@ describe('DocumentGenerationService', () => {
     deliveryService = {
       handleCAPDelivery: jest.fn().mockResolvedValue(null),
     };
+    emitter = {
+      emit: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -72,6 +77,7 @@ describe('DocumentGenerationService', () => {
         { provide: DOCUMENT_REPOSITORY, useValue: documentRepo },
         { provide: PdfService, useValue: pdfService },
         { provide: DocumentDeliveryService, useValue: deliveryService },
+        { provide: EventEmitter2, useValue: emitter },
       ],
     }).compile();
 
@@ -121,6 +127,13 @@ describe('DocumentGenerationService', () => {
           type: 'DOCUMENT_UPLOADED',
         }),
       );
+
+      expect(emitter.emit).toHaveBeenCalledWith('lead.changeOrderCreated', {
+        leadId: 'lead-1',
+        changes: ['Panel upgrade'],
+        userId: 'user-1',
+        customerName: 'Jane Smith',
+      });
     });
 
     it('should throw NotFoundException when lead is not found', async () => {

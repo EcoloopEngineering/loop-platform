@@ -8,7 +8,10 @@
         <q-btn v-if="userRole === 'ADMIN'" flat dense round icon="admin_panel_settings" color="grey-7" @click="$router.push('/crm')" aria-label="Admin Panel">
           <q-tooltip>Admin Panel</q-tooltip>
         </q-btn>
-        <q-btn v-if="!isPartner" flat dense no-caps color="amber-8" class="q-mr-xs coin-btn" @click="$router.push('/admin/rewards')" aria-label="Your coins">
+        <q-btn flat dense round icon="emoji_events" color="grey-7" class="q-mr-xs" @click="$router.push('/scoreboard')" aria-label="Scoreboard">
+          <q-tooltip>Scoreboard</q-tooltip>
+        </q-btn>
+        <q-btn v-if="!isPartner" flat dense no-caps color="amber-8" class="q-mr-xs coin-btn" @click="$router.push('/store')" aria-label="Your coins">
           <q-icon name="monetization_on" size="20px" class="q-mr-xs" />
           <span class="text-weight-bold">{{ coinBalance }}</span>
           <q-tooltip>Your coins — Visit Store</q-tooltip>
@@ -85,9 +88,10 @@
         no-caps
       >
         <q-tab name="home" icon="home" label="Home" aria-label="Go to home page" @click="$router.push('/home')" />
-        <q-tab name="leads" icon="add_circle" label="New Lead" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
-        <q-tab v-if="isEmployee && !isPartner" name="referrals" icon="group_add" label="Referrals" aria-label="View referrals" @click="$router.push('/referrals')" />
-        <q-tab name="support" icon="chat" label="Support" aria-label="Open support chat" @click="$router.push('/support')" />
+        <q-tab name="leads" icon="people" label="Leads" aria-label="View my leads" @click="$router.push('/leads')" />
+        <q-tab name="new-lead" icon="add_circle" label="New Lead" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
+        <q-tab name="pipeline" icon="view_kanban" label="Pipeline" aria-label="View pipeline" @click="$router.push('/pipeline')" />
+        <q-tab name="profile" icon="person" label="Profile" aria-label="View profile" @click="$router.push('/profile')" />
       </q-tabs>
     </q-footer>
   </q-layout>
@@ -150,9 +154,10 @@ watch(
   () => route.path,
   (path) => {
     if (path.includes('/home')) activeTab.value = 'home';
+    else if (path === '/leads/new') activeTab.value = 'new-lead';
     else if (path.includes('/leads')) activeTab.value = 'leads';
-    else if (path.includes('/referrals')) activeTab.value = 'referrals';
-    else if (path.includes('/support')) activeTab.value = 'support';
+    else if (path.includes('/pipeline')) activeTab.value = 'pipeline';
+    else if (path.includes('/profile')) activeTab.value = 'profile';
   },
   { immediate: true },
 );

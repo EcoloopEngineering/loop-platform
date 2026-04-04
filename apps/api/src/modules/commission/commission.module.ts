@@ -3,6 +3,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { PrismaModule } from '../../infrastructure/database/prisma.module';
 import { CommissionController } from './presentation/commission.controller';
 import { CommissionPaymentController } from './presentation/commission-payment.controller';
+import { UserFinanceController } from './presentation/user-finance.controller';
 import { CalculateCommissionHandler } from './application/commands/calculate-commission.handler';
 import { CommissionCalculatorDomainService } from './domain/services/commission-calculator.domain-service';
 import { CommissionPaymentService } from './application/services/commission-payment.service';
@@ -17,7 +18,7 @@ const Listeners = [StageCommissionListener];
 
 @Module({
   imports: [CqrsModule, PrismaModule],
-  controllers: [CommissionController, CommissionPaymentController],
+  controllers: [CommissionController, CommissionPaymentController, UserFinanceController],
   providers: [
     ...CommandHandlers,
     ...Listeners,

@@ -8,9 +8,14 @@ import {
   AuroraProject,
   AuroraDesign,
   AuroraDesignStatus,
+  AuroraFinancingData,
   AuroraProjectResponse,
   AuroraDesignResponse,
   AuroraDesignStatusResponse,
+  AuroraDesignSummaryResponse,
+  AuroraFinancingsResponse,
+  AuroraFinancingDetailResponse,
+  AuroraPricingResponse,
 } from './aurora.types';
 import { AuroraMapper } from './aurora.mapper';
 import { withRetry, CircuitBreaker } from '../../common/utils/resilience';
@@ -22,6 +27,7 @@ export class AuroraService {
   private readonly logger = new Logger(AuroraService.name);
   private readonly baseUrl: string;
   private readonly token: string;
+  private readonly tenantId: string;
   private readonly configured: boolean;
   private readonly circuitBreaker: CircuitBreaker;
 
@@ -31,6 +37,7 @@ export class AuroraService {
   ) {
     this.baseUrl = this.config.get<string>('AURORA_SERVICE_URL', '');
     this.token = this.config.get<string>('AURORA_SERVICE_TOKEN', '');
+    this.tenantId = this.config.get<string>('AURORA_TENANT_ID', '');
 
     if (!this.baseUrl || !this.token) {
       this.logger.warn(
@@ -116,6 +123,91 @@ export class AuroraService {
               .pipe(timeout(AURORA_TIMEOUT_MS)),
           );
           return AuroraMapper.toDesignStatus(data);
+        },
+        { maxAttempts: 3, initialDelayMs: 1000, maxDelayMs: 10_000 },
+        this.logger,
+      ),
+    );
+  }
+
+  async getDesignFinancing(designId: string): Promise<AuroraFinancingData> {
+    this.assertConfigured();
+
+    if (!this.tenantId) {
+      throw new Error('Aurora tenant not configured — missing AURORA_TENANT_ID');
+    }
+
+    const tenantBase = `${this.baseUrl}/tenants/${this.tenantId}/designs/${designId}`;
+
+    return this.circuitBreaker.execute(() =>
+      withRetry(
+        async () => {
+          // 1) Design summary
+          const { data: summaryData } = await firstValueFrom(
+            this.http
+              .get<AuroraDesignSummaryResponse>(
+                `${tenantBase}/summary`,
+                { headers: this.headers() },
+              )
+              .pipe(timeout(AURORA_TIMEOUT_MS)),
+          );
+
+          // 2) List financings → find selected one
+          const { data: financingsData } = await firstValueFrom(
+            this.http
+              .get<AuroraFinancingsResponse>(
+                `${tenantBase}/financings`,
+                { headers: this.headers() },
+              )
+              .pipe(timeout(AURORA_TIMEOUT_MS)),
+          );
+
+          const financings = financingsData.financings ?? [];
+          const selected = financings.find((f) => f.selected_in_sales_mode);
+          const financingId = selected?.id ?? financings[0]?.id;
+
+          // 3) Financing detail (if available)
+          let financing: AuroraFinancingDetailResponse['financing'] | null = null;
+          if (financingId) {
+            const { data: financingData } = await firstValueFrom(
+              this.http
+                .get<AuroraFinancingDetailResponse>(
+                  `${tenantBase}/financings/${financingId}`,
+                  { headers: this.headers() },
+                )
+                .pipe(timeout(AURORA_TIMEOUT_MS)),
+            );
+            financing = financingData.financing;
+          }
+
+          // 4) Pricing
+          const { data: pricingData } = await firstValueFrom(
+            this.http
+              .get<AuroraPricingResponse>(
+                `${tenantBase}/pricing`,
+                { headers: this.headers() },
+              )
+              .pipe(timeout(AURORA_TIMEOUT_MS)),
+          );
+
+          const design = summaryData.design;
+          const pricing = pricingData.pricing;
+
+          return {
+            kw: design?.system_size_stc
+              ? Math.round(design.system_size_stc / 10) / 100
+              : null,
+            epc: pricing?.price_per_watt
+              ? parseFloat(pricing.price_per_watt.toFixed(2))
+              : null,
+            contractCost: pricing?.system_price ?? null,
+            escalator: financing?.escalation ?? null,
+            solarRate: financing?.solar_rate ?? null,
+            monthlyPayment: financing?.monthly_payment ?? null,
+            systemProduction: design?.energy_production?.annual
+              ? Math.round(design.energy_production.annual)
+              : null,
+          };
         },
         { maxAttempts: 3, initialDelayMs: 1000, maxDelayMs: 10_000 },
         this.logger,

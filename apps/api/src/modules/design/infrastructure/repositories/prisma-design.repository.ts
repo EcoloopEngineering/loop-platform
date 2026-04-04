@@ -37,6 +37,25 @@ export class PrismaDesignRepository implements DesignRepositoryPort {
     }) as any;
   }
 
+  async findLeadMetadata(leadId: string): Promise<{ metadata: unknown } | null> {
+    return this.prisma.lead.findUnique({
+      where: { id: leadId },
+      select: { metadata: true },
+    });
+  }
+
+  async updateLeadFinancing(
+    leadId: string,
+    data: { kw?: number; epc?: number; metadata: Record<string, unknown> },
+  ): Promise<void> {
+    const updateData: Record<string, unknown> = {};
+    if (data.kw != null) updateData.kw = data.kw;
+    if (data.epc != null) updateData.epc = data.epc;
+    updateData.metadata = data.metadata as any;
+
+    await this.prisma.lead.update({ where: { id: leadId }, data: updateData as any });
+  }
+
   async createLeadActivity(data: {
     leadId: string;
     userId: string;
