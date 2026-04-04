@@ -150,6 +150,34 @@ export function useRewardsApi() {
     }
   }
 
+  async function updateProduct(
+    id: string,
+    product: Partial<Omit<RewardProduct, 'id'>>,
+  ): Promise<boolean> {
+    error.value = null;
+    try {
+      await api.put(`/rewards/${id}`, product);
+      return true;
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Failed to update product');
+      return false;
+    }
+  }
+
+  async function uploadProductImage(file: File): Promise<string | null> {
+    error.value = null;
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('documentType', 'OTHER');
+      const { data } = await api.post<{ url?: string; fileKey?: string }>('/documents/upload', form);
+      return data.url ?? data.fileKey ?? null;
+    } catch (err: unknown) {
+      error.value = extractMessage(err, 'Failed to upload image');
+      return null;
+    }
+  }
+
   return {
     loading,
     error,
@@ -160,6 +188,8 @@ export function useRewardsApi() {
     fetchAllOrders,
     createOrder,
     createProduct,
+    updateProduct,
+    uploadProductImage,
     fulfillOrder,
     cancelOrder,
   };

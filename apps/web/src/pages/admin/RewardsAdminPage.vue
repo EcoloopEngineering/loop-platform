@@ -1,144 +1,126 @@
 <template>
   <q-page class="q-pa-md page-bg">
     <div class="row items-center q-mb-md">
-      <h5 class="q-my-none text-weight-bold">Rewards Store</h5>
+      <h5 class="q-my-none text-weight-bold">Rewards Management</h5>
       <q-space />
       <q-btn
-        v-if="isAdmin"
         label="Add Product"
         icon="add"
         color="primary"
         unelevated
         no-caps
         class="rounded-btn"
-        aria-label="Add a new reward product"
         @click="showAddDialog = true"
       />
     </div>
 
-    <!-- Balance banner -->
-    <q-card flat bordered class="rounded-card q-mb-lg">
-      <q-card-section class="text-center q-py-lg">
-        <q-icon name="monetization_on" color="amber-8" size="48px" />
-        <div class="text-h4 text-weight-bold q-mt-sm">{{ balance.coins ?? 0 }}</div>
-        <div class="text-body2 text-grey-6">Available Coins</div>
-      </q-card-section>
-    </q-card>
-
-    <div v-if="rewardsApi.loading.value" class="row justify-center q-pa-xl">
+    <div v-if="loading" class="row justify-center q-pa-xl">
       <q-spinner-dots color="primary" size="40px" />
     </div>
 
-    <!-- Error -->
     <q-banner v-else-if="pageError" class="bg-negative text-white q-mb-md" rounded>
       <template #avatar><q-icon name="error" /></template>
       {{ pageError }}
-      <template #action>
-        <q-btn flat label="Retry" @click="loadData" />
-      </template>
+      <template #action><q-btn flat label="Retry" @click="loadData" /></template>
     </q-banner>
 
-    <!-- Rewards grid -->
     <template v-else>
-      <div v-if="products.length === 0" class="text-grey-5 text-center q-pa-xl">
-        No rewards available yet.
-      </div>
-      <div class="row q-col-gutter-md q-mb-xl">
-        <div v-for="p in products" :key="p.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
-          <q-card flat bordered class="rounded-card full-height column">
-            <q-img
-              v-if="p.imageUrl"
-              :src="p.imageUrl"
-              :ratio="16 / 9"
-              class="rounded-card-top"
-              fit="cover"
-            />
-            <div v-else class="row justify-center items-center product-placeholder">
-              <q-icon name="card_giftcard" size="48px" color="grey-4" />
-            </div>
-            <q-card-section class="col column">
-              <div class="text-subtitle2 text-weight-bold">{{ p.name }}</div>
-              <div v-if="p.description" class="text-caption text-grey-6 q-mt-xs product-description">{{ p.description }}</div>
-              <div class="row items-center q-mt-sm">
-                <q-icon name="monetization_on" color="amber-8" size="18px" class="q-mr-xs" />
-                <span class="text-weight-bold text-body1">{{ p.price }}</span>
-                <q-space />
-                <q-btn
-                  label="Redeem"
-                  color="primary"
-                  unelevated
-                  no-caps
-                  size="sm"
-                  class="rounded-btn"
-                  :disable="(balance.coins ?? 0) < p.price"
-                  :aria-label="`Redeem ${p.name} for ${p.price} coins`"
-                  @click="confirmRedeem(p)"
-                />
-              </div>
-            </q-card-section>
+      <!-- Summary cards -->
+      <div class="row q-col-gutter-md q-mb-lg">
+        <div class="col-12 col-sm-4">
+          <q-card flat bordered class="rounded-card text-center q-pa-md">
+            <div class="text-caption text-grey-6 text-uppercase" style="letter-spacing: 0.04em">Products</div>
+            <div class="text-h5 text-weight-bold text-primary q-mt-xs">{{ products.length }}</div>
+          </q-card>
+        </div>
+        <div class="col-12 col-sm-4">
+          <q-card flat bordered class="rounded-card text-center q-pa-md">
+            <div class="text-caption text-grey-6 text-uppercase" style="letter-spacing: 0.04em">Pending Orders</div>
+            <div class="text-h5 text-weight-bold text-orange q-mt-xs">{{ pendingCount }}</div>
+          </q-card>
+        </div>
+        <div class="col-12 col-sm-4">
+          <q-card flat bordered class="rounded-card text-center q-pa-md">
+            <div class="text-caption text-grey-6 text-uppercase" style="letter-spacing: 0.04em">Fulfilled</div>
+            <div class="text-h5 text-weight-bold text-green q-mt-xs">{{ fulfilledCount }}</div>
           </q-card>
         </div>
       </div>
 
-      <!-- All Orders Management -->
-      <template v-if="isAdmin">
-        <div class="text-subtitle1 text-weight-bold q-mb-sm">All Orders</div>
-        <q-table
-          :rows="allOrders"
-          :columns="adminOrderColumns"
-          row-key="id"
-          flat
-          bordered
-          class="rounded-card"
-          :loading="loadingAllOrders"
-          :pagination="{ rowsPerPage: 10 }"
-        >
-          <template #body-cell-status="props">
-            <q-td :props="props">
-              <q-badge
-                :color="statusColor(props.row.status)"
-                :label="props.row.status"
-              />
-            </q-td>
-          </template>
-          <template #body-cell-actions="props">
-            <q-td :props="props">
-              <q-btn
-                v-if="props.row.status === 'PENDING'"
-                flat
-                dense
-                color="positive"
-                icon="check_circle"
-                label="Fulfill"
-                size="sm"
-                aria-label="Fulfill this order"
-                @click="handleFulfillOrder(props.row.id)"
-              />
-              <q-btn
-                v-if="props.row.status === 'PENDING'"
-                flat
-                dense
-                color="negative"
-                icon="cancel"
-                label="Cancel"
-                size="sm"
-                class="q-ml-xs"
-                aria-label="Cancel this order"
-                @click="handleCancelOrder(props.row.id)"
-              />
-              <span v-if="props.row.status !== 'PENDING'" class="text-grey-5">--</span>
-            </q-td>
-          </template>
-          <template #no-data>
-            <div class="text-grey-5 q-pa-md text-center full-width">No orders.</div>
-          </template>
-        </q-table>
-      </template>
+      <!-- Products Table -->
+      <div class="text-subtitle1 text-weight-bold q-mb-sm">Products</div>
+      <q-table
+        :rows="products"
+        :columns="productColumns"
+        row-key="id"
+        flat bordered
+        class="rounded-card q-mb-lg"
+        :pagination="{ rowsPerPage: 10 }"
+      >
+        <template #body-cell-image="props">
+          <q-td :props="props">
+            <q-avatar v-if="props.row.imageUrl" size="36px" square class="rounded-sm">
+              <img :src="props.row.imageUrl" />
+            </q-avatar>
+            <q-icon v-else name="card_giftcard" size="24px" color="grey-4" />
+          </q-td>
+        </template>
+        <template #body-cell-price="props">
+          <q-td :props="props">
+            <q-icon name="monetization_on" color="amber-8" size="14px" class="q-mr-xs" />
+            <span class="text-weight-bold">{{ props.row.price }}</span>
+          </q-td>
+        </template>
+        <template #body-cell-actions="props">
+          <q-td :props="props">
+            <q-btn flat dense round icon="edit" size="sm" color="grey-7" @click="startEdit(props.row)" />
+          </q-td>
+        </template>
+        <template #no-data>
+          <div class="text-grey-5 q-pa-md text-center full-width">No products yet. Click "Add Product" to create one.</div>
+        </template>
+      </q-table>
+
+      <!-- Orders Table -->
+      <div class="text-subtitle1 text-weight-bold q-mb-sm">All Orders</div>
+      <q-table
+        :rows="allOrders"
+        :columns="orderColumns"
+        row-key="id"
+        flat bordered
+        class="rounded-card"
+        :loading="loadingOrders"
+        :pagination="{ rowsPerPage: 15 }"
+      >
+        <template #body-cell-status="props">
+          <q-td :props="props">
+            <q-badge :color="statusColor(props.row.status)" :label="props.row.status" />
+          </q-td>
+        </template>
+        <template #body-cell-actions="props">
+          <q-td :props="props">
+            <q-btn
+              v-if="props.row.status === 'PENDING'"
+              flat dense color="positive" icon="check_circle" label="Fulfill" size="sm"
+              @click="handleFulfillOrder(props.row.id)"
+            />
+            <q-btn
+              v-if="props.row.status === 'PENDING'"
+              flat dense color="negative" icon="cancel" label="Cancel" size="sm" class="q-ml-xs"
+              @click="handleCancelOrder(props.row.id)"
+            />
+            <span v-if="props.row.status !== 'PENDING'" class="text-grey-5">--</span>
+          </q-td>
+        </template>
+        <template #no-data>
+          <div class="text-grey-5 q-pa-md text-center full-width">No orders yet.</div>
+        </template>
+      </q-table>
     </template>
 
-    <!-- Add Product Dialog (Admin only) -->
-    <q-dialog v-model="showAddDialog" persistent @keyup.esc="showAddDialog = false" aria-label="Add reward product dialog">
-      <q-card class="dialog-card-lg">
+    <!-- Add Product Dialog -->
+    <q-dialog v-model="showAddDialog" persistent>
+      <q-card style="min-width: 420px; border-radius: 12px;">
         <q-card-section>
           <div class="text-h6 text-weight-bold">Add Reward Product</div>
         </q-card-section>
@@ -146,20 +128,44 @@
           <q-input v-model="newProduct.name" label="Name" outlined dense class="q-mb-sm" />
           <q-input v-model="newProduct.description" label="Description" outlined dense type="textarea" autogrow class="q-mb-sm" />
           <q-input v-model.number="newProduct.price" label="Price (coins)" outlined dense type="number" class="q-mb-sm" />
-          <q-input v-model="newProduct.imageUrl" label="Image URL" outlined dense class="q-mb-sm" />
+          <div class="q-mb-sm">
+            <div class="text-caption text-grey-6 q-mb-xs">Product Image</div>
+            <div v-if="newProduct.imageUrl" class="row items-center q-mb-xs">
+              <q-avatar size="48px" square class="rounded-sm q-mr-sm"><img :src="newProduct.imageUrl" /></q-avatar>
+              <q-btn flat dense size="sm" icon="close" color="negative" @click="newProduct.imageUrl = ''" />
+            </div>
+            <q-btn v-else outline no-caps dense icon="upload" label="Upload Image" color="primary" size="sm" :loading="uploadingImage" @click="pickImage('new')" />
+          </div>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="grey-7" no-caps v-close-popup aria-label="Cancel adding product" />
-          <q-btn
-            label="Create"
-            color="primary"
-            unelevated
-            no-caps
-            :disable="!newProduct.name || !newProduct.price"
-            :loading="savingProduct"
-            aria-label="Confirm create reward product"
-            @click="handleCreateProduct"
-          />
+          <q-btn flat label="Cancel" color="grey-7" no-caps v-close-popup />
+          <q-btn label="Create" color="primary" unelevated no-caps :disable="!newProduct.name || !newProduct.price" :loading="savingProduct" @click="handleCreateProduct" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Edit Product Dialog -->
+    <q-dialog v-model="showEditDialog" persistent>
+      <q-card style="min-width: 420px; border-radius: 12px;">
+        <q-card-section>
+          <div class="text-h6 text-weight-bold">Edit Product</div>
+        </q-card-section>
+        <q-card-section v-if="editingProduct" class="q-pt-none">
+          <q-input v-model="editingProduct.name" label="Name" outlined dense class="q-mb-sm" />
+          <q-input v-model="editingProduct.description" label="Description" outlined dense type="textarea" autogrow class="q-mb-sm" />
+          <q-input v-model.number="editingProduct.price" label="Price (coins)" outlined dense type="number" class="q-mb-sm" />
+          <div class="q-mb-sm">
+            <div class="text-caption text-grey-6 q-mb-xs">Product Image</div>
+            <div v-if="editingProduct.imageUrl" class="row items-center q-mb-xs">
+              <q-avatar size="48px" square class="rounded-sm q-mr-sm"><img :src="editingProduct.imageUrl" /></q-avatar>
+              <q-btn flat dense size="sm" icon="close" color="negative" @click="editingProduct.imageUrl = ''" />
+            </div>
+            <q-btn v-else outline no-caps dense icon="upload" label="Upload Image" color="primary" size="sm" :loading="uploadingImage" @click="pickImage('edit')" />
+          </div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-7" no-caps v-close-popup />
+          <q-btn label="Save" color="primary" unelevated no-caps :disable="!editingProduct?.name || !editingProduct?.price" :loading="savingProduct" @click="handleUpdateProduct" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -170,66 +176,91 @@
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRewardsApi } from '@/composables/useRewardsApi';
-import { useUserStore } from '@/stores/user.store';
-import type { RewardProduct, RewardOrder, RewardBalance } from '@/types/api';
+import type { RewardProduct, RewardOrder } from '@/types/api';
 
 const $q = useQuasar();
 const rewardsApi = useRewardsApi();
-const userStore = useUserStore();
-const isAdmin = computed(() => userStore.user?.role === 'ADMIN');
 
-const balance = ref<RewardBalance>({ coins: 0 });
+const loading = ref(false);
 const pageError = ref<string | null>(null);
 const products = ref<RewardProduct[]>([]);
-const orders = ref<RewardOrder[]>([]);
 const allOrders = ref<RewardOrder[]>([]);
 const loadingOrders = ref(false);
-const loadingAllOrders = ref(false);
 
-// Add product dialog
 const showAddDialog = ref(false);
 const savingProduct = ref(false);
+const uploadingImage = ref(false);
 const newProduct = ref({ name: '', description: '', price: 0, imageUrl: '' });
 
+const pendingCount = computed(() => allOrders.value.filter(o => o.status === 'PENDING').length);
+const fulfilledCount = computed(() => allOrders.value.filter(o => o.status === 'FULFILLED' || o.status === 'COMPLETED').length);
+
+const editingProduct = ref<RewardProduct | null>(null);
+const showEditDialog = ref(false);
+
+const productColumns = [
+  { name: 'image', label: '', field: 'imageUrl', align: 'center' as const, style: 'width: 50px' },
+  { name: 'name', label: 'Name', field: 'name', align: 'left' as const, sortable: true },
+  { name: 'description', label: 'Description', field: 'description', align: 'left' as const },
+  { name: 'price', label: 'Price', field: 'price', align: 'center' as const, sortable: true },
+  { name: 'actions', label: '', field: 'id', align: 'center' as const, style: 'width: 80px' },
+];
+
 const orderColumns = [
+  { name: 'user', label: 'User', field: (row: RewardOrder) => row.userName ?? '--', align: 'left' as const, sortable: true },
   { name: 'productName', label: 'Product', field: 'productName', align: 'left' as const },
-  { name: 'price', label: 'Price', field: 'price', align: 'center' as const },
-  { name: 'status', label: 'Status', field: 'status', align: 'center' as const },
-  {
-    name: 'createdAt',
-    label: 'Date',
-    field: 'createdAt',
-    align: 'left' as const,
-    format: (val: string) => val ? new Date(val).toLocaleDateString() : '',
-  },
+  { name: 'coinsSpent', label: 'Coins', field: 'coinsSpent', align: 'center' as const },
+  { name: 'status', label: 'Status', field: 'status', align: 'center' as const, sortable: true },
+  { name: 'createdAt', label: 'Date', field: 'createdAt', align: 'left' as const, sortable: true, format: (val: string) => val ? new Date(val).toLocaleDateString() : '' },
+  { name: 'actions', label: 'Actions', field: 'actions', align: 'center' as const },
 ];
 
 function statusColor(status: string) {
-  const map: Record<string, string> = {
-    PENDING: 'orange',
-    PROCESSING: 'blue',
-    COMPLETED: 'green',
-    CANCELLED: 'grey',
-  };
-  return map[status] ?? 'grey';
+  return { PENDING: 'orange', PROCESSING: 'blue', FULFILLED: 'green', COMPLETED: 'green', CANCELLED: 'grey' }[status] ?? 'grey';
 }
 
-function confirmRedeem(product: RewardProduct) {
-  $q.dialog({
-    title: 'Confirm Redemption',
-    message: `Redeem "${product.name}" for ${product.price} coins?`,
-    cancel: true,
-    persistent: true,
-  }).onOk(async () => {
-    const ok = await rewardsApi.createOrder(product.id);
-    if (ok) {
-      $q.notify({ type: 'positive', message: 'Order placed successfully!' });
-      balance.value = await rewardsApi.fetchBalance();
-      orders.value = await rewardsApi.fetchOrders();
+function startEdit(product: RewardProduct) {
+  editingProduct.value = { ...product };
+  showEditDialog.value = true;
+}
+
+function pickImage(target: 'new' | 'edit') {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    uploadingImage.value = true;
+    const url = await rewardsApi.uploadProductImage(file);
+    uploadingImage.value = false;
+    if (url) {
+      if (target === 'new') newProduct.value.imageUrl = url;
+      else if (editingProduct.value) editingProduct.value.imageUrl = url;
     } else {
-      $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed to place order' });
+      $q.notify({ type: 'negative', message: 'Upload failed' });
     }
+  };
+  input.click();
+}
+
+async function handleUpdateProduct() {
+  if (!editingProduct.value) return;
+  savingProduct.value = true;
+  const ok = await rewardsApi.updateProduct(editingProduct.value.id, {
+    name: editingProduct.value.name,
+    description: editingProduct.value.description || undefined,
+    price: editingProduct.value.price,
+    imageUrl: editingProduct.value.imageUrl || undefined,
   });
+  if (ok) {
+    $q.notify({ type: 'positive', message: 'Product updated!' });
+    showEditDialog.value = false;
+    products.value = await rewardsApi.fetchProducts();
+  } else {
+    $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed to update' });
+  }
+  savingProduct.value = false;
 }
 
 async function handleCreateProduct() {
@@ -251,15 +282,6 @@ async function handleCreateProduct() {
   savingProduct.value = false;
 }
 
-const adminOrderColumns = [
-  { name: 'user', label: 'User', field: (row: RewardOrder) => row.userName ?? '--', align: 'left' as const },
-  { name: 'productName', label: 'Product', field: 'productName', align: 'left' as const },
-  { name: 'coinsSpent', label: 'Coins', field: 'coinsSpent', align: 'center' as const },
-  { name: 'status', label: 'Status', field: 'status', align: 'center' as const },
-  { name: 'createdAt', label: 'Date', field: 'createdAt', align: 'left' as const, format: (val: string) => val ? new Date(val).toLocaleDateString() : '' },
-  { name: 'actions', label: 'Actions', field: 'actions', align: 'center' as const },
-];
-
 async function handleFulfillOrder(orderId: string) {
   const ok = await rewardsApi.fulfillOrder(orderId);
   if (ok) {
@@ -274,37 +296,28 @@ async function handleCancelOrder(orderId: string) {
   const ok = await rewardsApi.cancelOrder(orderId);
   if (ok) {
     $q.notify({ type: 'positive', message: 'Order cancelled. Coins refunded.' });
-    [allOrders.value, balance.value] = await Promise.all([
-      rewardsApi.fetchAllOrders(),
-      rewardsApi.fetchBalance(),
-    ]);
+    allOrders.value = await rewardsApi.fetchAllOrders();
   } else {
     $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed' });
   }
 }
 
 async function loadData() {
+  loading.value = true;
   pageError.value = null;
   try {
     loadingOrders.value = true;
-    loadingAllOrders.value = true;
-
-    const [bal, prods, ords, adminOrds] = await Promise.all([
-      rewardsApi.fetchBalance(),
+    const [prods, orders] = await Promise.all([
       rewardsApi.fetchProducts(),
-      rewardsApi.fetchOrders(),
-      isAdmin.value ? rewardsApi.fetchAllOrders() : Promise.resolve([]),
+      rewardsApi.fetchAllOrders(),
     ]);
-
-    balance.value = bal;
     products.value = prods;
-    orders.value = ords;
-    allOrders.value = adminOrds;
+    allOrders.value = orders;
   } catch {
-    pageError.value = 'Failed to load rewards data. Please try again.';
+    pageError.value = 'Failed to load data. Please try again.';
   } finally {
+    loading.value = false;
     loadingOrders.value = false;
-    loadingAllOrders.value = false;
   }
 }
 
@@ -312,21 +325,6 @@ onMounted(() => { loadData(); });
 </script>
 
 <style lang="scss" scoped>
-.rounded-card {
-  border-radius: 12px;
-  border-color: #E5E7EB;
-}
-.rounded-card-top {
-  border-radius: 12px 12px 0 0;
-}
-.rounded-btn {
-  border-radius: 8px;
-}
-.product-placeholder {
-  height: 120px;
-  background: #F3F4F6;
-}
-.product-description {
-  flex: 1;
-}
+.rounded-card { border-radius: 12px; border-color: #E5E7EB; }
+.rounded-btn { border-radius: 8px; }
 </style>
