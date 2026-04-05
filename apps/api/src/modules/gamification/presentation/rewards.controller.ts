@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Patch,
   Param,
   Body,
@@ -49,6 +50,13 @@ export class RewardsController {
     return this.rewardOrderService.getOrders(user.id);
   }
 
+  @Get('all')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'List all products including inactive (admin)' })
+  async listAllProducts() {
+    return this.rewardOrderService.listAllProducts();
+  }
+
   @Post()
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a reward product (admin only)' })
@@ -60,6 +68,7 @@ export class RewardsController {
       description?: string;
       price: number;
       imageUrl?: string;
+      stock?: number;
     },
   ) {
     return this.rewardOrderService.createProduct(body);
@@ -77,9 +86,17 @@ export class RewardsController {
       price?: number;
       imageUrl?: string;
       isActive?: boolean;
+      stock?: number | null;
     },
   ) {
     return this.rewardOrderService.updateProduct(id, body);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Delete a reward product (admin only)' })
+  async deleteProduct(@Param('id', ParseUUIDPipe) id: string) {
+    return this.rewardOrderService.deleteProduct(id);
   }
 
   @Get('orders/all')

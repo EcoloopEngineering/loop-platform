@@ -694,6 +694,7 @@ model RewardProduct {
   description String?
   price       Int
   imageUrl    String?  @map("image_url")
+  stock       Int?
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
 

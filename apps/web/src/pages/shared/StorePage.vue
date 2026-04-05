@@ -46,7 +46,8 @@
                   color="primary"
                   unelevated no-caps size="sm"
                   class="rounded-btn"
-                  :disable="(balance.coins ?? 0) < p.price"
+                  :disable="(balance.coins ?? 0) < p.price || (p.stock !== null && p.stock !== undefined && p.stock <= 0)"
+                  :label="p.stock !== null && p.stock !== undefined && p.stock <= 0 ? 'Sold Out' : 'Redeem'"
                   @click="confirmRedeem(p)"
                 />
               </div>

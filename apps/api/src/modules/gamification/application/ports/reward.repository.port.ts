@@ -2,6 +2,7 @@ export const REWARD_REPOSITORY = Symbol('REWARD_REPOSITORY');
 
 export interface RewardRepositoryPort {
   findActiveProducts(): Promise<any[]>;
+  findAllProducts(): Promise<any[]>;
 
   findProductById(id: string): Promise<any | null>;
 
@@ -14,6 +15,7 @@ export interface RewardRepositoryPort {
   }): Promise<any>;
 
   updateProduct(id: string, data: Record<string, unknown>): Promise<any>;
+  deleteProduct(id: string): Promise<any>;
 
   createOrder(data: {
     userId: string;

@@ -23,6 +23,10 @@ export class RewardOrderService {
     return this.rewardRepo.findActiveProducts();
   }
 
+  async listAllProducts() {
+    return this.rewardRepo.findAllProducts();
+  }
+
   async placeOrder(user: AuthenticatedUser, productId: string) {
     if (!productId) {
       throw new BadRequestException('productId is required');
@@ -34,17 +38,28 @@ export class RewardOrderService {
       throw new BadRequestException('Product not found or inactive');
     }
 
+    if (product.stock !== null && product.stock !== undefined && product.stock <= 0) {
+      throw new BadRequestException('Product is out of stock');
+    }
+
     await this.coinService.deductCoins(
       user.id,
       product.price,
       `Reward order: ${product.name}`,
     );
 
-    return this.rewardRepo.createOrder({
+    const order = await this.rewardRepo.createOrder({
       userId: user.id,
       productId: product.id,
       coinsSpent: product.price,
     });
+
+    // Decrement stock if tracked
+    if (product.stock !== null && product.stock !== undefined) {
+      await this.rewardRepo.updateProduct(product.id, { stock: product.stock - 1 });
+    }
+
+    return order;
   }
 
   async getOrders(userId: string) {
@@ -87,6 +102,10 @@ export class RewardOrderService {
     },
   ) {
     return this.rewardRepo.updateProduct(id, body);
+  }
+
+  async deleteProduct(id: string) {
+    return this.rewardRepo.deleteProduct(id);
   }
 
   async listAllOrders() {

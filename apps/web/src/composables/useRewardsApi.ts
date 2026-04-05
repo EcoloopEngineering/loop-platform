@@ -31,6 +31,15 @@ export function useRewardsApi() {
     }
   }
 
+  async function fetchAllProducts(): Promise<RewardProduct[]> {
+    try {
+      const { data } = await api.get<RewardProduct[] | { data?: RewardProduct[] }>('/rewards/all');
+      return Array.isArray(data) ? data : (data as { data?: RewardProduct[] }).data ?? [];
+    } catch {
+      return [];
+    }
+  }
+
   async function fetchProducts(): Promise<RewardProduct[]> {
     loading.value = true;
     error.value = null;
@@ -183,6 +192,7 @@ export function useRewardsApi() {
     error,
     clearError,
     fetchBalance,
+    fetchAllProducts,
     fetchProducts,
     fetchOrders,
     fetchAllOrders,

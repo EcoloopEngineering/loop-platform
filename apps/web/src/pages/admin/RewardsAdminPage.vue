@@ -56,6 +56,7 @@
         flat bordered
         class="rounded-card q-mb-lg"
         :pagination="{ rowsPerPage: 10 }"
+        :row-class="(row: RewardProduct) => !row.isActive ? 'inactive-row' : ''"
       >
         <template #body-cell-image="props">
           <q-td :props="props">
@@ -71,9 +72,28 @@
             <span class="text-weight-bold">{{ props.row.price }}</span>
           </q-td>
         </template>
+        <template #body-cell-stock="props">
+          <q-td :props="props">
+            <q-badge v-if="!props.row.isActive" color="grey" label="Unavailable" />
+            <q-badge v-else-if="props.row.stock === null || props.row.stock === undefined" color="green" label="In Stock" />
+            <q-badge v-else-if="props.row.stock <= 0" color="negative" label="Out of Stock" />
+            <q-badge v-else color="blue" :label="`${props.row.stock} left`" />
+          </q-td>
+        </template>
+        <template #body-cell-status="slotProps">
+          <q-td :props="slotProps">
+            <q-toggle
+              :model-value="slotProps.row.isActive"
+              color="primary"
+              dense
+              @update:model-value="toggleActive(slotProps.row)"
+            />
+          </q-td>
+        </template>
         <template #body-cell-actions="props">
           <q-td :props="props">
             <q-btn flat dense round icon="edit" size="sm" color="grey-7" @click="startEdit(props.row)" />
+            <q-btn flat dense round icon="delete" size="sm" color="negative" @click="confirmDelete(props.row)" />
           </q-td>
         </template>
         <template #no-data>
@@ -127,7 +147,10 @@
         <q-card-section class="q-pt-none">
           <q-input v-model="newProduct.name" label="Name" outlined dense class="q-mb-sm" />
           <q-input v-model="newProduct.description" label="Description" outlined dense type="textarea" autogrow class="q-mb-sm" />
-          <q-input v-model.number="newProduct.price" label="Price (coins)" outlined dense type="number" class="q-mb-sm" />
+          <div class="row q-gutter-sm q-mb-sm">
+            <q-input v-model.number="newProduct.price" label="Price (coins)" outlined dense type="number" class="col" />
+            <q-input v-model.number="newProduct.stock" label="Stock (empty = unlimited)" outlined dense type="number" class="col" placeholder="Unlimited" />
+          </div>
           <div class="q-mb-sm">
             <div class="text-caption text-grey-6 q-mb-xs">Product Image</div>
             <div v-if="newProduct.imageUrl" class="row items-center q-mb-xs">
@@ -153,7 +176,10 @@
         <q-card-section v-if="editingProduct" class="q-pt-none">
           <q-input v-model="editingProduct.name" label="Name" outlined dense class="q-mb-sm" />
           <q-input v-model="editingProduct.description" label="Description" outlined dense type="textarea" autogrow class="q-mb-sm" />
-          <q-input v-model.number="editingProduct.price" label="Price (coins)" outlined dense type="number" class="q-mb-sm" />
+          <div class="row q-gutter-sm q-mb-sm">
+            <q-input v-model.number="editingProduct.price" label="Price (coins)" outlined dense type="number" class="col" />
+            <q-input v-model.number="editingProduct.stock" label="Stock (empty = unlimited)" outlined dense type="number" class="col" placeholder="Unlimited" />
+          </div>
           <div class="q-mb-sm">
             <div class="text-caption text-grey-6 q-mb-xs">Product Image</div>
             <div v-if="editingProduct.imageUrl" class="row items-center q-mb-xs">
@@ -176,6 +202,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRewardsApi } from '@/composables/useRewardsApi';
+import { api } from '@/boot/axios';
 import type { RewardProduct, RewardOrder } from '@/types/api';
 
 const $q = useQuasar();
@@ -190,7 +217,7 @@ const loadingOrders = ref(false);
 const showAddDialog = ref(false);
 const savingProduct = ref(false);
 const uploadingImage = ref(false);
-const newProduct = ref({ name: '', description: '', price: 0, imageUrl: '' });
+const newProduct = ref({ name: '', description: '', price: 0, imageUrl: '', stock: null as number | null });
 
 const pendingCount = computed(() => allOrders.value.filter(o => o.status === 'PENDING').length);
 const fulfilledCount = computed(() => allOrders.value.filter(o => o.status === 'FULFILLED' || o.status === 'COMPLETED').length);
@@ -203,7 +230,9 @@ const productColumns = [
   { name: 'name', label: 'Name', field: 'name', align: 'left' as const, sortable: true },
   { name: 'description', label: 'Description', field: 'description', align: 'left' as const },
   { name: 'price', label: 'Price', field: 'price', align: 'center' as const, sortable: true },
-  { name: 'actions', label: '', field: 'id', align: 'center' as const, style: 'width: 80px' },
+  { name: 'stock', label: 'Stock', field: 'stock', align: 'center' as const, sortable: true },
+  { name: 'status', label: 'Status', field: 'isActive', align: 'center' as const },
+  { name: 'actions', label: '', field: 'id', align: 'center' as const, style: 'width: 100px' },
 ];
 
 const orderColumns = [
@@ -214,6 +243,12 @@ const orderColumns = [
   { name: 'createdAt', label: 'Date', field: 'createdAt', align: 'left' as const, sortable: true, format: (val: string) => val ? new Date(val).toLocaleDateString() : '' },
   { name: 'actions', label: 'Actions', field: 'actions', align: 'center' as const },
 ];
+
+function parseStock(val: unknown): number | null {
+  if (val === null || val === undefined || val === '') return null;
+  const n = Number(val);
+  return isNaN(n) ? null : n;
+}
 
 function statusColor(status: string) {
   return { PENDING: 'orange', PROCESSING: 'blue', FULFILLED: 'green', COMPLETED: 'green', CANCELLED: 'grey' }[status] ?? 'grey';
@@ -252,15 +287,44 @@ async function handleUpdateProduct() {
     description: editingProduct.value.description || undefined,
     price: editingProduct.value.price,
     imageUrl: editingProduct.value.imageUrl || undefined,
+    stock: parseStock((editingProduct.value as Record<string, unknown>).stock),
   });
   if (ok) {
     $q.notify({ type: 'positive', message: 'Product updated!' });
     showEditDialog.value = false;
-    products.value = await rewardsApi.fetchProducts();
+    products.value = await rewardsApi.fetchAllProducts();
   } else {
     $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed to update' });
   }
   savingProduct.value = false;
+}
+
+async function toggleActive(product: RewardProduct) {
+  const newState = !product.isActive;
+  const ok = await rewardsApi.updateProduct(product.id, { isActive: newState });
+  if (ok) {
+    $q.notify({ type: 'positive', message: newState ? 'Product activated' : 'Product deactivated' });
+    products.value = await rewardsApi.fetchAllProducts();
+  } else {
+    $q.notify({ type: 'negative', message: 'Failed to update product' });
+  }
+}
+
+function confirmDelete(product: RewardProduct) {
+  $q.dialog({
+    title: 'Delete Product',
+    message: `Delete "${product.name}"? This cannot be undone.`,
+    cancel: true,
+    ok: { label: 'Delete', color: 'negative', flat: true },
+  }).onOk(async () => {
+    try {
+      await api.delete(`/rewards/${product.id}`);
+      $q.notify({ type: 'positive', message: 'Product deleted' });
+      products.value = await rewardsApi.fetchAllProducts();
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to delete product' });
+    }
+  });
 }
 
 async function handleCreateProduct() {
@@ -270,12 +334,13 @@ async function handleCreateProduct() {
     description: newProduct.value.description || undefined,
     price: newProduct.value.price,
     imageUrl: newProduct.value.imageUrl || undefined,
-  });
+    stock: parseStock(newProduct.value.stock),
+  } as any);
   if (ok) {
     $q.notify({ type: 'positive', message: 'Product created!' });
     showAddDialog.value = false;
-    newProduct.value = { name: '', description: '', price: 0, imageUrl: '' };
-    products.value = await rewardsApi.fetchProducts();
+    newProduct.value = { name: '', description: '', price: 0, imageUrl: '', stock: null };
+    products.value = await rewardsApi.fetchAllProducts();
   } else {
     $q.notify({ type: 'negative', message: rewardsApi.error.value ?? 'Failed to create product' });
   }
@@ -308,7 +373,7 @@ async function loadData() {
   try {
     loadingOrders.value = true;
     const [prods, orders] = await Promise.all([
-      rewardsApi.fetchProducts(),
+      rewardsApi.fetchAllProducts(),
       rewardsApi.fetchAllOrders(),
     ]);
     products.value = prods;
@@ -327,4 +392,5 @@ onMounted(() => { loadData(); });
 <style lang="scss" scoped>
 .rounded-card { border-radius: 12px; border-color: #E5E7EB; }
 .rounded-btn { border-radius: 8px; }
+:deep(.inactive-row) { opacity: 0.45; }
 </style>

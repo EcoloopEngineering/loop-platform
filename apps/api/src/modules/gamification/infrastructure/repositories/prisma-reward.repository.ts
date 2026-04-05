@@ -13,6 +13,12 @@ export class PrismaRewardRepository implements RewardRepositoryPort {
     });
   }
 
+  async findAllProducts(): Promise<any[]> {
+    return this.prisma.rewardProduct.findMany({
+      orderBy: { price: 'asc' },
+    });
+  }
+
   async findProductById(id: string): Promise<any | null> {
     return this.prisma.rewardProduct.findUnique({ where: { id } });
   }
@@ -31,6 +37,14 @@ export class PrismaRewardRepository implements RewardRepositoryPort {
     return this.prisma.rewardProduct.update({
       where: { id },
       data: data as any,
+    });
+  }
+
+  async deleteProduct(id: string): Promise<any> {
+    // Soft delete — mark as inactive (keeps order history intact)
+    return this.prisma.rewardProduct.update({
+      where: { id },
+      data: { isActive: false },
     });
   }
 
