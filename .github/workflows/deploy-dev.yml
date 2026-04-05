@@ -181,8 +181,13 @@ jobs:
           sudo chown -R www-data:www-data /var/www/html/ /usr/share/nginx/html/
 
           echo "--- Updating Nginx config ---"
-          if grep -q "managed by Certbot" /etc/nginx/sites-available/loop-platform 2>/dev/null; then
+          if grep -q "managed by Certbot" /etc/nginx/sites-available/loop-platform 2>/dev/null || [ -f /etc/letsencrypt/live/develop.ecoloop.us/fullchain.pem ]; then
             echo "SSL config detected (Certbot) — skipping nginx.conf overwrite to preserve SSL"
+            # Re-run certbot to ensure SSL is configured if config was accidentally overwritten
+            if ! grep -q "managed by Certbot" /etc/nginx/sites-available/loop-platform 2>/dev/null; then
+              echo "SSL cert exists but nginx config missing Certbot lines — re-deploying certificate"
+              sudo certbot --nginx -d develop.ecoloop.us --non-interactive --agree-tos --email tech@ecoloop.us --redirect 2>/dev/null || true
+            fi
           else
             sudo cp $NEW_RELEASE/apps/nginx.conf /etc/nginx/sites-available/loop-platform
             sudo ln -sf /etc/nginx/sites-available/loop-platform /etc/nginx/sites-enabled/loop-platform
