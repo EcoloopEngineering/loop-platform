@@ -37,6 +37,11 @@ export class UpdateUserDto {
   @IsString()
   language?: string;
 
+  @ApiPropertyOptional({ example: 'rafael' })
+  @IsOptional()
+  @IsString()
+  invitationCode?: string;
+
   @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()

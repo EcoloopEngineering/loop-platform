@@ -52,12 +52,26 @@ export const MAINTENANCE_PIPELINE_STAGES: PipelineStageDefinition[] = [
   { stage: LeadStage.MAINT_TICKETS_CLOSED, label: 'Tickets Closed', color: '#4CAF50', order: 4 },
 ];
 
+// ── Roofing Pipeline ─────────────────────────────────────────────
+export const ROOFING_PIPELINE_STAGES: PipelineStageDefinition[] = [
+  { stage: LeadStage.ROOF_NEW_REQUEST, label: 'New Request', color: '#4CAF50', order: 1 },
+  { stage: LeadStage.ROOF_INSPECTION, label: 'Inspection', color: '#FF9800', order: 2 },
+  { stage: LeadStage.ROOF_QUOTE, label: 'Quote', color: '#2196F3', order: 3 },
+  { stage: LeadStage.ROOF_APPROVED, label: 'Approved', color: '#00BCD4', order: 4 },
+  { stage: LeadStage.ROOF_MATERIALS, label: 'Materials', color: '#9C27B0', order: 5 },
+  { stage: LeadStage.ROOF_SCHEDULED, label: 'Scheduled', color: '#3F51B5', order: 6 },
+  { stage: LeadStage.ROOF_IN_PROGRESS, label: 'In Progress', color: '#FF5722', order: 7 },
+  { stage: LeadStage.ROOF_COMPLETED, label: 'Completed', color: '#00897B', order: 8 },
+  { stage: LeadStage.ROOF_INVOICED, label: 'Invoiced', color: '#4CAF50', order: 9 },
+];
+
 // ── All pipelines map ─────────────────────────────────────────────
 export const PIPELINE_STAGES: Record<PipelineType, PipelineStageDefinition[]> = {
   [PipelineType.CLOSER]: CLOSER_PIPELINE_STAGES,
   [PipelineType.PROJECT_MANAGER]: PM_PIPELINE_STAGES,
   [PipelineType.FINANCE]: FINANCE_PIPELINE_STAGES,
   [PipelineType.MAINTENANCE]: MAINTENANCE_PIPELINE_STAGES,
+  [PipelineType.ROOFING]: ROOFING_PIPELINE_STAGES,
 };
 
 // ── Stage → Pipeline mapping ──────────────────────────────────────

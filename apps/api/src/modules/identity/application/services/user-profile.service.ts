@@ -70,6 +70,7 @@ export class UserProfileService {
       ...(dto.nickname !== undefined && { nickname: dto.nickname }),
       ...(dto.closedDealEmoji !== undefined && { closedDealEmoji: dto.closedDealEmoji }),
       ...(dto.language !== undefined && { language: dto.language }),
+      ...(dto.invitationCode !== undefined && { invitationCode: dto.invitationCode }),
       ...(metadataUpdate !== undefined && { metadata: metadataUpdate as any }),
     });
 

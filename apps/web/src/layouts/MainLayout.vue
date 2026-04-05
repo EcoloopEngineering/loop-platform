@@ -90,7 +90,7 @@
         <q-tab name="home" icon="home" label="Home" aria-label="Go to home page" @click="$router.push('/home')" />
         <q-tab name="leads" icon="people" label="Leads" aria-label="View my leads" @click="$router.push('/leads')" />
         <q-tab name="new-lead" icon="add_circle" label="New Lead" aria-label="Create a new lead" @click="$router.push('/leads/new')" />
-        <q-tab name="pipeline" icon="view_kanban" label="Pipeline" aria-label="View pipeline" @click="$router.push('/pipeline')" />
+        <q-tab name="store" icon="storefront" label="Store" aria-label="Rewards store" @click="$router.push('/store')" />
         <q-tab name="profile" icon="person" label="Profile" aria-label="View profile" @click="$router.push('/profile')" />
       </q-tabs>
     </q-footer>
@@ -156,7 +156,7 @@ watch(
     if (path.includes('/home')) activeTab.value = 'home';
     else if (path === '/leads/new') activeTab.value = 'new-lead';
     else if (path.includes('/leads')) activeTab.value = 'leads';
-    else if (path.includes('/pipeline')) activeTab.value = 'pipeline';
+    else if (path.includes('/store')) activeTab.value = 'store';
     else if (path.includes('/profile')) activeTab.value = 'profile';
   },
   { immediate: true },

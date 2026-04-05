@@ -88,6 +88,6 @@ onMounted(async () => {
 }
 
 :global(.body--dark) .settings-tabs {
-  border-color: #333;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 </style>

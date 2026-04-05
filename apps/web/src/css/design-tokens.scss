@@ -173,30 +173,30 @@
 
 .body--dark {
   // Design token overrides
-  .page-bg { background: #121212; }
-  .card-bg { background: #1e1e1e; }
-  .section-bg { background: #2a2a2a; }
+  .page-bg { background: #1A1A2E; }
+  .card-bg { background: #22223a; }
+  .section-bg { background: #2a2a42; }
   .text-muted { color: #9CA3AF; }
   .text-dark { color: #E5E7EB; }
   .text-label { color: #D1D5DB; }
   .card-elevated {
-    background: #1e1e1e;
-    border-color: #333;
+    background: #22223a;
+    border-color: rgba(255, 255, 255, 0.06);
   }
   .dialog-card, .dialog-card-sm, .dialog-card-lg {
-    background: #1e1e1e;
+    background: #22223a;
   }
 
   // Fix hardcoded light backgrounds in pages
   .lead-create-page,
   .q-page {
-    background: #121212 !important;
+    background: #1A1A2E !important;
   }
 
   // Fix wizard footer
   .wizard-footer {
-    background: #1e1e1e;
-    border-color: #333;
+    background: #22223a;
+    border-color: rgba(255, 255, 255, 0.06);
   }
 
   // Fix text that becomes invisible on dark backgrounds
@@ -207,17 +207,17 @@
   // Fix inline hardcoded backgrounds
   [style*="background: #F8FAFB"],
   [style*="background:#F8FAFB"] {
-    background: #121212 !important;
+    background: #1A1A2E !important;
   }
   [style*="background: #FFFFFF"],
   [style*="background:#FFFFFF"],
   [style*="background: #fff"],
   [style*="background: white"] {
-    background: #1e1e1e !important;
+    background: #22223a !important;
   }
   [style*="background: #F3F4F6"],
   [style*="background:#F3F4F6"] {
-    background: #2a2a2a !important;
+    background: #2a2a42 !important;
   }
 
   // Fix hardcoded text colors
@@ -236,19 +236,19 @@
 
   // Fix Quasar components
   .q-card {
-    background: #1e1e1e;
+    background: #22223a;
   }
   .q-item-label--header {
     color: #9CA3AF;
   }
   .q-banner {
-    background: #2a2a2a;
+    background: #2a2a42;
   }
 
   // Fix stats cards and info sections
   .q-card--flat {
-    background: #1e1e1e;
-    border-color: #333;
+    background: #22223a;
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   // Fix expansion items
@@ -266,43 +266,43 @@
   // Fix Quasar table rows in dark mode
   .q-table tbody tr,
   .q-table thead tr {
-    background: #1e1e1e;
+    background: #22223a;
   }
   .q-table tbody tr:hover {
-    background: #2a2a2a !important;
+    background: #2a2a42 !important;
   }
   .q-table thead th {
     color: #9CA3AF;
-    border-color: #333;
+    border-color: rgba(255, 255, 255, 0.08);
   }
   .q-table td {
-    border-color: #333;
+    border-color: rgba(255, 255, 255, 0.08);
   }
   .q-table--flat {
-    background: #1e1e1e;
+    background: #22223a;
   }
 
   // Fix expanded rows
   .expanded-detail,
   .q-table .bg-grey-1 {
-    background: #2a2a2a !important;
+    background: #2a2a42 !important;
   }
 
   // Fix list items
   .q-list--separator .q-item + .q-item {
-    border-color: #333;
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   // Fix list cards with border
   .list-card {
-    background: #1e1e1e;
-    border-color: #333;
+    background: #22223a;
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   // Fix settings card
   .settings-card {
-    background: #1e1e1e;
-    border-color: #333;
+    background: #22223a;
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   // Fix header text

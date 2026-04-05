@@ -110,15 +110,7 @@ const routes: RouteRecordRaw[] = [
         name: 'notifications',
         component: () => import('@/pages/shared/NotificationsPage.vue'),
       },
-    ],
-  },
-
-  // ── Profile & simple pages (BasicLayout with back button) ─────────
-  {
-    path: '/',
-    component: () => import('@/layouts/BasicLayout.vue'),
-    meta: { requiresAuth: true },
-    children: [
+      // ── Profile ──
       {
         path: 'profile',
         name: 'profile',

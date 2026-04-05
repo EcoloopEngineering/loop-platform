@@ -49,7 +49,18 @@
       "Bash(cp admin/ScoreboardPage.vue shared/ScoreboardPage.vue)",
       "Bash(cp admin/NotificationsPage.vue shared/NotificationsPage.vue)",
       "Bash(cp admin/TasksPage.vue shared/TasksPage.vue)",
-      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/lead-chat.controller.spec.ts src/modules/crm/application/services/lead-chat.service.spec.ts --forceExit)"
+      "Bash(./node_modules/.bin/jest src/modules/crm/presentation/lead-chat.controller.spec.ts src/modules/crm/application/services/lead-chat.service.spec.ts --forceExit)",
+      "Bash(curl -s http://localhost:3000/api/v1/pipeline)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Stages: {len\\(d\\)}, Total leads: {sum\\(len\\(s.get\\(\\\\\"leads\\\\\",[]\\)\\) for s in d\\)}'\\)\")",
+      "WebFetch(domain:blog.ecoloop.us)",
+      "WebFetch(domain:loop.ecoloop.app)",
+      "WebFetch(domain:docs.google.com)",
+      "Bash(ls /home/orafasb/Documentos/ecoLoop/Loop/api/.env*)",
+      "Bash(curl -s -X DELETE http://localhost:3000/api/v1/rewards/4fb6d3a7-6fb6-4af2-8b52-b0f8ce1da30)",
+      "Bash(curl -s http://localhost:3000/api/v1/users/me)",
+      "Bash(curl -s -X PUT http://localhost:3000/api/v1/users/me -H \"Content-Type: application/json\" -d '{\"invitationCode\":\"teste\",\"closedDealEmoji\":\"🎉\"}')",
+      "Bash(grep -rn \"dark\\\\|Dark\" /home/orafasb/Documentos/ecoLoop/loop-platform/apps/web/src/css/*.scss /home/orafasb/Documentos/ecoLoop/loop-platform/apps/web/src/css/*.css)",
+      "Bash(find /home/orafasb/Documentos/ecoLoop/loop-platform/apps/web/src -type f \\\\\\( -name \"*.vue\" -o -name \"*.scss\" \\\\\\) -exec grep -l \"#121212\\\\|#1e1e1e\\\\|#1d1d1d\\\\|#2a2a2a\\\\|#333\\\\|body--dark\\\\|#1e1e2e\" {} \\\\;)"
     ]
   }
 }

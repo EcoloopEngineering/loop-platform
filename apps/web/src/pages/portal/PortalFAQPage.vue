@@ -143,14 +143,14 @@ const filteredCategories = computed(() => {
 // Dark mode
 :global(.body--dark) {
   .portal-faq {
-    background: #121212;
+    background: #1A1A2E;
   }
   .page-title {
     color: #F3F4F6;
   }
   .faq-item {
-    background: #1e1e1e;
-    border-color: #333;
+    background: #22223a;
+    border-color: rgba(255, 255, 255, 0.08);
 
     :deep(.q-item__label) {
       color: #E5E7EB;

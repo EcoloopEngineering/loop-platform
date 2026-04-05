@@ -114,6 +114,107 @@
         </div>
       </div>
 
+      <!-- Stage Velocity + Lead Aging + Rep Performance -->
+      <div class="row q-col-gutter-md q-mb-lg">
+        <!-- Stage Velocity -->
+        <div class="col-12 col-md-4">
+          <q-card flat class="dashboard-card">
+            <q-card-section>
+              <div class="card-title q-mb-md">Stage Velocity</div>
+              <div class="text-caption text-grey-5 q-mb-sm">Avg days per stage (last 30 days)</div>
+              <div v-if="stageVelocity.length === 0" class="text-grey-5 text-center q-pa-md">No data</div>
+              <div v-else>
+                <div v-for="item in stageVelocity" :key="item.stage" class="q-mb-sm">
+                  <div class="row items-center q-mb-xs">
+                    <span class="text-caption col">{{ item.label }}</span>
+                    <span class="text-caption text-weight-bold" :class="item.days > 7 ? 'text-negative' : item.days > 3 ? 'text-warning' : 'text-positive'">
+                      {{ item.days }}d
+                    </span>
+                  </div>
+                  <q-linear-progress
+                    :value="Math.min(item.days / 14, 1)"
+                    :color="item.days > 7 ? 'negative' : item.days > 3 ? 'warning' : 'positive'"
+                    track-color="grey-2"
+                    rounded class="progress-thin"
+                  />
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+
+        <!-- Lead Aging -->
+        <div class="col-12 col-md-4">
+          <q-card flat class="dashboard-card">
+            <q-card-section>
+              <div class="card-title q-mb-md">Lead Aging</div>
+              <div class="text-caption text-grey-5 q-mb-sm">Active leads by time in current stage</div>
+              <div v-for="bucket in agingBuckets" :key="bucket.label" class="row items-center q-mb-sm">
+                <q-badge :color="bucket.color" :label="bucket.label" class="q-mr-sm" style="min-width: 80px" />
+                <div class="col">
+                  <q-linear-progress
+                    :value="bucket.count / Math.max(activeLeads, 1)"
+                    :color="bucket.color"
+                    track-color="grey-2"
+                    rounded class="progress-thin"
+                  />
+                </div>
+                <span class="text-caption text-weight-bold q-ml-sm" style="min-width: 24px; text-align: right">{{ bucket.count }}</span>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+
+        <!-- Conversion by Source -->
+        <div class="col-12 col-md-4">
+          <q-card flat class="dashboard-card">
+            <q-card-section>
+              <div class="card-title q-mb-md">Conversion by Source</div>
+              <div v-if="conversionBySource.length === 0" class="text-grey-5 text-center q-pa-md">No data</div>
+              <div v-else>
+                <div v-for="item in conversionBySource" :key="item.source" class="q-mb-sm">
+                  <div class="row items-center q-mb-xs">
+                    <q-icon name="circle" :color="item.color" size="8px" class="q-mr-sm" />
+                    <span class="text-caption col">{{ item.label }}</span>
+                    <span class="text-caption text-weight-bold">{{ item.rate }}%</span>
+                    <span class="text-caption text-grey-5 q-ml-xs">({{ item.won }}/{{ item.total }})</span>
+                  </div>
+                  <q-linear-progress
+                    :value="item.rate / 100"
+                    :color="item.color"
+                    track-color="grey-2"
+                    rounded class="progress-thin"
+                  />
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+      </div>
+
+      <!-- Rep Performance -->
+      <q-card flat class="dashboard-card q-mb-lg">
+        <q-card-section>
+          <div class="card-title q-mb-md">Rep Performance</div>
+          <q-table
+            :rows="repPerformance"
+            :columns="repColumns"
+            row-key="name"
+            flat dense
+            :pagination="{ rowsPerPage: 10 }"
+            hide-bottom
+          >
+            <template #body-cell-convRate="props">
+              <q-td :props="props">
+                <span :class="props.row.convRate >= 50 ? 'text-positive' : props.row.convRate >= 25 ? 'text-warning' : 'text-grey-6'" class="text-weight-bold">
+                  {{ props.row.convRate }}%
+                </span>
+              </q-td>
+            </template>
+          </q-table>
+        </q-card-section>
+      </q-card>
+
       <!-- Recent Leads + Recent Activity -->
       <div class="row q-col-gutter-md">
         <!-- Recent Leads -->
@@ -337,6 +438,103 @@ const recentLeads = computed(() =>
       createdAt: l.createdAt,
     })),
 );
+
+// ── Stage Velocity (avg days per stage based on activity timestamps) ──
+const stageVelocity = computed(() => {
+  // Estimate velocity from leads: days since createdAt for leads still in closer stages
+  const CLOSER_STAGES = ['NEW_LEAD', 'ALREADY_CALLED', 'CONNECTED', 'REQUEST_DESIGN', 'DESIGN_IN_PROGRESS', 'DESIGN_READY'];
+  const stageDays: Record<string, number[]> = {};
+  const now = Date.now();
+
+  leads.value.forEach((l) => {
+    if (CLOSER_STAGES.includes(l.currentStage) && l.status !== 'LOST') {
+      const days = Math.round((now - new Date(l.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+      if (!stageDays[l.currentStage]) stageDays[l.currentStage] = [];
+      stageDays[l.currentStage].push(days);
+    }
+  });
+
+  return Object.entries(stageDays)
+    .map(([stage, days]) => ({
+      stage,
+      label: formatStage(stage),
+      days: Math.round(days.reduce((a, b) => a + b, 0) / days.length),
+    }))
+    .sort((a, b) => b.days - a.days);
+});
+
+// ── Lead Aging (active leads by time in current stage) ──
+const agingBuckets = computed(() => {
+  const now = Date.now();
+  const buckets = [
+    { label: '< 3 days', color: 'positive', min: 0, max: 3, count: 0 },
+    { label: '3-7 days', color: 'blue', min: 3, max: 7, count: 0 },
+    { label: '7-14 days', color: 'warning', min: 7, max: 14, count: 0 },
+    { label: '14-30 days', color: 'orange', min: 14, max: 30, count: 0 },
+    { label: '30+ days', color: 'negative', min: 30, max: Infinity, count: 0 },
+  ];
+
+  leads.value
+    .filter((l) => l.status !== 'LOST' && l.status !== 'CANCELLED')
+    .forEach((l) => {
+      const days = (now - new Date(l.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      const bucket = buckets.find((b) => days >= b.min && days < b.max);
+      if (bucket) bucket.count++;
+    });
+
+  return buckets;
+});
+
+// ── Conversion by Source ──
+const conversionBySource = computed(() => {
+  const sources: Record<string, { total: number; won: number }> = {};
+
+  leads.value.forEach((l) => {
+    if (!sources[l.source]) sources[l.source] = { total: 0, won: 0 };
+    sources[l.source].total++;
+    if (l.currentStage === 'WON' || PM_AND_BEYOND_STAGES.includes(l.currentStage)) {
+      sources[l.source].won++;
+    }
+  });
+
+  return Object.entries(sources)
+    .filter(([, v]) => v.total >= 1)
+    .map(([source, v]) => ({
+      source,
+      label: formatSource(source),
+      total: v.total,
+      won: v.won,
+      rate: v.total > 0 ? Math.round((v.won / v.total) * 100) : 0,
+      color: SOURCE_COLORS[source] ?? 'grey',
+    }))
+    .sort((a, b) => b.rate - a.rate);
+});
+
+// ── Rep Performance ──
+const repPerformance = computed(() => {
+  const reps: Record<string, { name: string; total: number; won: number; active: number }> = {};
+
+  leads.value.forEach((l) => {
+    const primary = l.assignments?.find((a) => a.isPrimary);
+    const name = primary ? `${primary.user.firstName} ${primary.user.lastName}`.trim() : 'Unassigned';
+    if (!reps[name]) reps[name] = { name, total: 0, won: 0, active: 0 };
+    reps[name].total++;
+    if (l.currentStage === 'WON' || PM_AND_BEYOND_STAGES.includes(l.currentStage)) reps[name].won++;
+    if (l.status !== 'LOST' && l.status !== 'CANCELLED') reps[name].active++;
+  });
+
+  return Object.values(reps)
+    .map((r) => ({ ...r, convRate: r.total > 0 ? Math.round((r.won / r.total) * 100) : 0 }))
+    .sort((a, b) => b.won - a.won);
+});
+
+const repColumns = [
+  { name: 'name', label: 'Rep', field: 'name', align: 'left' as const, sortable: true },
+  { name: 'total', label: 'Total Leads', field: 'total', align: 'center' as const, sortable: true },
+  { name: 'active', label: 'Active', field: 'active', align: 'center' as const, sortable: true },
+  { name: 'won', label: 'Won', field: 'won', align: 'center' as const, sortable: true },
+  { name: 'convRate', label: 'Conv. Rate', field: 'convRate', align: 'center' as const, sortable: true },
+];
 
 async function loadData() {
   loading.value = true;

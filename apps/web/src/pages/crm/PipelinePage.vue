@@ -34,7 +34,8 @@
       <q-tab v-if="!isSalesContext" name="pm" label="PM" aria-label="Project Manager pipeline" />
       <q-tab v-if="!isSalesContext" name="finance" label="Finance" aria-label="Finance pipeline" />
       <q-tab v-if="!isSalesContext" name="maintenance" label="Maintenance" aria-label="Maintenance pipeline" />
-      <q-tab name="lost" label="Lost" aria-label="Lost leads" icon="thumb_down" />
+      <q-tab v-if="!isSalesContext" name="roofing" label="Roofing" aria-label="Roofing pipeline" />
+      <q-tab name="lost" label="Lost" aria-label="Lost leads" />
     </q-tabs>
 
     <PipelineFilters
@@ -228,6 +229,7 @@ import {
   PM_PIPELINE_STAGES,
   FINANCE_PIPELINE_STAGES,
   MAINTENANCE_PIPELINE_STAGES,
+  ROOFING_PIPELINE_STAGES,
 } from '@loop/shared';
 
 const { stageColor, formatStage, formatSource } = useLeadFormatting();
@@ -288,6 +290,7 @@ const PIPELINE_STAGE_SETS: Record<string, Set<string>> = {
   pm: new Set(PM_PIPELINE_STAGES.map((s) => s.stage)),
   finance: new Set(FINANCE_PIPELINE_STAGES.map((s) => s.stage)),
   maintenance: new Set(MAINTENANCE_PIPELINE_STAGES.map((s) => s.stage)),
+  roofing: new Set(ROOFING_PIPELINE_STAGES.map((s) => s.stage)),
 };
 
 const activeFilters = ref<PipelineFilterValues>({
