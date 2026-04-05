@@ -188,9 +188,11 @@
   }
 
   // Fix hardcoded light backgrounds in pages
-  .lead-create-page,
-  .q-page {
+  .lead-create-page {
     background: #1A1A2E !important;
+  }
+  .q-page-container {
+    background: #1A1A2E;
   }
 
   // Fix wizard footer
